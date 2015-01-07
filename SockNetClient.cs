@@ -483,7 +483,7 @@ namespace ArenaNet.SockNet
             else if (result.AsyncState is SslStream)
             {
                 ((Stream)result.AsyncState).EndWrite(result);
-                Logger(LogLevel.DEBUG, string.Format("(SSL) Sent data to [{1}].", Endpoint));
+                Logger(LogLevel.DEBUG, string.Format("(SSL) Sent data to [{0}].", Endpoint));
             }
             // else nothing - maybe log?
         }
@@ -493,13 +493,15 @@ namespace ArenaNet.SockNet
         /// </summary>
         public void Disconnect()
         {
+            if (!(State == SockNetState.CONNECTED || State == SockNetState.CONNECTING) || socket == null)
+            {
+                OnDisconnect(this);
+
+                return;
+            }
+
             lock (this)
             {
-                if (!(State == SockNetState.CONNECTED || State == SockNetState.CONNECTING) || socket == null)
-                {
-                    throw new Exception("Must be connected.");
-                }
-
                 Logger(LogLevel.INFO, string.Format("Disconnecting from [{0}]...", Endpoint));
                 State = SockNetState.DISCONNECTING;
                 socket.BeginDisconnect(true, new AsyncCallback(DisconnectCallback), socket);
@@ -523,7 +525,10 @@ namespace ArenaNet.SockNet
 
             ((Socket)result.AsyncState).EndDisconnect(result);
 
-            sslStream.Dispose();
+            if (sslStream != null)
+            {
+                sslStream.Dispose();
+            }
         }
 
         /// <summary>

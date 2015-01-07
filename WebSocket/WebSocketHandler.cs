@@ -117,7 +117,7 @@ namespace ArenaNet.SockNet.WebSocket
             }
 
             byte[] buffer = (byte[])data;
-            data = (object)WebSocketFrame.ParseFrame((Stream)new MemoryStream(buffer));
+            data = WebSocketFrame.ParseFrame((Stream)new MemoryStream(buffer));
         }
 
         /// <summary>

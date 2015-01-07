@@ -152,7 +152,7 @@ namespace ArenaNet.SockNet
                 return false;
             }
 
-            if (node.Parent == null)
+            if (root == node.Child)
             {
                 this.root = node.Child.Next;
 
@@ -161,7 +161,13 @@ namespace ArenaNet.SockNet
                     this.tail = null;
                 }
             }
-            else
+
+            if (tail == node.Child)
+            {
+                this.tail = node.Parent;
+            }
+
+            if (node.Parent != null)
             {
                 node.Parent.Next = node.Child.Next;
             }
@@ -270,8 +276,8 @@ namespace ArenaNet.SockNet
 
         public void Dispose()
         {
-            this.currentNode = (IterableLinkedListNode<T>)null;
-            this.sourceList = (IterableLinkedList<T>)null;
+            this.currentNode = null;
+            this.sourceList = null;
         }
     }
 }

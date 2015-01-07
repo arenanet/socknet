@@ -51,6 +51,23 @@ namespace ArenaNet.SockNet.WebSocket
         public byte[] Data { get; private set; }
 
         /// <summary>
+        /// The data as a string.
+        /// </summary>
+        public string DataAsString { 
+            get 
+            { 
+                byte[] data  = Data; 
+
+                if (data == null)
+                {
+                    return null;
+                }
+
+                return UTF8.GetString(data);
+            } 
+        }
+
+        /// <summary>
         /// The mask of this frame.
         /// </summary>
         public byte[] Mask { get; private set; }
