@@ -2,9 +2,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
 VisualStudioVersion = 12.0.31101.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SockNet", "SockNet.csproj", "{B3A4F6C4-5209-456E-8025-A37E8E569EC8}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SockNet", "SockNet\SockNet.csproj", "{B3A4F6C4-5209-456E-8025-A37E8E569EC8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SockNetTests", "..\SockNetTests\SockNetTests.csproj", "{2348C19C-EE1B-4D24-AF8C-E40B00815B22}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SockNetTests", "SockNetTests\SockNetTests.csproj", "{2348C19C-EE1B-4D24-AF8C-E40B00815B22}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
