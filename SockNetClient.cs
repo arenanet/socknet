@@ -13,14 +13,22 @@ namespace ArenaNet.SockNet
     /// </summary>
     public class SockNetClient
     {
+        // our buffer for incomming packets
         private readonly byte[] buffer;
 
+        // the raw socket
         private Socket socket;
+
+        // an ssl stream that sits on top of the raw TCP stream
         private SslStream sslStream;
 
+        // data handlers for incomming and outgoing messages
         private IterableLinkedList<IDelegateReference> outgoingDataHandlers = new IterableLinkedList<IDelegateReference>();
         private IterableLinkedList<IDelegateReference> incomingDataHandlers = new IterableLinkedList<IDelegateReference>();
 
+        /// <summary>
+        /// Returns true if this socket is connected.
+        /// </summary>
         public bool IsConnected
         {
             get
@@ -36,8 +44,14 @@ namespace ArenaNet.SockNet
             }
         }
 
+        /// <summary>
+        /// Returns true if this client uses SSL.
+        /// </summary>
         public bool IsSsl { get; private set; }
 
+        /// <summary>
+        /// Returns true if this client is connected and the connection is encrypted.
+        /// </summary>
         public bool IsConnectionEncrypted
         {
             get
@@ -46,21 +60,63 @@ namespace ArenaNet.SockNet
             }
         }
 
+        /// <summary>
+        /// Gets or sets the certificate validation callback.
+        /// </summary>
         public RemoteCertificateValidationCallback CertificateValidationCallback { get; set; }
 
+        /// <summary>
+        /// Gets the IPEncpoint of this client.
+        /// </summary>
         public IPEndPoint Endpoint { get; private set; }
+        
+        /// <summary>
+        /// Gets the current state of the client.
+        /// </summary>
+        public SockNetState State { get; private set; }
 
-        public SockNetState State { private set; get; }
+        /// <summary>
+        /// Gets or sets the Logger of this client.
+        /// </summary>
+        public OnLogDelegate Logger
+        {
+            get
+            {
+                return _logger;
+            }
+            set
+            {
+                if (value == null)
+                {
+                    _logger = DEFAULT_LOGGER;
+                }
+                else
+                {
+                    _logger = value;
+                }
+            }
+        }
+        private static readonly OnLogDelegate DEFAULT_LOGGER = (SockNetClient.OnLogDelegate)((level, text) => Console.WriteLine(System.Enum.GetName(level.GetType(), level) + " - " + text));
+        private OnLogDelegate _logger = DEFAULT_LOGGER;
 
-        public OnLogDelegate Logger;
-
+        /// <summary>
+        /// An event that will be triggered when this client is connected to its IPEndpoint.
+        /// </summary>
         public event OnConnectedDelegate OnConnect;
 
+        /// <summary>
+        /// An event that will be triggered when this client is disconnected from its IPEndpoint.
+        /// </summary>
         public event OnDisconnectedDelegate OnDisconnect;
 
+        /// <summary>
+        /// Creates a SockNet client with an endpoint, security settings, and optional buffer size.
+        /// </summary>
+        /// <param name="endpoint"></param>
+        /// <param name="useSsl"></param>
+        /// <param name="bufferSize"></param>
         public SockNetClient(IPEndPoint endpoint, bool useSsl, int bufferSize = 10240)
         {
-            this.Logger = (SockNetClient.OnLogDelegate)((level, text) => Console.WriteLine(System.Enum.GetName(level.GetType(), level) + " - " + text));
             this.Endpoint = endpoint;
             this.State = SockNetState.DISCONNECTED;
             this.IsSsl = useSsl;
@@ -68,14 +124,27 @@ namespace ArenaNet.SockNet
             this.buffer = new byte[bufferSize];
         }
 
-        public bool AddIncomingDataHandlerBefore<T, R>(OnDataDelegate<T> point, OnDataDelegate<R> dataDelegate)
+        /// <summary>
+        /// Adds a incoming data handler {dataDelegate} before the given handler {previous}.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="R"></typeparam>
+        /// <param name="previous"></param>
+        /// <param name="dataDelegate"></param>
+        /// <returns></returns>
+        public bool AddIncomingDataHandlerBefore<T, R>(OnDataDelegate<T> previous, OnDataDelegate<R> dataDelegate)
         {
             lock (incomingDataHandlers)
             {
-                return incomingDataHandlers.AddBefore(new DelegateReference<T>(point), new DelegateReference<R>(dataDelegate));
+                return incomingDataHandlers.AddBefore(new DelegateReference<T>(previous), new DelegateReference<R>(dataDelegate));
             }
         }
 
+        /// <summary>
+        /// Adds this given data handler as the first handler in the incoming data handler chain.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="dataDelegate"></param>
         public void AddIncomingDataHandlerFirst<T>(OnDataDelegate<T> dataDelegate)
         {
             lock (incomingDataHandlers)
@@ -84,6 +153,11 @@ namespace ArenaNet.SockNet
             }
         }
 
+        /// <summary>
+        /// Adds this given data handler as the last handler in the incoming data handler chain.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="dataDelegate"></param>
         public void AddIncomingDataHandlerLast<T>(OnDataDelegate<T> dataDelegate)
         {
             lock (incomingDataHandlers)
@@ -92,14 +166,28 @@ namespace ArenaNet.SockNet
             }
         }
 
-        public bool AddIncomingDataHandlerAfter<T, R>(OnDataDelegate<T> point, OnDataDelegate<R> dataDelegate)
+        /// <summary>
+        /// Adds a incoming data handler {dataDelegate} after the given handler {next}.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="R"></typeparam>
+        /// <param name="next"></param>
+        /// <param name="dataDelegate"></param>
+        /// <returns></returns>
+        public bool AddIncomingDataHandlerAfter<T, R>(OnDataDelegate<T> next, OnDataDelegate<R> dataDelegate)
         {
             lock (incomingDataHandlers)
             {
-                return incomingDataHandlers.AddAfter(new DelegateReference<T>(point), new DelegateReference<R>(dataDelegate));
+                return incomingDataHandlers.AddAfter(new DelegateReference<T>(next), new DelegateReference<R>(dataDelegate));
             }
         }
 
+        /// <summary>
+        /// Removes the given incoming data handler.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="dataDelegate"></param>
+        /// <returns></returns>
         public bool RemoveIncomingDataHandler<T>(OnDataDelegate<T> dataDelegate)
         {
             lock (incomingDataHandlers)
@@ -108,14 +196,27 @@ namespace ArenaNet.SockNet
             }
         }
 
-        public bool AddOutgoingDataHandlerBefore<T, R>(OnDataDelegate<T> point, OnDataDelegate<R> dataDelegate)
+        /// <summary>
+        /// Adds a outgoing data handler {dataDelegate} before the given handler {previous}.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="R"></typeparam>
+        /// <param name="previous"></param>
+        /// <param name="dataDelegate"></param>
+        /// <returns></returns>
+        public bool AddOutgoingDataHandlerBefore<T, R>(OnDataDelegate<T> previous, OnDataDelegate<R> dataDelegate)
         {
             lock (outgoingDataHandlers)
             {
-                return outgoingDataHandlers.AddBefore(new DelegateReference<T>(point), new DelegateReference<R>(dataDelegate));
+                return outgoingDataHandlers.AddBefore(new DelegateReference<T>(previous), new DelegateReference<R>(dataDelegate));
             }
         }
 
+        /// <summary>
+        /// Adds this given data handler as the first handler in the outgoing data handler chain.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="dataDelegate"></param>
         public void AddOutgoingDataHandlerFirst<T>(OnDataDelegate<T> dataDelegate)
         {
             lock (outgoingDataHandlers)
@@ -124,6 +225,11 @@ namespace ArenaNet.SockNet
             }
         }
 
+        /// <summary>
+        /// Adds this given data handler as the last handler in the incoming data handler chain.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="dataDelegate"></param>
         public void AddOutgoingDataHandlerLast<T>(OnDataDelegate<T> dataDelegate)
         {
             lock (outgoingDataHandlers)
@@ -132,14 +238,28 @@ namespace ArenaNet.SockNet
             }
         }
 
-        public bool AddOutgoingDataHandlerAfter<T, R>(OnDataDelegate<T> point, OnDataDelegate<R> dataDelegate)
+        /// <summary>
+        /// Adds a outgoing data handler {dataDelegate} after the given handler {next}.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="R"></typeparam>
+        /// <param name="next"></param>
+        /// <param name="dataDelegate"></param>
+        /// <returns></returns>
+        public bool AddOutgoingDataHandlerAfter<T, R>(OnDataDelegate<T> next, OnDataDelegate<R> dataDelegate)
         {
             lock (outgoingDataHandlers)
             {
-                return outgoingDataHandlers.AddAfter(new DelegateReference<T>(point), new DelegateReference<R>(dataDelegate));
+                return outgoingDataHandlers.AddAfter(new DelegateReference<T>(next), new DelegateReference<R>(dataDelegate));
             }
         }
 
+        /// <summary>
+        /// Removes the given outgoing data handler.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="dataDelegate"></param>
+        /// <returns></returns>
         public bool RemoveOutgoingDataHandler<T>(OnDataDelegate<T> dataDelegate)
         {
             lock (outgoingDataHandlers)
@@ -148,6 +268,9 @@ namespace ArenaNet.SockNet
             }
         }
 
+        /// <summary>
+        /// Attempts to connect to the configured IPEndpoint.
+        /// </summary>
         public void Connect()
         {
             lock (this)
@@ -166,6 +289,10 @@ namespace ArenaNet.SockNet
             }
         }
 
+        /// <summary>
+        /// A callback that gets invoked after we connect.
+        /// </summary>
+        /// <param name="result"></param>
         private void ConnectCallback(IAsyncResult result)
         {
             if (State != SockNetState.CONNECTING)
@@ -194,6 +321,10 @@ namespace ArenaNet.SockNet
             }
         }
 
+        /// <summary>
+        /// A callback the gets invoked after SSL auth completes.
+        /// </summary>
+        /// <param name="result"></param>
         private void SslAuthCallback(IAsyncResult result)
         {
             ((SslStream)result.AsyncState).EndAuthenticateAsClient(result);
@@ -208,6 +339,10 @@ namespace ArenaNet.SockNet
             ((Stream)result.AsyncState).BeginRead(buffer, 0, buffer.Length, new AsyncCallback(ReceiveCallback), sslStream);
         }
 
+        /// <summary>
+        /// A callback that gets invoked when we have incoming data in the pipe.
+        /// </summary>
+        /// <param name="result"></param>
         private void ReceiveCallback(IAsyncResult result)
         {
             int count = -1;
@@ -274,6 +409,10 @@ namespace ArenaNet.SockNet
             }
         }
 
+        /// <summary>
+        /// Sets the given message to the IPEndpoint.
+        /// </summary>
+        /// <param name="data"></param>
         public void Send(object data)
         {
             if (State != SockNetState.CONNECTED)
@@ -331,6 +470,10 @@ namespace ArenaNet.SockNet
             }
         }
 
+        /// <summary>
+        /// A callback that gets invoked after a successful send.
+        /// </summary>
+        /// <param name="result"></param>
         private void SendCallback(IAsyncResult result)
         {
             if (result.AsyncState is Socket)
@@ -345,6 +488,9 @@ namespace ArenaNet.SockNet
             // else nothing - maybe log?
         }
 
+        /// <summary>
+        /// Disconnects from the IPEndpoint.
+        /// </summary>
         public void Disconnect()
         {
             lock (this)
@@ -360,6 +506,10 @@ namespace ArenaNet.SockNet
             }
         }
 
+        /// <summary>
+        /// A callback that gets invoked after we disconnect from the IPEndpoint.
+        /// </summary>
+        /// <param name="result"></param>
         private void DisconnectCallback(IAsyncResult result)
         {
             if (State != SockNetState.DISCONNECTING)
@@ -376,21 +526,46 @@ namespace ArenaNet.SockNet
             sslStream.Dispose();
         }
 
+        /// <summary>
+        /// Log leves.
+        /// </summary>
         public enum LogLevel
         {
             DEBUG,
             INFO,
-            ERROR,
+            ERROR
         }
 
+        /// <summary>
+        /// A delegate that is used for logging.
+        /// </summary>
+        /// <param name="logLevel"></param>
+        /// <param name="text"></param>
         public delegate void OnLogDelegate(LogLevel logLevel, string text);
-
+        
+        /// <summary>
+        /// A delegate that is used for connect notifications.
+        /// </summary>
+        /// <param name="sockNet"></param>
         public delegate void OnConnectedDelegate(SockNetClient sockNet);
 
+        /// <summary>
+        /// A delegate that is used for disconnect notification.
+        /// </summary>
+        /// <param name="sockNet"></param>
         public delegate void OnDisconnectedDelegate(SockNetClient sockNet);
 
+        /// <summary>
+        /// A delegate that is used for incomming data.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="sockNet"></param>
+        /// <param name="data"></param>
         public delegate void OnDataDelegate<T>(SockNetClient sockNet, ref T data);
 
+        /// <summary>
+        /// State of the SockNetClient
+        /// </summary>
         public enum SockNetState
         {
             DISCONNECTING,
@@ -399,6 +574,9 @@ namespace ArenaNet.SockNet
             CONNECTED,
         }
 
+        /// <summary>
+        /// The interface of a reference to a delegate.
+        /// </summary>
         private interface IDelegateReference
         {
             Delegate Delegate { get; }
@@ -406,6 +584,10 @@ namespace ArenaNet.SockNet
             Type DelegateType { get; }
         }
 
+        /// <summary>
+        /// A reference to a delegate.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
         private class DelegateReference<T> : IDelegateReference
         {
             public Delegate Delegate { get; private set; }

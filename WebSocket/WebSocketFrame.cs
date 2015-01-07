@@ -10,24 +10,54 @@ namespace ArenaNet.SockNet.WebSocket
     /// </summary>
     public class WebSocketFrame
     {
+        /// <summary>
+        /// A global random that can be used for generating random numbers.
+        /// </summary>
         private static readonly Random GlobalRandom;
 
+        /// <summary>
+        /// The standard encoding for WebSocket Text messages is UTF-8.
+        /// </summary>
         private static readonly UTF8Encoding UTF8;
 
+        /// <summary>
+        /// If this frame is the last frame.
+        /// </summary>
         public bool IsFinished { get; private set; }
 
+        /// <summary>
+        /// Reserved bit field 1.
+        /// </summary>
         public bool Reserved1 { get; private set; }
 
+        /// <summary>
+        /// Reserved bit field 2.
+        /// </summary>
         public bool Reserved2 { get; private set; }
 
+        /// <summary>
+        /// Reserved bit field 3.
+        /// </summary>
         public bool Reserved3 { get; private set; }
 
+        /// <summary>
+        /// The operation of this frame.
+        /// </summary>
         public WebSocketFrame.OperationCode Operation { get; private set; }
 
+        /// <summary>
+        /// The raw data of this frame.
+        /// </summary>
         public byte[] Data { get; private set; }
 
+        /// <summary>
+        /// The mask of this frame.
+        /// </summary>
         public byte[] Mask { get; private set; }
 
+        /// <summary>
+        /// Static initializer.
+        /// </summary>
         static WebSocketFrame()
         {
             DateTime now = DateTime.Now;
@@ -40,6 +70,10 @@ namespace ArenaNet.SockNet.WebSocket
         {
         }
 
+        /// <summary>
+        /// Writes the current WebSocketFrame into the given stream.
+        /// </summary>
+        /// <param name="stream"></param>
         public void Write(Stream stream)
         {
             BinaryWriter binaryWriter = new BinaryWriter(stream, (Encoding)WebSocketFrame.UTF8);
@@ -134,6 +168,12 @@ namespace ArenaNet.SockNet.WebSocket
             binaryWriter.Flush();
         }
 
+        /// <summary>
+        /// Creates a TEXT WebSocketFrame.
+        /// </summary>
+        /// <param name="text"></param>
+        /// <param name="mask"></param>
+        /// <returns></returns>
         public static WebSocketFrame CreateTextFrame(string text, bool mask = true)
         {
             byte[] maskData = null;
@@ -161,6 +201,12 @@ namespace ArenaNet.SockNet.WebSocket
             };
         }
 
+        /// <summary>
+        /// Creates a Binary WebSocketFrame.
+        /// </summary>
+        /// <param name="data"></param>
+        /// <param name="mask"></param>
+        /// <returns></returns>
         public static WebSocketFrame CreateBinaryFrame(byte[] data, bool mask = true)
         {
             byte[] maskData = null;
@@ -188,6 +234,11 @@ namespace ArenaNet.SockNet.WebSocket
             };
         }
 
+        /// <summary>
+        /// Parses a frame from the given stream.
+        /// </summary>
+        /// <param name="stream"></param>
+        /// <returns></returns>
         public static WebSocketFrame ParseFrame(Stream stream)
         {
             WebSocketFrame frame = new WebSocketFrame();
@@ -228,6 +279,9 @@ namespace ArenaNet.SockNet.WebSocket
             return frame;
         }
 
+        /// <summary>
+        /// WebSocket operation codes.
+        /// </summary>
         public enum OperationCode
         {
             Continuation = 0,
