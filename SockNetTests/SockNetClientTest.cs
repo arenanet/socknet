@@ -29,14 +29,14 @@ namespace ArenaNet.SockNet
             Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
             Assert.IsTrue((bool)currentObject);
 
-            client.AddIncomingDataHandlerFirst<byte[]>((SockNetClient sockNetClient, ref byte[] data) => { blockingCollection.Add(data); });
+            client.AddIncomingDataHandlerFirst<ArraySegment<byte>>((SockNetClient sockNetClient, ref ArraySegment<byte> data) => { blockingCollection.Add(data); });
 
             client.Send(Encoding.UTF8.GetBytes("GET / HTTP/1.1\nHost: www.guildwars2.com\n\n"));
 
             Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
-            Assert.IsTrue(currentObject is byte[]);
+            Assert.IsTrue(currentObject is ArraySegment<byte>);
 
-            Console.WriteLine("Got response: \n" + Encoding.UTF8.GetString((byte[])currentObject));
+            Console.WriteLine("Got response: \n" + Encoding.UTF8.GetString(((ArraySegment<byte>)currentObject).Array, ((ArraySegment<byte>)currentObject).Offset, ((ArraySegment<byte>)currentObject).Count));
 
             client.Disconnect();
 
@@ -61,14 +61,14 @@ namespace ArenaNet.SockNet
             Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
             Assert.IsTrue((bool)currentObject);
 
-            client.AddIncomingDataHandlerFirst<byte[]>((SockNetClient sockNetClient, ref byte[] data) => { blockingCollection.Add(data); });
+            client.AddIncomingDataHandlerFirst<ArraySegment<byte>>((SockNetClient sockNetClient, ref ArraySegment<byte> data) => { blockingCollection.Add(data); });
 
             client.Send(Encoding.UTF8.GetBytes("GET / HTTP/1.1\nHost: www.guildwars2.com\n\n"));
 
             Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
-            Assert.IsTrue(currentObject is byte[]);
+            Assert.IsTrue(currentObject is ArraySegment<byte>);
 
-            Console.WriteLine("Got response: \n" + Encoding.UTF8.GetString((byte[])currentObject));
+            Console.WriteLine("Got response: \n" + Encoding.UTF8.GetString(((ArraySegment<byte>)currentObject).Array, ((ArraySegment<byte>)currentObject).Offset, ((ArraySegment<byte>)currentObject).Count));
 
             client.Disconnect();
 

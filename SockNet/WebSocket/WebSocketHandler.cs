@@ -111,13 +111,13 @@ namespace ArenaNet.SockNet.WebSocket
         /// <param name="data"></param>
         private void HandleIncomingFrames(SockNetClient client, ref object data)
         {
-            if (!(data is byte[]))
+            if (!(data is ArraySegment<byte>))
             {
                 return;
             }
 
-            byte[] buffer = (byte[])data;
-            data = WebSocketFrame.ParseFrame((Stream)new MemoryStream(buffer));
+            ArraySegment<byte> buffer = (ArraySegment<byte>)data;
+            data = WebSocketFrame.ParseFrame((Stream)new MemoryStream(buffer.Array, buffer.Offset, buffer.Count));
         }
 
         /// <summary>
