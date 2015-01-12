@@ -53,6 +53,8 @@
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Buffer\ByteBuffer.cs" />
+    <Compile Include="Buffer\ByteBufferPool.cs" />
     <Compile Include="IterableLinkedList.cs" />
     <Compile Include="SockNetClient.cs" />
     <Compile Include="WebSocket\WebSocketFrame.cs" />

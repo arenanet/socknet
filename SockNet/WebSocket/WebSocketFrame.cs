@@ -79,7 +79,7 @@ namespace ArenaNet.SockNet.WebSocket
         {
             DateTime now = DateTime.Now;
 
-            WebSocketFrame.GlobalRandom = new Random(now.Second * now.Minute);
+            WebSocketFrame.GlobalRandom = new Random(now.Second * now.Minute + now.Millisecond);
             WebSocketFrame.UTF8 = new UTF8Encoding(false);
         }
 

@@ -36,7 +36,7 @@ namespace ArenaNet.SockNet.WebSocket
         public void Apply(SockNetClient client, string path, string hostname, WebSocketHandler.OnWebSocketEstablishedDelegate establishedNotification)
         {
             OnWebSocketEstablished = establishedNotification;
-            client.AddIncomingDataHandlerFirst<byte[]>(new SockNetClient.OnDataDelegate<byte[]>(HandleHandshake));
+            client.AddIncomingDataHandlerFirst<ArraySegment<byte>>(new SockNetClient.OnDataDelegate<ArraySegment<byte>>(HandleHandshake));
             byte[] bytes = Encoding.UTF8.GetBytes("GET " + path + " HTTP/1.1\r\nHost: " + hostname + "\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: " + secKey + "\r\nSec-WebSocket-Version: 13\r\n\r\n");
             client.Send((object)bytes);
         }
@@ -46,29 +46,29 @@ namespace ArenaNet.SockNet.WebSocket
         /// </summary>
         /// <param name="client"></param>
         /// <param name="data"></param>
-        private void HandleHandshake(SockNetClient client, ref byte[] data)
+        private void HandleHandshake(SockNetClient client, ref ArraySegment<byte> data)
         {
             string str = (string)null;
 
-            for (int i = 0; i < data.Length; ++i)
+            for (int i = data.Offset; i < data.Count - data.Offset; ++i)
             {
                 if (str != null)
                 {
-                    if (data[i] == WebSocketHandler.HeaderEnd[0])
+                    if (data.Array[i] == WebSocketHandler.HeaderEnd[0])
                     {
                         str = str.Trim();
                         break;
                     }
 
-                    str += (char)data[i];
+                    str += (char)data.Array[i];
                 }
-                else if (i + WebSocketHandler.WebSocketAcceptHeader.Length < data.Length)
+                else if (i + WebSocketHandler.WebSocketAcceptHeader.Length < data.Count - data.Offset)
                 {
                     bool flag = false;
 
                     for (int j = 0; j < WebSocketHandler.WebSocketAcceptHeader.Length; ++j)
                     {
-                        flag = WebSocketHandler.WebSocketAcceptHeader[j] == data[i + j];
+                        flag = WebSocketHandler.WebSocketAcceptHeader[j] == data.Array[i + j];
 
                         if (!flag)
                         {
@@ -88,9 +88,9 @@ namespace ArenaNet.SockNet.WebSocket
             if (expectedAccept.Equals(str))
             {
                 client.Logger(SockNetClient.LogLevel.INFO, "Established Web-Socket connection.");
-                client.AddIncomingDataHandlerBefore<byte[], object>(new SockNetClient.OnDataDelegate<byte[]>(HandleHandshake), new SockNetClient.OnDataDelegate<object>(HandleIncomingFrames));
+                client.AddIncomingDataHandlerBefore<ArraySegment<byte>, object>(new SockNetClient.OnDataDelegate<ArraySegment<byte>>(HandleHandshake), new SockNetClient.OnDataDelegate<object>(HandleIncomingFrames));
                 client.AddOutgoingDataHandlerLast<object>(new SockNetClient.OnDataDelegate<object>(HandleOutgoingFrames));
-                client.RemoveIncomingDataHandler<byte[]>(new SockNetClient.OnDataDelegate<byte[]>(HandleHandshake));
+                client.RemoveIncomingDataHandler<ArraySegment<byte>>(new SockNetClient.OnDataDelegate<ArraySegment<byte>>(HandleHandshake));
 
                 if (OnWebSocketEstablished != null)
                 {

@@ -5,6 +5,7 @@ using System.Net;
 using System.Threading;
 using System.Net.Security;
 using System.Net.Sockets;
+using ArenaNet.SockNet.Buffer;
 
 namespace ArenaNet.SockNet
 {
@@ -122,6 +123,8 @@ namespace ArenaNet.SockNet
             this.IsSsl = useSsl;
 
             this.buffer = new byte[bufferSize];
+
+            this.socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         }
 
         /// <summary>
@@ -269,6 +272,30 @@ namespace ArenaNet.SockNet
         }
 
         /// <summary>
+        /// Specify whether this client should use the Nagle algorithm.
+        /// </summary>
+        /// <param name="noDelay"></param>
+        /// <returns></returns>
+        public SockNetClient WithNoDelay(bool noDelay)
+        {
+            this.socket.NoDelay = noDelay;
+
+            return this;
+        }
+
+        /// <summary>
+        /// Specify the packet TTL value.
+        /// </summary>
+        /// <param name="ttl"></param>
+        /// <returns></returns>
+        public SockNetClient WithTtl(short ttl)
+        {
+            this.socket.Ttl = ttl;
+
+            return this;
+        }
+
+        /// <summary>
         /// Attempts to connect to the configured IPEndpoint.
         /// </summary>
         public void Connect()
@@ -284,7 +311,6 @@ namespace ArenaNet.SockNet
 
                 State = SockNetState.CONNECTING;
 
-                socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                 socket.BeginConnect((EndPoint)Endpoint, new AsyncCallback(ConnectCallback), socket);
             }
         }
@@ -336,7 +362,7 @@ namespace ArenaNet.SockNet
 
             OnConnect(this);
 
-            ((Stream)result.AsyncState).BeginRead(buffer, 0, buffer.Length, new AsyncCallback(ReceiveCallback), sslStream);
+            ((SslStream)result.AsyncState).BeginRead(buffer, 0, buffer.Length, new AsyncCallback(ReceiveCallback), sslStream);
         }
 
         /// <summary>
@@ -364,10 +390,7 @@ namespace ArenaNet.SockNet
             {
                 try
                 {
-                    byte[] numArray = new byte[count];
-                    Buffer.BlockCopy((Array)buffer, 0, (Array)numArray, 0, count);
-
-                    object obj = numArray;
+                    object obj = new ArraySegment<byte>(buffer, 0, count);
 
                     lock (incomingDataHandlers)
                     {
