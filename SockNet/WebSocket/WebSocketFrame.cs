@@ -91,7 +91,7 @@ namespace ArenaNet.SockNet.WebSocket
         /// Writes the current WebSocketFrame into the given stream.
         /// </summary>
         /// <param name="stream"></param>
-        public void Write(Stream stream)
+        public void Write(Stream stream, bool applyMaskIfSet = true)
         {
             BinaryWriter binaryWriter = new BinaryWriter(stream, (Encoding)WebSocketFrame.UTF8);
 
@@ -169,7 +169,7 @@ namespace ArenaNet.SockNet.WebSocket
             {
                 byte[] data = this.Data;
 
-                if (this.Mask != null)
+                if (this.Mask != null && applyMaskIfSet)
                 {
                     data = new byte[this.Data.Length];
 
