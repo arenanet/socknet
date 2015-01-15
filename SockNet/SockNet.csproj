@@ -53,8 +53,8 @@
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Buffer\ByteBuffer.cs" />
-    <Compile Include="Buffer\ByteBufferPool.cs" />
+    <Compile Include="IO\ByteChunkPool.cs" />
+    <Compile Include="IO\ChunkedMemoryStream.cs" />
     <Compile Include="IterableLinkedList.cs" />
     <Compile Include="SockNetClient.cs" />
     <Compile Include="WebSocket\WebSocketFrame.cs" />
@@ -73,5 +73,6 @@
       <Install>true</Install>
     </BootstrapperPackage>
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
 </Project>

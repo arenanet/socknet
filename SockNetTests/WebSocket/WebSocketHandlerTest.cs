@@ -18,7 +18,7 @@ namespace ArenaNet.SockNet.WebSocket
         {
             BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
 
-            SockNetClient client = new SockNetClient(new IPEndPoint(Dns.GetHostEntry("echo.websocket.org").AddressList[0], 80), false);
+            SockNetClient client = new SockNetClient(new IPEndPoint(Dns.GetHostEntry("echo.websocket.org").AddressList[0], 80));
             client.OnConnect += (SockNetClient sockNet) => { blockingCollection.Add(true); };
             client.OnDisconnect += (SockNetClient sockNet) => { blockingCollection.Add(false); };
 
@@ -57,12 +57,11 @@ namespace ArenaNet.SockNet.WebSocket
         {
             BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
 
-            SockNetClient client = new SockNetClient(new IPEndPoint(Dns.GetHostEntry("echo.websocket.org").AddressList[0], 443), true);
-            client.CertificateValidationCallback = (object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => { return true; }; // accept  all server certs
+            SockNetClient client = new SockNetClient(new IPEndPoint(Dns.GetHostEntry("echo.websocket.org").AddressList[0], 443));
             client.OnConnect += (SockNetClient sockNet) => { blockingCollection.Add(true); };
             client.OnDisconnect += (SockNetClient sockNet) => { blockingCollection.Add(false); };
 
-            client.Connect();
+            client.Connect(true, (object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => { return true; });
 
             object currentObject;
 
@@ -97,7 +96,7 @@ namespace ArenaNet.SockNet.WebSocket
         {
             BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
 
-            SockNetClient client = new SockNetClient(new IPEndPoint(Dns.GetHostEntry("echo.websocket.org").AddressList[0], 80), false);
+            SockNetClient client = new SockNetClient(new IPEndPoint(Dns.GetHostEntry("echo.websocket.org").AddressList[0], 80));
             client.OnConnect += (SockNetClient sockNet) => { blockingCollection.Add(true); };
             client.OnDisconnect += (SockNetClient sockNet) => { blockingCollection.Add(false); };
 

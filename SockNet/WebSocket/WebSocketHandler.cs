@@ -11,8 +11,7 @@ namespace ArenaNet.SockNet.WebSocket
     /// </summary>
     public class WebSocketHandler
     {
-        private static readonly byte[] WebSocketAcceptHeader = Encoding.ASCII.GetBytes("Sec-WebSocket-Accept:");
-        private static readonly byte[] HeaderEnd = Encoding.ASCII.GetBytes("\r\n");
+        private static readonly string WebSocketAcceptHeader = "Sec-WebSocket-Accept";
         private const string MAGIC = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
         private string secKey;
@@ -36,7 +35,7 @@ namespace ArenaNet.SockNet.WebSocket
         public void Apply(SockNetClient client, string path, string hostname, WebSocketHandler.OnWebSocketEstablishedDelegate establishedNotification)
         {
             OnWebSocketEstablished = establishedNotification;
-            client.AddIncomingDataHandlerFirst<ArraySegment<byte>>(new SockNetClient.OnDataDelegate<ArraySegment<byte>>(HandleHandshake));
+            client.AddIncomingDataHandlerFirst<Stream>(new SockNetClient.OnDataDelegate<Stream>(HandleHandshake));
             byte[] bytes = Encoding.UTF8.GetBytes("GET " + path + " HTTP/1.1\r\nHost: " + hostname + "\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: " + secKey + "\r\nSec-WebSocket-Version: 13\r\n\r\n");
             client.Send((object)bytes);
         }
@@ -46,51 +45,43 @@ namespace ArenaNet.SockNet.WebSocket
         /// </summary>
         /// <param name="client"></param>
         /// <param name="data"></param>
-        private void HandleHandshake(SockNetClient client, ref ArraySegment<byte> data)
+        private void HandleHandshake(SockNetClient client, ref Stream data)
         {
-            string str = (string)null;
+            StreamReader headerReader = new StreamReader(data, Encoding.ASCII);
 
-            for (int i = data.Offset; i < data.Count - data.Offset; ++i)
+            long startingPosition = data.Position;
+
+            string foundAccept = null;
+            bool foundEndOfHeaders = false;
+            string line = null;
+
+            while ((line = headerReader.ReadLine()) != null)
             {
-                if (str != null)
-                {
-                    if (data.Array[i] == WebSocketHandler.HeaderEnd[0])
-                    {
-                        str = str.Trim();
-                        break;
-                    }
+                line = line.Trim();
 
-                    str += (char)data.Array[i];
+                if (line.StartsWith(WebSocketAcceptHeader))
+                {
+                    foundAccept = line.Split(new char[] { ':' }, 2)[1].Trim();
                 }
-                else if (i + WebSocketHandler.WebSocketAcceptHeader.Length < data.Count - data.Offset)
+
+                if (line.Equals(""))
                 {
-                    bool flag = false;
-
-                    for (int j = 0; j < WebSocketHandler.WebSocketAcceptHeader.Length; ++j)
-                    {
-                        flag = WebSocketHandler.WebSocketAcceptHeader[j] == data.Array[i + j];
-
-                        if (!flag)
-                        {
-                            break;
-                        }
-                    }
-
-                    if (flag)
-                    {
-                        i += WebSocketHandler.WebSocketAcceptHeader.Length - 1;
-
-                        str = "";
-                    }
+                    foundEndOfHeaders = true;
                 }
             }
 
-            if (expectedAccept.Equals(str))
+            if (!foundEndOfHeaders)
+            {
+                data.Position = startingPosition;
+                return;
+            }
+
+            if (expectedAccept.Equals(foundAccept))
             {
                 client.Logger(SockNetClient.LogLevel.INFO, "Established Web-Socket connection.");
-                client.AddIncomingDataHandlerBefore<ArraySegment<byte>, object>(new SockNetClient.OnDataDelegate<ArraySegment<byte>>(HandleHandshake), new SockNetClient.OnDataDelegate<object>(HandleIncomingFrames));
+                client.AddIncomingDataHandlerBefore<Stream, object>(new SockNetClient.OnDataDelegate<Stream>(HandleHandshake), new SockNetClient.OnDataDelegate<object>(HandleIncomingFrames));
                 client.AddOutgoingDataHandlerLast<object>(new SockNetClient.OnDataDelegate<object>(HandleOutgoingFrames));
-                client.RemoveIncomingDataHandler<ArraySegment<byte>>(new SockNetClient.OnDataDelegate<ArraySegment<byte>>(HandleHandshake));
+                client.RemoveIncomingDataHandler<Stream>(new SockNetClient.OnDataDelegate<Stream>(HandleHandshake));
 
                 if (OnWebSocketEstablished != null)
                 {
@@ -99,7 +90,8 @@ namespace ArenaNet.SockNet.WebSocket
             }
             else
             {
-                client.Logger(SockNetClient.LogLevel.ERROR, "Web-Socket handshake incomplete: " + str);
+                client.Logger(SockNetClient.LogLevel.ERROR, "Web-Socket handshake incomplete.");
+
                 client.Disconnect();
             }
         }
@@ -111,13 +103,30 @@ namespace ArenaNet.SockNet.WebSocket
         /// <param name="data"></param>
         private void HandleIncomingFrames(SockNetClient client, ref object data)
         {
-            if (!(data is ArraySegment<byte>))
+            if (!(data is Stream))
             {
                 return;
             }
 
-            ArraySegment<byte> buffer = (ArraySegment<byte>)data;
-            data = WebSocketFrame.ParseFrame((Stream)new MemoryStream(buffer.Array, buffer.Offset, buffer.Count));
+            Stream stream = (Stream)data;
+            long startingPosition = stream.Position;
+
+            try
+            {
+                data = WebSocketFrame.ParseFrame(stream);
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                // websocket frame isn't done
+                stream.Position = startingPosition;
+            }
+            catch (Exception e)
+            {
+                // otherwise we can't recover
+                client.Logger(SockNetClient.LogLevel.ERROR, "Unexpected error: " + e.Message);
+
+                client.Disconnect();
+            }
         }
 
         /// <summary>
