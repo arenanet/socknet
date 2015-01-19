@@ -79,7 +79,14 @@ namespace ArenaNet.SockNet
         /// <summary>
         /// Gets the current state of the client.
         /// </summary>
-        public SockNetState State { get; private set; }
+        private int state = -1;
+        public SockNetState State 
+        {
+            get
+            {
+                return (SockNetState)state;
+            }
+        }
 
         /// <summary>
         /// Gets or sets the Logger of this client.
@@ -133,7 +140,7 @@ namespace ArenaNet.SockNet
         public SockNetClient(IPEndPoint endpoint, int bufferSize = 1024)
         {
             this.RemoteEndpoint = endpoint;
-            this.State = SockNetState.DISCONNECTED;
+            this.state = (int)SockNetState.DISCONNECTED;
 
             this.chunkPool = new ByteChunkPool(bufferSize);
             this.chunkedReceiveStream = new ChunkedMemoryStream(chunkPool.Borrow, chunkPool.Return);
@@ -314,21 +321,18 @@ namespace ArenaNet.SockNet
         /// </summary>
         public void Connect(bool isSsl = false, RemoteCertificateValidationCallback certificateValidationCallback = null)
         {
-            lock (this)
+            if (Interlocked.CompareExchange(ref state, (int)SockNetState.CONNECTING, (int)SockNetState.DISCONNECTED) == (int)SockNetState.DISCONNECTED)
             {
-                if (State != SockNetState.DISCONNECTED)
-                {
-                    throw new Exception("Must be disconnected.");
-                }
-
                 this.isSsl = isSsl;
                 this.certificateValidationCallback = certificateValidationCallback;
 
                 Logger(LogLevel.INFO, string.Format("Connecting to [{0}]...", RemoteEndpoint));
 
-                State = SockNetState.CONNECTING;
-
                 socket.BeginConnect((EndPoint)RemoteEndpoint, new AsyncCallback(ConnectCallback), socket);
+            }
+            else
+            {
+                throw new Exception("Must be disconnected.");
             }
         }
 
@@ -338,31 +342,32 @@ namespace ArenaNet.SockNet
         /// <param name="result"></param>
         private void ConnectCallback(IAsyncResult result)
         {
-            if (State != SockNetState.CONNECTING)
+            if (Interlocked.CompareExchange(ref state, (int)SockNetState.CONNECTED, (int)SockNetState.CONNECTING) == (int)SockNetState.CONNECTING)
             {
-                throw new Exception("Must be connecting.");
-            }
+                ((Socket)result.AsyncState).EndConnect(result);
 
-            ((Socket)result.AsyncState).EndConnect(result);
+                Logger(LogLevel.INFO, string.Format("Connected to [{0}].", RemoteEndpoint));
 
-            Logger(LogLevel.INFO, string.Format("Connected to [{0}].", RemoteEndpoint));
+                stream = new NetworkStream(socket, true);
 
-            stream = new NetworkStream(socket, true);
+                if (isSsl)
+                {
+                    EnableSsl();
+                }
+                else
+                {
+                    Logger(LogLevel.DEBUG, string.Format("Reading data from [{0}]...", RemoteEndpoint));
 
-            if (isSsl)
-            {
-                EnableSsl();
+                    byte[] buffer = chunkPool.Borrow();
+
+                    currentAsyncReceive = stream.BeginRead(buffer, 0, buffer.Length, new AsyncCallback(ReceiveCallback), buffer);
+
+                    OnConnect(this);
+                }
             }
             else
             {
-                Logger(LogLevel.DEBUG, string.Format("Reading data from [{0}]...", RemoteEndpoint));
-                State = SockNetState.CONNECTED;
-
-                byte[] buffer = chunkPool.Borrow();
-
-                currentAsyncReceive = stream.BeginRead(buffer, 0, buffer.Length, new AsyncCallback(ReceiveCallback), buffer);
-
-                OnConnect(this);
+                throw new Exception("Must be connecting.");
             }
         }
 
@@ -387,8 +392,6 @@ namespace ArenaNet.SockNet
             SslStream sslStream = (SslStream)result.AsyncState;
 
             sslStream.EndAuthenticateAsClient(result);
-
-            State = SockNetState.CONNECTED;
 
             Logger(LogLevel.INFO, string.Format("Authenticated SSL with [{0}].", RemoteEndpoint));
             Logger(LogLevel.DEBUG, string.Format("(SSL) Reading data from [{0}]...", RemoteEndpoint));
@@ -534,7 +537,6 @@ namespace ArenaNet.SockNet
         {
             ((Stream)result.AsyncState).EndWrite(result);
             Logger(LogLevel.DEBUG, string.Format((result.AsyncState is SslStream ? "[SSL] " : "") + "Sent data to [{0}].", RemoteEndpoint));
-            // else nothing - maybe log?
         }
 
         /// <summary>
@@ -542,18 +544,15 @@ namespace ArenaNet.SockNet
         /// </summary>
         public void Disconnect()
         {
-            if (!(State == SockNetState.CONNECTED || State == SockNetState.CONNECTING) || socket == null)
-            {
-                OnDisconnect(this);
-
-                return;
-            }
-
-            lock (this)
+            if (Interlocked.CompareExchange(ref state, (int)SockNetState.DISCONNECTING, (int)SockNetState.CONNECTED) == (int)SockNetState.CONNECTED ||
+                Interlocked.CompareExchange(ref state, (int)SockNetState.DISCONNECTING, (int)SockNetState.CONNECTING) == (int)SockNetState.CONNECTING)
             {
                 Logger(LogLevel.INFO, string.Format("Disconnecting from [{0}]...", RemoteEndpoint));
-                State = SockNetState.DISCONNECTING;
                 socket.BeginDisconnect(true, new AsyncCallback(DisconnectCallback), socket);
+            }
+            else
+            {
+                OnDisconnect(this);
             }
         }
 
@@ -563,19 +562,20 @@ namespace ArenaNet.SockNet
         /// <param name="result"></param>
         private void DisconnectCallback(IAsyncResult result)
         {
-            if (State != SockNetState.DISCONNECTING)
+            if (Interlocked.CompareExchange(ref state, (int)SockNetState.DISCONNECTED, (int)SockNetState.DISCONNECTING) == (int)SockNetState.DISCONNECTING)
+            {
+                Logger(LogLevel.INFO, string.Format("Disconnected from [{0}].", RemoteEndpoint));
+
+                ((Socket)result.AsyncState).EndDisconnect(result);
+
+                stream.Close();
+
+                OnDisconnect(this);
+            }
+            else
             {
                 throw new Exception("Must be disconnecting.");
             }
-
-            Logger(LogLevel.INFO, string.Format("Disconnected from [{0}].", RemoteEndpoint));
-            State = SockNetState.DISCONNECTED;
-
-            ((Socket)result.AsyncState).EndDisconnect(result);
-
-            stream.Close();
-
-            OnDisconnect(this);
         }
 
         /// <summary>

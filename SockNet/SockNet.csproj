@@ -53,12 +53,15 @@
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Collections\ConcurrentDictionary.cs" />
     <Compile Include="Collections\ConcurrentQueue.cs" />
+    <Compile Include="Collections\ConditionalWeakTable.cs" />
     <Compile Include="Collections\IProducerConsumerCollection.cs" />
     <Compile Include="IO\ByteChunkPool.cs" />
     <Compile Include="IO\ChunkedMemoryStream.cs" />
     <Compile Include="IterableLinkedList.cs" />
     <Compile Include="SockNetClient.cs" />
+    <Compile Include="Threading\Volatile.cs" />
     <Compile Include="WebSocket\WebSocketFrame.cs" />
     <Compile Include="WebSocket\WebSocketHandler.cs" />
     <Compile Include="AssemblyInfo.cs" />
