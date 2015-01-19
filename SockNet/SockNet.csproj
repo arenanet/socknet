@@ -53,6 +53,8 @@
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Collections\ConcurrentQueue.cs" />
+    <Compile Include="Collections\IProducerConsumerCollection.cs" />
     <Compile Include="IO\ByteChunkPool.cs" />
     <Compile Include="IO\ChunkedMemoryStream.cs" />
     <Compile Include="IterableLinkedList.cs" />
