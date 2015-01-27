@@ -28,8 +28,8 @@ namespace ArenaNet.SockNet
         private Stream stream;
 
         // data handlers for incomming and outgoing messages
-        private IterableLinkedList<IDelegateReference> outgoingDataHandlers = new IterableLinkedList<IDelegateReference>();
-        private IterableLinkedList<IDelegateReference> incomingDataHandlers = new IterableLinkedList<IDelegateReference>();
+        public SockNetPipe InPipe { get; private set; }
+        public SockNetPipe OutPipe { get; private set; }
 
         /// <summary>
         /// Returns true if this socket is connected.
@@ -140,156 +140,16 @@ namespace ArenaNet.SockNet
         public SockNetClient(IPEndPoint endpoint, int bufferSize = 1024)
         {
             this.RemoteEndpoint = endpoint;
+
+            this.InPipe = new SockNetPipe(this);
+            this.OutPipe = new SockNetPipe(this);
+
             this.state = (int)SockNetState.DISCONNECTED;
 
             this.chunkPool = new ByteChunkPool(bufferSize);
             this.chunkedReceiveStream = new ChunkedMemoryStream(chunkPool.Borrow, chunkPool.Return);
 
             this.socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-        }
-
-        /// <summary>
-        /// Adds a incoming data handler {dataDelegate} before the given handler {previous}.
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <typeparam name="R"></typeparam>
-        /// <param name="previous"></param>
-        /// <param name="dataDelegate"></param>
-        /// <returns></returns>
-        public bool AddIncomingDataHandlerBefore<T, R>(OnDataDelegate<T> previous, OnDataDelegate<R> dataDelegate)
-        {
-            lock (incomingDataHandlers)
-            {
-                return incomingDataHandlers.AddBefore(new DelegateReference<T>(previous), new DelegateReference<R>(dataDelegate));
-            }
-        }
-
-        /// <summary>
-        /// Adds this given data handler as the first handler in the incoming data handler chain.
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="dataDelegate"></param>
-        public void AddIncomingDataHandlerFirst<T>(OnDataDelegate<T> dataDelegate)
-        {
-            lock (incomingDataHandlers)
-            {
-                incomingDataHandlers.AddFirst(new DelegateReference<T>(dataDelegate));
-            }
-        }
-
-        /// <summary>
-        /// Adds this given data handler as the last handler in the incoming data handler chain.
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="dataDelegate"></param>
-        public void AddIncomingDataHandlerLast<T>(OnDataDelegate<T> dataDelegate)
-        {
-            lock (incomingDataHandlers)
-            {
-                incomingDataHandlers.AddLast(new DelegateReference<T>(dataDelegate));
-            }
-        }
-
-        /// <summary>
-        /// Adds a incoming data handler {dataDelegate} after the given handler {next}.
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <typeparam name="R"></typeparam>
-        /// <param name="next"></param>
-        /// <param name="dataDelegate"></param>
-        /// <returns></returns>
-        public bool AddIncomingDataHandlerAfter<T, R>(OnDataDelegate<T> next, OnDataDelegate<R> dataDelegate)
-        {
-            lock (incomingDataHandlers)
-            {
-                return incomingDataHandlers.AddAfter(new DelegateReference<T>(next), new DelegateReference<R>(dataDelegate));
-            }
-        }
-
-        /// <summary>
-        /// Removes the given incoming data handler.
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="dataDelegate"></param>
-        /// <returns></returns>
-        public bool RemoveIncomingDataHandler<T>(OnDataDelegate<T> dataDelegate)
-        {
-            lock (incomingDataHandlers)
-            {
-                return incomingDataHandlers.Remove(new DelegateReference<T>(dataDelegate));
-            }
-        }
-
-        /// <summary>
-        /// Adds a outgoing data handler {dataDelegate} before the given handler {previous}.
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <typeparam name="R"></typeparam>
-        /// <param name="previous"></param>
-        /// <param name="dataDelegate"></param>
-        /// <returns></returns>
-        public bool AddOutgoingDataHandlerBefore<T, R>(OnDataDelegate<T> previous, OnDataDelegate<R> dataDelegate)
-        {
-            lock (outgoingDataHandlers)
-            {
-                return outgoingDataHandlers.AddBefore(new DelegateReference<T>(previous), new DelegateReference<R>(dataDelegate));
-            }
-        }
-
-        /// <summary>
-        /// Adds this given data handler as the first handler in the outgoing data handler chain.
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="dataDelegate"></param>
-        public void AddOutgoingDataHandlerFirst<T>(OnDataDelegate<T> dataDelegate)
-        {
-            lock (outgoingDataHandlers)
-            {
-                outgoingDataHandlers.AddFirst(new DelegateReference<T>(dataDelegate));
-            }
-        }
-
-        /// <summary>
-        /// Adds this given data handler as the last handler in the incoming data handler chain.
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="dataDelegate"></param>
-        public void AddOutgoingDataHandlerLast<T>(OnDataDelegate<T> dataDelegate)
-        {
-            lock (outgoingDataHandlers)
-            {
-                outgoingDataHandlers.AddLast(new DelegateReference<T>(dataDelegate));
-            }
-        }
-
-        /// <summary>
-        /// Adds a outgoing data handler {dataDelegate} after the given handler {next}.
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <typeparam name="R"></typeparam>
-        /// <param name="next"></param>
-        /// <param name="dataDelegate"></param>
-        /// <returns></returns>
-        public bool AddOutgoingDataHandlerAfter<T, R>(OnDataDelegate<T> next, OnDataDelegate<R> dataDelegate)
-        {
-            lock (outgoingDataHandlers)
-            {
-                return outgoingDataHandlers.AddAfter(new DelegateReference<T>(next), new DelegateReference<R>(dataDelegate));
-            }
-        }
-
-        /// <summary>
-        /// Removes the given outgoing data handler.
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="dataDelegate"></param>
-        /// <returns></returns>
-        public bool RemoveOutgoingDataHandler<T>(OnDataDelegate<T> dataDelegate)
-        {
-            lock (outgoingDataHandlers)
-            {
-                return outgoingDataHandlers.Remove(new DelegateReference<T>(dataDelegate));
-            }
         }
 
         /// <summary>
@@ -429,23 +289,7 @@ namespace ArenaNet.SockNet
 
                     object obj = chunkedReceiveStream;
 
-                    lock (incomingDataHandlers)
-                    {
-                        foreach (IDelegateReference delegateRef in incomingDataHandlers)
-                        {
-                            if (delegateRef != null && delegateRef.DelegateType.IsAssignableFrom(obj.GetType()))
-                            {
-                                object[] args = new object[2]
-                                {
-                                  this,
-                                  obj
-                                };
-
-                                delegateRef.Delegate.DynamicInvoke(args);
-                                obj = args[1];
-                            }
-                        }
-                    }
+                    InPipe.HandleMessage(ref obj);
                 }
                 catch (Exception ex)
                 {
@@ -491,23 +335,7 @@ namespace ArenaNet.SockNet
 
             try
             {
-                lock (outgoingDataHandlers)
-                {
-                    foreach (IDelegateReference delegateRef in outgoingDataHandlers)
-                    {
-                        if (delegateRef != null && delegateRef.DelegateType.IsAssignableFrom(obj.GetType()))
-                        {
-                            object[] args = new object[2]
-                            {
-                                this,
-                                obj
-                            };
-
-                            delegateRef.Delegate.DynamicInvoke(args);
-                            obj = args[1];
-                        }
-                    }
-                }
+                OutPipe.HandleMessage(ref obj);
             }
             catch (Exception ex)
             {
@@ -624,48 +452,6 @@ namespace ArenaNet.SockNet
             DISCONNECTED,
             CONNECTING,
             CONNECTED,
-        }
-
-        /// <summary>
-        /// The interface of a reference to a delegate.
-        /// </summary>
-        private interface IDelegateReference
-        {
-            Delegate Delegate { get; }
-
-            Type DelegateType { get; }
-        }
-
-        /// <summary>
-        /// A reference to a delegate.
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        private class DelegateReference<T> : IDelegateReference
-        {
-            public Delegate Delegate { get; private set; }
-
-            public Type DelegateType { get; private set; }
-
-            public DelegateReference(OnDataDelegate<T> dataDelegate)
-            {
-                Delegate = (Delegate)dataDelegate;
-                DelegateType = typeof(T);
-            }
-
-            public override bool Equals(object obj)
-            {
-                if (obj == null || GetType() != obj.GetType())
-                {
-                    return false;
-                }
-
-                return Delegate.Equals(((IDelegateReference)obj).Delegate);
-            }
-
-            public override int GetHashCode()
-            {
-                return Delegate.GetHashCode();
-            }
         }
     }
 }

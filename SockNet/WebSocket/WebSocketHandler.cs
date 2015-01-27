@@ -11,6 +11,7 @@ namespace ArenaNet.SockNet.WebSocket
     /// </summary>
     public class WebSocketHandler
     {
+        private static readonly byte[] HeaderNewLine = Encoding.ASCII.GetBytes("\r\n");
         private static readonly string WebSocketAcceptHeader = "Sec-WebSocket-Accept";
         private const string MAGIC = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
@@ -35,7 +36,7 @@ namespace ArenaNet.SockNet.WebSocket
         public void Apply(SockNetClient client, string path, string hostname, WebSocketHandler.OnWebSocketEstablishedDelegate establishedNotification)
         {
             OnWebSocketEstablished = establishedNotification;
-            client.AddIncomingDataHandlerFirst<Stream>(new SockNetClient.OnDataDelegate<Stream>(HandleHandshake));
+            client.InPipe.AddFirst<Stream>(new SockNetClient.OnDataDelegate<Stream>(HandleHandshake));
             byte[] bytes = Encoding.UTF8.GetBytes("GET " + path + " HTTP/1.1\r\nHost: " + hostname + "\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: " + secKey + "\r\nSec-WebSocket-Version: 13\r\n\r\n");
             client.Send((object)bytes);
         }
@@ -79,9 +80,9 @@ namespace ArenaNet.SockNet.WebSocket
             if (expectedAccept.Equals(foundAccept))
             {
                 client.Logger(SockNetClient.LogLevel.INFO, "Established Web-Socket connection.");
-                client.AddIncomingDataHandlerBefore<Stream, object>(new SockNetClient.OnDataDelegate<Stream>(HandleHandshake), new SockNetClient.OnDataDelegate<object>(HandleIncomingFrames));
-                client.AddOutgoingDataHandlerLast<object>(new SockNetClient.OnDataDelegate<object>(HandleOutgoingFrames));
-                client.RemoveIncomingDataHandler<Stream>(new SockNetClient.OnDataDelegate<Stream>(HandleHandshake));
+                client.InPipe.AddBefore<Stream, object>(new SockNetClient.OnDataDelegate<Stream>(HandleHandshake), new SockNetClient.OnDataDelegate<object>(HandleIncomingFrames));
+                client.OutPipe.AddLast<object>(new SockNetClient.OnDataDelegate<object>(HandleOutgoingFrames));
+                client.InPipe.Remove<Stream>(new SockNetClient.OnDataDelegate<Stream>(HandleHandshake));
 
                 if (OnWebSocketEstablished != null)
                 {

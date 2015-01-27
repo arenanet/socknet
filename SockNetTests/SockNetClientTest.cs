@@ -30,7 +30,7 @@ namespace ArenaNet.SockNet
             Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
             Assert.IsTrue((bool)currentObject);
 
-            client.AddIncomingDataHandlerFirst<Stream>((SockNetClient sockNetClient, ref Stream data) => { blockingCollection.Add(data); });
+            client.InPipe.AddFirst<Stream>((SockNetClient sockNetClient, ref Stream data) => { blockingCollection.Add(data); });
 
             client.Send(Encoding.UTF8.GetBytes("GET / HTTP/1.1\nHost: www.guildwars2.com\n\n"));
 
@@ -61,7 +61,7 @@ namespace ArenaNet.SockNet
             Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
             Assert.IsTrue((bool)currentObject);
 
-            client.AddIncomingDataHandlerFirst<Stream>((SockNetClient sockNetClient, ref Stream data) => { blockingCollection.Add(data); });
+            client.InPipe.AddFirst<Stream>((SockNetClient sockNetClient, ref Stream data) => { blockingCollection.Add(data); });
 
             client.Send(Encoding.UTF8.GetBytes("GET / HTTP/1.1\nHost: www.guildwars2.com\n\n"));
 

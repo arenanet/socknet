@@ -35,7 +35,7 @@ namespace ArenaNet.SockNet.WebSocket
             Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
             Assert.IsTrue((bool)currentObject);
 
-            client.AddIncomingDataHandlerLast<WebSocketFrame>((SockNetClient sockNetClient, ref WebSocketFrame data) => { blockingCollection.Add(data); });
+            client.InPipe.AddLast<WebSocketFrame>((SockNetClient sockNetClient, ref WebSocketFrame data) => { blockingCollection.Add(data); });
 
             client.Send(WebSocketFrame.CreateTextFrame("some test", true));
 
@@ -74,7 +74,7 @@ namespace ArenaNet.SockNet.WebSocket
             Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
             Assert.IsTrue((bool)currentObject);
 
-            client.AddIncomingDataHandlerLast<WebSocketFrame>((SockNetClient sockNetClient, ref WebSocketFrame data) => { blockingCollection.Add(data); });
+            client.InPipe.AddLast<WebSocketFrame>((SockNetClient sockNetClient, ref WebSocketFrame data) => { blockingCollection.Add(data); });
 
             client.Send(WebSocketFrame.CreateTextFrame("some test", true));
 
@@ -113,7 +113,7 @@ namespace ArenaNet.SockNet.WebSocket
             Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
             Assert.IsTrue((bool)currentObject);
 
-            client.AddIncomingDataHandlerLast<WebSocketFrame>((SockNetClient sockNetClient, ref WebSocketFrame data) => { blockingCollection.Add(data); });
+            client.InPipe.AddLast<WebSocketFrame>((SockNetClient sockNetClient, ref WebSocketFrame data) => { blockingCollection.Add(data); });
 
             client.Send(WebSocketFrame.CreateTextFrame("some test", true));
 
