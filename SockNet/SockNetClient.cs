@@ -139,6 +139,8 @@ namespace ArenaNet.SockNet
         /// </summary>
         private IAsyncResult currentAsyncReceive = null;
 
+        private Semaphore streamWriteSemaphore = new Semaphore(1, 1);
+
         private RemoteCertificateValidationCallback certificateValidationCallback;
 
         private bool isSsl = false;
@@ -402,7 +404,15 @@ namespace ArenaNet.SockNet
                     byte[] rawSendableData = (byte[])obj;
 
                     Logger(LogLevel.DEBUG, string.Format((IsConnectionEncrypted ? "[SSL] " : "") + "Sending [{0}] bytes to [{1}]...", rawSendableData.Length, RemoteEndpoint));
-                    stream.BeginWrite(rawSendableData, 0, rawSendableData.Length, new AsyncCallback(SendCallback), stream);
+
+                    if (streamWriteSemaphore.WaitOne(10000))
+                    {
+                        stream.BeginWrite(rawSendableData, 0, rawSendableData.Length, new AsyncCallback(SendCallback), stream);
+                    }
+                    else
+                    {
+                        throw new ThreadStateException("Unable to obtain lock to write message.");
+                    }
                 }
                 else if (obj is Stream)
                 {
@@ -442,7 +452,15 @@ namespace ArenaNet.SockNet
             int bytesSending = state.stream.EndRead(result);
 
             Logger(LogLevel.DEBUG, string.Format((IsConnectionEncrypted ? "[SSL] " : "") + "Sending [{0}] bytes to [{1}]...", bytesSending, RemoteEndpoint));
-            stream.BeginWrite(state.buffer, 0, bytesSending, new AsyncCallback(SendCallback), stream);
+
+            if (streamWriteSemaphore.WaitOne(10000))
+            {
+                stream.BeginWrite(state.buffer, 0, bytesSending, new AsyncCallback(SendCallback), stream);
+            }
+            else
+            {
+                throw new ThreadStateException("Unable to obtain lock to write message.");
+            }
 
             if (state.stream.Position < state.stream.Length)
             {
@@ -465,8 +483,16 @@ namespace ArenaNet.SockNet
         /// <param name="result"></param>
         private void SendCallback(IAsyncResult result)
         {
-            ((Stream)result.AsyncState).EndWrite(result);
             Logger(LogLevel.DEBUG, string.Format((result.AsyncState is SslStream ? "[SSL] " : "") + "Sent data to [{0}].", RemoteEndpoint));
+
+            try
+            {
+                ((Stream)result.AsyncState).EndWrite(result);
+            }
+            finally
+            {
+                streamWriteSemaphore.Release();
+            }
         }
 
         /// <summary>
