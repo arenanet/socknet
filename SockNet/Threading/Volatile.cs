@@ -9,6 +9,9 @@ using System.Threading;
 
 namespace ArenaNet.SockNet.Threading
 {
+    /// <summary>
+    /// TAKEN FROM MICROSOFT'S .NET IMPLEMENTATION
+    /// </summary>
     public static class Volatile
     {
         [ResourceExposure(ResourceScope.None)]

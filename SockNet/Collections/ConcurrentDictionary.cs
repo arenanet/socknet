@@ -14,6 +14,9 @@ using ArenaNet.SockNet.Threading;
 
 namespace ArenaNet.SockNet.Collections
 {
+    /// <summary>
+    /// TAKEN FROM MICROSOFT'S .NET IMPLEMENTATION
+    /// </summary>
 #if !FEATURE_CORECLR
     [Serializable]
 #endif

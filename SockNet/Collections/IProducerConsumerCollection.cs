@@ -5,9 +5,8 @@ using System.Collections.Generic;
 namespace ArenaNet.SockNet.Collections
 {
     /// <summary>
-    /// COPIED FROM MONO
+    /// TAKEN FROM MONO'S .NET IMPLEMENTATION
     /// </summary>
-    /// <typeparam name="T"></typeparam>
     public interface IProducerConsumerCollection<T> : IEnumerable<T>, ICollection, IEnumerable
     {
         bool TryAdd(T item);

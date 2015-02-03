@@ -7,9 +7,8 @@ using System.Runtime.Serialization;
 namespace ArenaNet.SockNet.Collections
 {
     /// <summary>
-    /// COPIED FROM MONO
+    /// TAKEN FROM MONO'S .NET IMPLEMENTATION
     /// </summary>
-    /// <typeparam name="T"></typeparam>
     public class ConcurrentQueue<T> : IProducerConsumerCollection<T>, IEnumerable<T>, ICollection,
                                       IEnumerable
     {

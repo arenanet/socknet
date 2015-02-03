@@ -59,6 +59,12 @@ namespace ArenaNet.SockNet.IO
             }
         }
 
+        public ChunkedMemoryStream(ByteChunkPool pool)
+        {
+            this.OnChunkNeeded = pool.Borrow;
+            this.OnChunkRemoved = pool.Return;
+        }
+
         public ChunkedMemoryStream(OnChunkNeededDelegate onChunkNeeded, OnChunkRemovedDelegate onChunkRemoved)
         {
             this.OnChunkNeeded = onChunkNeeded;
@@ -83,22 +89,21 @@ namespace ArenaNet.SockNet.IO
         {
             lock (this)
             {
-                int bytesScanned = 0;
-
                 MemoryChunk currentChunk = rootChunk;
 
-                while (currentChunk != null && bytesScanned < position)
+                while (currentChunk != null)
                 {
-                    if (position - bytesScanned > currentChunk.count)
+                    if (position < currentChunk.count)
                     {
-                        OnChunkRemoved(currentChunk.bytes);
-
-                        rootChunk = currentChunk.next;
-                        length -= currentChunk.count;
-                        position -= currentChunk.count;
+                        break;
                     }
 
-                    bytesScanned += currentChunk.count;
+                    OnChunkRemoved(currentChunk.bytes);
+
+                    rootChunk = currentChunk.next;
+                    length -= currentChunk.count;
+                    position -= currentChunk.count;
+
                     currentChunk = currentChunk.next;
                 }
             }
@@ -176,17 +181,26 @@ namespace ArenaNet.SockNet.IO
 
         public override void Write(byte[] buffer, int offset, int count)
         {
-            MemoryChunk chunk = new MemoryChunk()
+            lock (this)
             {
-                bytes = new byte[count],
-                offset = 0,
-                count = count,
-                next = null
-            };
+                for (int i = 0; i < count;)
+                {
+                    byte[] byteChunk = OnChunkNeeded();
+                    int bytesToCopy = Math.Min(byteChunk.Length, count - i);
 
-            Buffer.BlockCopy(buffer, offset, chunk.bytes, chunk.offset, count);
+                    Buffer.BlockCopy(buffer, i, byteChunk, 0, bytesToCopy);
 
-            AppendChunk(chunk);
+                    AppendChunk(new MemoryChunk()
+                    {
+                        bytes = byteChunk,
+                        offset = 0,
+                        count = bytesToCopy,
+                        next = null
+                    });
+
+                    i += bytesToCopy;
+                }
+            }
         }
 
         private void AppendChunk(MemoryChunk chunk)

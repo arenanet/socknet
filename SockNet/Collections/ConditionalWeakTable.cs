@@ -6,6 +6,9 @@ using System.Runtime.CompilerServices;
 
 namespace ArenaNet.SockNet.Collections
 {
+    /// <summary>
+    /// TAKEN FROM MICROSOFT'S .NET IMPLEMENTATION
+    /// </summary>
     #region ConditionalWeakTable
     [System.Runtime.InteropServices.ComVisible(false)]
     public sealed class ConditionalWeakTable<TKey, TValue>
