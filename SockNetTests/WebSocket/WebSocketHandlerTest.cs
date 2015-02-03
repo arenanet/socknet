@@ -19,15 +19,10 @@ namespace ArenaNet.SockNet.WebSocket
             BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
 
             SockNetClient client = new SockNetClient(new IPEndPoint(Dns.GetHostEntry("echo.websocket.org").AddressList[0], 80));
-            client.OnConnect += (SockNetClient sockNet) => { blockingCollection.Add(true); };
-            client.OnDisconnect += (SockNetClient sockNet) => { blockingCollection.Add(false); };
 
-            client.Connect();
+            client.Connect().WaitOne(TimeSpan.FromSeconds(5));
 
             object currentObject;
-
-            Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
-            Assert.IsTrue((bool)currentObject);
 
             WebSocketHandler handler = new WebSocketHandler();
             handler.Apply(client, "/", "echo.websocket.org", (SockNetClient sockNetClient) => { blockingCollection.Add(true); });
@@ -46,10 +41,7 @@ namespace ArenaNet.SockNet.WebSocket
 
             Console.WriteLine("Got response: \n" + ((WebSocketFrame)currentObject).DataAsString);
 
-            client.Disconnect();
-
-            Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
-            Assert.IsFalse((bool)currentObject);
+            client.Disconnect().WaitOne(TimeSpan.FromSeconds(5));
         }
 
         [TestMethod]
@@ -58,15 +50,11 @@ namespace ArenaNet.SockNet.WebSocket
             BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
 
             SockNetClient client = new SockNetClient(new IPEndPoint(Dns.GetHostEntry("echo.websocket.org").AddressList[0], 443));
-            client.OnConnect += (SockNetClient sockNet) => { blockingCollection.Add(true); };
-            client.OnDisconnect += (SockNetClient sockNet) => { blockingCollection.Add(false); };
 
-            client.Connect(true, (object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => { return true; });
+            client.ConnectWithTLS((object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => { return true; })
+                .WaitOne(TimeSpan.FromSeconds(5));
 
             object currentObject;
-
-            Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
-            Assert.IsTrue((bool)currentObject);
 
             WebSocketHandler handler = new WebSocketHandler();
             handler.Apply(client, "/", "echo.websocket.org", (SockNetClient sockNetClient) => { blockingCollection.Add(true); });
@@ -85,10 +73,7 @@ namespace ArenaNet.SockNet.WebSocket
 
             Console.WriteLine("Got response: \n" + ((WebSocketFrame)currentObject).DataAsString);
 
-            client.Disconnect();
-
-            Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
-            Assert.IsFalse((bool)currentObject);
+            client.Disconnect().WaitOne(TimeSpan.FromSeconds(5));
         }
 
         [TestMethod]
@@ -97,15 +82,10 @@ namespace ArenaNet.SockNet.WebSocket
             BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
 
             SockNetClient client = new SockNetClient(new IPEndPoint(Dns.GetHostEntry("echo.websocket.org").AddressList[0], 80));
-            client.OnConnect += (SockNetClient sockNet) => { blockingCollection.Add(true); };
-            client.OnDisconnect += (SockNetClient sockNet) => { blockingCollection.Add(false); };
 
-            client.Connect();
+            client.Connect().WaitOne(TimeSpan.FromSeconds(5));
 
             object currentObject;
-
-            Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
-            Assert.IsTrue((bool)currentObject);
 
             WebSocketHandler handler = new WebSocketHandler();
             handler.Apply(client, "/", "echo.websocket.org", (SockNetClient sockNetClient) => { blockingCollection.Add(true); });
@@ -124,10 +104,7 @@ namespace ArenaNet.SockNet.WebSocket
 
             Console.WriteLine("Got response: \n" + ((WebSocketFrame)currentObject).DataAsString);
 
-            client.Disconnect();
-
-            Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
-            Assert.IsFalse((bool)currentObject);
+            client.Disconnect().WaitOne(TimeSpan.FromSeconds(5));
         }
     }
 }

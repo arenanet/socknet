@@ -14,6 +14,8 @@ namespace ArenaNet.SockNet
     /// </summary>
     public class SockNetClient
     {
+        private const int DefaultBufferSize = 1024;
+
         // the pool for byte chunks
         private readonly ByteChunkPool chunkPool;
         public ByteChunkPool ChunkPool { get { return chunkPool; } }
@@ -113,6 +115,16 @@ namespace ArenaNet.SockNet
         private OnLogDelegate _logger = DEFAULT_LOGGER;
 
         /// <summary>
+        /// A wait handle that can be used to block a thread until this client connects.
+        /// </summary>
+        private EventWaitHandle connectWaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+        
+        /// <summary>
+        /// A wait handle that can be used to block a thread until this client disconnects.
+        /// </summary>
+        private EventWaitHandle disconnectWaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+
+        /// <summary>
         /// An event that will be triggered when this client is connected to its IPEndpoint.
         /// </summary>
         public event OnConnectedDelegate OnConnect;
@@ -132,12 +144,21 @@ namespace ArenaNet.SockNet
         private bool isSsl = false;
 
         /// <summary>
-        /// Creates a SockNet client with an endpoint, security settings, and optional buffer size.
+        /// Creates a socknet client that can connect to the given address and port using a receive buffer size.
+        /// </summary>
+        /// <param name="address"></param>
+        /// <param name="port"></param>
+        /// <param name="bufferSize"></param>
+        public SockNetClient(IPAddress address, int port, int bufferSize = DefaultBufferSize) : this(new IPEndPoint(address, port), bufferSize)
+        {
+        }
+
+        /// <summary>
+        /// Creates a SockNet client with an endpoint and a receive buffer size.
         /// </summary>
         /// <param name="endpoint"></param>
-        /// <param name="useSsl"></param>
         /// <param name="bufferSize"></param>
-        public SockNetClient(IPEndPoint endpoint, int bufferSize = 1024)
+        public SockNetClient(IPEndPoint endpoint, int bufferSize = DefaultBufferSize)
         {
             this.RemoteEndpoint = endpoint;
 
@@ -147,7 +168,7 @@ namespace ArenaNet.SockNet
             this.state = (int)SockNetState.DISCONNECTED;
 
             this.chunkPool = new ByteChunkPool(bufferSize);
-            this.chunkedReceiveStream = new ChunkedMemoryStream(chunkPool.Borrow, chunkPool.Return);
+            this.chunkedReceiveStream = new ChunkedMemoryStream(chunkPool);
 
             this.socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         }
@@ -177,9 +198,28 @@ namespace ArenaNet.SockNet
         }
 
         /// <summary>
+        /// Attempts to connect to the configured IPEndpoint and performs a TLS handshake.
+        /// </summary>
+        public WaitHandle ConnectWithTLS(RemoteCertificateValidationCallback certificateValidationCallback)
+        {
+           return  Connect(true, certificateValidationCallback);
+        }
+
+        /// <summary>
         /// Attempts to connect to the configured IPEndpoint.
         /// </summary>
-        public void Connect(bool isSsl = false, RemoteCertificateValidationCallback certificateValidationCallback = null)
+        public WaitHandle Connect()
+        {
+            return Connect(false, null);
+        }
+
+        /// <summary>
+        /// Connects to the configured endpoint and sets security variables.
+        /// </summary>
+        /// <param name="isSsl"></param>
+        /// <param name="certificateValidationCallback"></param>
+        /// <returns></returns>
+        private WaitHandle Connect(bool isSsl, RemoteCertificateValidationCallback certificateValidationCallback)
         {
             if (Interlocked.CompareExchange(ref state, (int)SockNetState.CONNECTING, (int)SockNetState.DISCONNECTED) == (int)SockNetState.DISCONNECTED)
             {
@@ -188,12 +228,16 @@ namespace ArenaNet.SockNet
 
                 Logger(LogLevel.INFO, string.Format("Connecting to [{0}]...", RemoteEndpoint));
 
+                connectWaitHandle.Reset();
+
                 socket.BeginConnect((EndPoint)RemoteEndpoint, new AsyncCallback(ConnectCallback), socket);
             }
             else
             {
                 throw new Exception("Must be disconnected.");
             }
+
+            return connectWaitHandle;
         }
 
         /// <summary>
@@ -222,7 +266,12 @@ namespace ArenaNet.SockNet
 
                     currentAsyncReceive = stream.BeginRead(buffer, 0, buffer.Length, new AsyncCallback(ReceiveCallback), buffer);
 
-                    OnConnect(this);
+                    if (OnConnect != null)
+                    {
+                        OnConnect(this);
+                    }
+
+                    connectWaitHandle.Set();
                 }
             }
             else
@@ -262,7 +311,12 @@ namespace ArenaNet.SockNet
 
             currentAsyncReceive = stream.BeginRead(buffer, 0, buffer.Length, new AsyncCallback(ReceiveCallback), buffer);
 
-            OnConnect(this);
+            if (OnConnect != null)
+            {
+                OnConnect(this);
+            }
+
+            connectWaitHandle.Set();
         }
 
         /// <summary>
@@ -350,10 +404,58 @@ namespace ArenaNet.SockNet
                     Logger(LogLevel.DEBUG, string.Format((IsConnectionEncrypted ? "[SSL] " : "") + "Sending [{0}] bytes to [{1}]...", rawSendableData.Length, RemoteEndpoint));
                     stream.BeginWrite(rawSendableData, 0, rawSendableData.Length, new AsyncCallback(SendCallback), stream);
                 }
+                else if (obj is Stream)
+                {
+                    Stream sendableStream = ((Stream)obj);
+                    byte[] sendableDataBuffer = chunkPool.Borrow();
+
+                    sendableStream.BeginRead(sendableDataBuffer, 
+                        0,
+                        (int)Math.Min(sendableDataBuffer.Length, sendableStream.Length - sendableStream.Position), 
+                        StreamSendCallback,
+                        new StreamSendState() { stream = sendableStream, buffer = sendableDataBuffer });
+                }
                 else
                 {
                     Logger(LogLevel.ERROR, "Unable to send object: " + obj);
                 }
+            }
+        }
+
+        /// <summary>
+        /// A state class used between streamed sends.
+        /// </summary>
+        private class StreamSendState
+        {
+            public Stream stream;
+            public byte[] buffer;
+        }
+
+        /// <summary>
+        /// A callback when streaming a send.
+        /// </summary>
+        /// <param name="result"></param>
+        private void StreamSendCallback(IAsyncResult result)
+        {
+            StreamSendState state = ((StreamSendState)result.AsyncState);
+
+            int bytesSending = state.stream.EndRead(result);
+
+            Logger(LogLevel.DEBUG, string.Format((IsConnectionEncrypted ? "[SSL] " : "") + "Sending [{0}] bytes to [{1}]...", bytesSending, RemoteEndpoint));
+            stream.BeginWrite(state.buffer, 0, bytesSending, new AsyncCallback(SendCallback), stream);
+
+            if (state.stream.Position < state.stream.Length)
+            {
+                state.stream.BeginRead(state.buffer,
+                    0,
+                    (int)Math.Min(state.buffer.Length, state.stream.Length - state.stream.Position),
+                    StreamSendCallback,
+                    state);
+            }
+            else
+            {
+                chunkPool.Return(state.buffer);
+                state.stream.Close();
             }
         }
 
@@ -370,18 +472,26 @@ namespace ArenaNet.SockNet
         /// <summary>
         /// Disconnects from the IPEndpoint.
         /// </summary>
-        public void Disconnect()
+        public WaitHandle Disconnect()
         {
             if (Interlocked.CompareExchange(ref state, (int)SockNetState.DISCONNECTING, (int)SockNetState.CONNECTED) == (int)SockNetState.CONNECTED ||
                 Interlocked.CompareExchange(ref state, (int)SockNetState.DISCONNECTING, (int)SockNetState.CONNECTING) == (int)SockNetState.CONNECTING)
             {
                 Logger(LogLevel.INFO, string.Format("Disconnecting from [{0}]...", RemoteEndpoint));
+
+                disconnectWaitHandle.Reset();
+
                 socket.BeginDisconnect(true, new AsyncCallback(DisconnectCallback), socket);
             }
             else
             {
-                OnDisconnect(this);
+                if (OnDisconnect != null)
+                {
+                    OnDisconnect(this);
+                }
             }
+
+            return disconnectWaitHandle;
         }
 
         /// <summary>
@@ -398,7 +508,12 @@ namespace ArenaNet.SockNet
 
                 stream.Close();
 
-                OnDisconnect(this);
+                if (OnDisconnect != null)
+                {
+                    OnDisconnect(this);
+                }
+
+                disconnectWaitHandle.Set();
             }
             else
             {

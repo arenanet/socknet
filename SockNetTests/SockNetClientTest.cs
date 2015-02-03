@@ -6,6 +6,7 @@ using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
 using System.Collections.Concurrent;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using ArenaNet.SockNet.IO;
 
 namespace ArenaNet.SockNet
 {
@@ -20,15 +21,10 @@ namespace ArenaNet.SockNet
             BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
 
             SockNetClient client = new SockNetClient(new IPEndPoint(Dns.GetHostEntry("www.guildwars2.com").AddressList[0], 80));
-            client.OnConnect += (SockNetClient sockNet) => { blockingCollection.Add(true); };
-            client.OnDisconnect += (SockNetClient sockNet) => { blockingCollection.Add(false); };
 
-            client.Connect();
+            client.Connect().WaitOne(TimeSpan.FromSeconds(5));
 
             object currentObject;
-
-            Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
-            Assert.IsTrue((bool)currentObject);
 
             client.InPipe.AddFirst<Stream>((SockNetClient sockNetClient, ref Stream data) => { blockingCollection.Add(data); });
 
@@ -39,10 +35,35 @@ namespace ArenaNet.SockNet
 
             Console.WriteLine("Got response: \n" + new StreamReader((Stream)currentObject, Encoding.UTF8).ReadToEnd());
 
-            client.Disconnect();
+            client.Disconnect().WaitOne(TimeSpan.FromSeconds(5));
+        }
+
+        [TestMethod]
+        public void TestConnectWithoutSslWithStreamSending()
+        {
+            BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
+
+            SockNetClient client = new SockNetClient(new IPEndPoint(Dns.GetHostEntry("www.guildwars2.com").AddressList[0], 80), 10);
+
+            client.Connect().WaitOne(TimeSpan.FromSeconds(5));
+
+            object currentObject;
+
+            client.InPipe.AddFirst<Stream>((SockNetClient sockNetClient, ref Stream data) => { blockingCollection.Add(data); });
+
+            ChunkedMemoryStream sendStream = new ChunkedMemoryStream(client.ChunkPool);
+            byte[] sendData = Encoding.UTF8.GetBytes("GET / HTTP/1.1\nHost: www.guildwars2.com\n\n");
+            sendStream.Write(sendData, 0, sendData.Length);
+            sendStream.Position = 0;
+
+            client.Send(sendStream);
 
             Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
-            Assert.IsFalse((bool)currentObject);
+            Assert.IsTrue(currentObject is Stream);
+
+            Console.WriteLine("Got response: \n" + new StreamReader((Stream)currentObject, Encoding.UTF8).ReadToEnd());
+
+            client.Disconnect().WaitOne(TimeSpan.FromSeconds(5));
         }
 
         [TestMethod]
@@ -51,15 +72,11 @@ namespace ArenaNet.SockNet
             BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
 
             SockNetClient client = new SockNetClient(new IPEndPoint(Dns.GetHostEntry("www.guildwars2.com").AddressList[0], 443));
-            client.OnConnect += (SockNetClient sockNet) => { blockingCollection.Add(true); };
-            client.OnDisconnect += (SockNetClient sockNet) => { blockingCollection.Add(false); };
 
-            client.Connect(true, (object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => { return true; });
+            client.ConnectWithTLS((object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => { return true; })
+                .WaitOne(TimeSpan.FromSeconds(5));
 
             object currentObject;
-
-            Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
-            Assert.IsTrue((bool)currentObject);
 
             client.InPipe.AddFirst<Stream>((SockNetClient sockNetClient, ref Stream data) => { blockingCollection.Add(data); });
 
@@ -70,10 +87,7 @@ namespace ArenaNet.SockNet
 
             Console.WriteLine("Got response: \n" + new StreamReader((Stream)currentObject, Encoding.UTF8).ReadToEnd());
 
-            client.Disconnect();
-
-            Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
-            Assert.IsFalse((bool)currentObject);
+            client.Disconnect().WaitOne(TimeSpan.FromSeconds(5));
         }
     }
 }
