@@ -28,7 +28,7 @@ namespace ArenaNet.SockNet
 
             client.InPipe.AddFirst<Stream>((SockNetClient sockNetClient, ref Stream data) => { blockingCollection.Add(data); });
 
-            client.Send(Encoding.UTF8.GetBytes("GET / HTTP/1.1\nHost: www.guildwars2.com\n\n"));
+            client.Send(Encoding.UTF8.GetBytes("GET / HTTP/1.1\r\nHost: www.guildwars2.com\r\n\r\n"));
 
             Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
             Assert.IsTrue(currentObject is Stream);
@@ -52,7 +52,7 @@ namespace ArenaNet.SockNet
             client.InPipe.AddFirst<Stream>((SockNetClient sockNetClient, ref Stream data) => { blockingCollection.Add(data); });
 
             ChunkedMemoryStream sendStream = new ChunkedMemoryStream(client.ChunkPool);
-            byte[] sendData = Encoding.UTF8.GetBytes("GET / HTTP/1.1\nHost: www.guildwars2.com\n\n");
+            byte[] sendData = Encoding.UTF8.GetBytes("GET / HTTP/1.1\r\nHost: www.guildwars2.com\r\n\r\n");
             sendStream.Write(sendData, 0, sendData.Length);
             sendStream.Position = 0;
 
@@ -80,7 +80,7 @@ namespace ArenaNet.SockNet
 
             client.InPipe.AddFirst<Stream>((SockNetClient sockNetClient, ref Stream data) => { blockingCollection.Add(data); });
 
-            client.Send(Encoding.UTF8.GetBytes("GET / HTTP/1.1\nHost: www.guildwars2.com\n\n"));
+            client.Send(Encoding.UTF8.GetBytes("GET / HTTP/1.1\r\nHost: www.guildwars2.com\r\n\r\n"));
 
             Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
             Assert.IsTrue(currentObject is Stream);
