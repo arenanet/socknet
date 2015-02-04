@@ -8,7 +8,7 @@ using ArenaNet.SockNet.Common.IO;
 namespace ArenaNet.SockNet.Protocols.WebSocket
 {
     /// <summary>
-    /// A handler that can be applied to a SockNetClient to enable WebSocket support.
+    /// A module that can be applied to a ISockNetChannel to enable WebSocket support.
     /// </summary>
     public class WebSocketClientSockNetChannelModule : ISockNetChannelModule
     {
@@ -58,7 +58,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         /// <param name="channel"></param>
         public void OnConnected(ISockNetChannel channel)
         {
-            SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, "Sending WebSocket upgrade request.");
+            SockNetLogger.Log(SockNetLogger.LogLevel.INFO, "Sending WebSocket upgrade request.");
 
             channel.InPipe.AddFirst<Stream>(new OnDataDelegate<Stream>(HandleHandshake));
             byte[] bytes = Encoding.UTF8.GetBytes("GET " + path + " HTTP/1.1\r\nHost: " + hostname + "\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: " + secKey + "\r\nSec-WebSocket-Version: 13\r\n\r\n");
