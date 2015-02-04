@@ -2,9 +2,17 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
 VisualStudioVersion = 12.0.31101.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SockNet", "SockNet\SockNet.csproj", "{B3A4F6C4-5209-456E-8025-A37E8E569EC8}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SockNet.Client", "SockNet.Client\SockNet.Client.csproj", "{B3A4F6C4-5209-456E-8025-A37E8E569EC8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SockNetTests", "SockNetTests\SockNetTests.csproj", "{2348C19C-EE1B-4D24-AF8C-E40B00815B22}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SockNet.Client.Tests", "SockNet.Client.Tests\SockNet.Client.Tests.csproj", "{2348C19C-EE1B-4D24-AF8C-E40B00815B22}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SockNet.Common", "SockNet.Common\SockNet.Common.csproj", "{409023E0-1369-4F59-8A30-EBDC6B84FCEE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SockNet.Common.Tests", "SockNet.Common.Tests\SockNet.Common.Tests.csproj", "{54C15C1B-D296-41C4-9653-C48D3CDF1B0A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SockNet.Protocols", "SockNet.Protocols\SockNet.Protocols.csproj", "{D51E44CA-A6CF-401F-BD8E-C1CD1CB0FD16}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SockNet.Protocols.Tests", "SockNet.Protocols.Tests\SockNet.Protocols.Tests.csproj", "{0D65B479-B29C-4C7D-9C2A-B87E231B1264}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -20,6 +28,22 @@ Global
 		{2348C19C-EE1B-4D24-AF8C-E40B00815B22}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2348C19C-EE1B-4D24-AF8C-E40B00815B22}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2348C19C-EE1B-4D24-AF8C-E40B00815B22}.Release|Any CPU.Build.0 = Release|Any CPU
+		{409023E0-1369-4F59-8A30-EBDC6B84FCEE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{409023E0-1369-4F59-8A30-EBDC6B84FCEE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{409023E0-1369-4F59-8A30-EBDC6B84FCEE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{409023E0-1369-4F59-8A30-EBDC6B84FCEE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{54C15C1B-D296-41C4-9653-C48D3CDF1B0A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{54C15C1B-D296-41C4-9653-C48D3CDF1B0A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{54C15C1B-D296-41C4-9653-C48D3CDF1B0A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{54C15C1B-D296-41C4-9653-C48D3CDF1B0A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D51E44CA-A6CF-401F-BD8E-C1CD1CB0FD16}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D51E44CA-A6CF-401F-BD8E-C1CD1CB0FD16}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D51E44CA-A6CF-401F-BD8E-C1CD1CB0FD16}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D51E44CA-A6CF-401F-BD8E-C1CD1CB0FD16}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0D65B479-B29C-4C7D-9C2A-B87E231B1264}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0D65B479-B29C-4C7D-9C2A-B87E231B1264}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0D65B479-B29C-4C7D-9C2A-B87E231B1264}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0D65B479-B29C-4C7D-9C2A-B87E231B1264}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
