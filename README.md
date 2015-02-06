@@ -9,11 +9,10 @@ Getting Started
 
 SockNet contains multiple libraries that enable the developer to write less boilderplate code and more business logic. To see specific examples, please visit the project pages listed bellow.
 
->
- [SockNet.Client](https://github.com/arenanet/socknet/tree/master/SockNet.Client) - A networking library that can be used to implement clients. Depends on SockNet.Common.
- [SockNet.Server](https://github.com/arenanet/socknet/tree/master/SockNet.Server) - A networking library that can be used to implement servers. Depends on SockNet.Common.
- [SockNet.Protocol](https://github.com/arenanet/socknet/tree/master/SockNet.Protocol) - Various protocol implementations that can be used with SockNet channels. Depends on SockNet.Common.
- [SockNet.Common](https://github.com/arenanet/socknet/tree/master/SockNet.Common) - Varios helper classes and required dependency for all SockNet libraries.
+>[SockNet.Client](https://github.com/arenanet/socknet/tree/master/SockNet.Client) - A networking library that can be used to implement clients. Depends on SockNet.Common.
+>[SockNet.Server](https://github.com/arenanet/socknet/tree/master/SockNet.Server) - A networking library that can be used to implement servers. Depends on SockNet.Common.
+>[SockNet.Protocol](https://github.com/arenanet/socknet/tree/master/SockNet.Protocol) - Various protocol implementations that can be used with SockNet channels. Depends on SockNet.Common.
+>[SockNet.Common](https://github.com/arenanet/socknet/tree/master/SockNet.Common) - Varios helper classes and required dependency for all SockNet libraries.
 
 ## Bugs and Feedback
 
