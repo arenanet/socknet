@@ -38,7 +38,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         /// <param name="channel"></param>
         public void Install(ISockNetChannel channel)
         {
-            ((BaseSockNetChannel)channel).OnConnect += OnConnected;
+            channel.Pipe.AddOpenedLast(OnConnected);
         }
 
         /// <summary>
@@ -47,9 +47,10 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         /// <param name="channel"></param>
         public void Uninstall(ISockNetChannel channel)
         {
-            channel.InPipe.Remove<Stream>(HandleHandshake);
-            channel.InPipe.Remove<object>(HandleIncomingFrames);
-            channel.OutPipe.Remove<object>(HandleOutgoingFrames);
+            channel.Pipe.RemoveIncoming<Stream>(HandleHandshake);
+            channel.Pipe.RemoveIncoming<object>(HandleIncomingFrames);
+            channel.Pipe.RemoveOutgoing<object>(HandleOutgoingFrames);
+            channel.Pipe.RemoveOpened(OnConnected);
         }
 
         /// <summary>
@@ -58,9 +59,9 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         /// <param name="channel"></param>
         public void OnConnected(ISockNetChannel channel)
         {
-            SockNetLogger.Log(SockNetLogger.LogLevel.INFO, "Sending WebSocket upgrade request.");
+            SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Sending WebSocket upgrade request.");
 
-            channel.InPipe.AddFirst<Stream>(new OnDataDelegate<Stream>(HandleHandshake));
+            channel.Pipe.AddIncomingFirst<Stream>(new OnDataDelegate<Stream>(HandleHandshake));
             byte[] bytes = Encoding.UTF8.GetBytes("GET " + path + " HTTP/1.1\r\nHost: " + hostname + "\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: " + secKey + "\r\nSec-WebSocket-Version: 13\r\n\r\n");
             channel.Send((object)bytes);
         }
@@ -103,10 +104,10 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
             if (expectedAccept.Equals(foundAccept))
             {
-                SockNetLogger.Log(SockNetLogger.LogLevel.INFO, "Established Web-Socket connection.");
-                channel.InPipe.AddBefore<Stream, object>(new OnDataDelegate<Stream>(HandleHandshake), new OnDataDelegate<object>(HandleIncomingFrames));
-                channel.OutPipe.AddLast<object>(new OnDataDelegate<object>(HandleOutgoingFrames));
-                channel.InPipe.Remove<Stream>(new OnDataDelegate<Stream>(HandleHandshake));
+                SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Established Web-Socket connection.");
+                channel.Pipe.AddIncomingBefore<Stream, object>(new OnDataDelegate<Stream>(HandleHandshake), new OnDataDelegate<object>(HandleIncomingFrames));
+                channel.Pipe.AddOutgoingLast<object>(new OnDataDelegate<object>(HandleOutgoingFrames));
+                channel.Pipe.RemoveIncoming<Stream>(new OnDataDelegate<Stream>(HandleHandshake));
 
                 if (onWebSocketEstablished != null)
                 {
@@ -115,9 +116,9 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
             }
             else
             {
-                SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, "Web-Socket handshake incomplete.");
+                SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Web-Socket handshake incomplete.");
 
-                channel.Disconnect();
+                channel.Close();
             }
         }
 
@@ -150,7 +151,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
                 // otherwise we can't recover
                 SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, "Unexpected error: {0}",  e.Message);
 
-                channel.Disconnect();
+                channel.Close();
             }
         }
 

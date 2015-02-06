@@ -4,6 +4,8 @@ using System.IO;
 using System.Net;
 using System.Threading;
 using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
+using System.Security.Authentication;
 using System.Net.Sockets;
 using ArenaNet.SockNet.Common;
 using ArenaNet.SockNet.Common.IO;
@@ -13,7 +15,7 @@ using ArenaNet.SockNet.Common.Collections;
 namespace ArenaNet.SockNet.Common
 {
     /// <summary>
-    /// A simplification layer on top of System.Net.Sockets that enables users to implement custom stream handlers easier.
+    /// A simplification layer on top of System.Net.Sockets that enables users to implement custom stream incomingHandlers easier.
     /// </summary>
     public abstract class BaseSockNetChannel : ISockNetChannel
     {
@@ -23,7 +25,7 @@ namespace ArenaNet.SockNet.Common
         private readonly ObjectPool<byte[]> bufferPool;
         public ObjectPool<byte[]> BufferPool { get { return bufferPool; } }
 
-        // the receive stream that will be sent to handlers to handle data
+        // the receive stream that will be sent to incomingHandlers to handle data
         private readonly PooledMemoryStream chunkedReceiveStream;
 
         // the raw socket
@@ -35,27 +37,13 @@ namespace ArenaNet.SockNet.Common
         // the current stream
         protected Stream stream;
 
-        // data handlers for incomming and outgoing messages
-        public SockNetChannelPipe InPipe { get; private set; }
-        public SockNetChannelPipe OutPipe { get; private set; }
-
         /// <summary>
-        /// Returns true if this socket is connected.
+        /// Promise fulfiller for attachment.
         /// </summary>
-        public bool IsConnected
-        {
-            get
-            {
-                try
-                {
-                    return State == SockNetState.CONNECTED && (!this.Socket.Poll(1, SelectMode.SelectRead) || this.Socket.Available != 0);
-                }
-                catch
-                {
-                    return false;
-                }
-            }
-        }
+        private PromiseFulfiller<ISockNetChannel> attachPromiseFulfiller = null;
+
+        // data incomingHandlers for incomming and outgoing messages
+        public SockNetChannelPipe Pipe { get; protected set; }
 
         /// <summary>
         /// Returns true if this client is connected and the connection is encrypted.
@@ -93,34 +81,8 @@ namespace ArenaNet.SockNet.Common
         /// <summary>
         /// Gets the current state of the client.
         /// </summary>
-        private int state = -1;
-        public SockNetState State 
-        {
-            get
-            {
-                return (SockNetState)state;
-            }
-        }
-
-        /// <summary>
-        /// A wait handle that can be used to block a thread until this client connects.
-        /// </summary>
-        protected EventWaitHandle connectWaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
-        
-        /// <summary>
-        /// A wait handle that can be used to block a thread until this client disconnects.
-        /// </summary>
-        protected EventWaitHandle disconnectWaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
-
-        /// <summary>
-        /// An event that will be triggered when this client is connected to its IPEndpoint.
-        /// </summary>
-        public event OnConnectedDelegate OnConnect;
-
-        /// <summary>
-        /// An event that will be triggered when this client is disconnected from its IPEndpoint.
-        /// </summary>
-        public event OnDisconnectedDelegate OnDisconnect;
+        private SockNetState state;
+        public SockNetState State { get { return state; } set { state = value; } }
 
         /// <summary>
         /// The current async receive result.
@@ -130,23 +92,17 @@ namespace ArenaNet.SockNet.Common
         protected Semaphore streamWriteSemaphore = new Semaphore(1, 1);
 
         /// <summary>
-        /// Creates a socknet client that can connect to the given address and port using a receive buffer size.
+        /// Creates a base socknet channel given a socket and a buffer pool.
         /// </summary>
-        /// <param name="address"></param>
-        /// <param name="port"></param>
-        /// <param name="bufferSize"></param>
-        public BaseSockNetChannel(Socket socket, int bufferSize = DefaultBufferSize)
+        /// <param name="socket"></param>
+        /// <param name="bufferPool"></param>
+        protected BaseSockNetChannel(Socket socket, ObjectPool<byte[]> bufferPool)
         {
             this.Socket = socket;
 
-            this.connectWaitHandle.Reset();
-
-            this.InPipe = new SockNetChannelPipe(this);
-            this.OutPipe = new SockNetChannelPipe(this);
+            this.Pipe = new SockNetChannelPipe(this);
             
-            this.state = (int)SockNetState.DISCONNECTED;
-
-            this.bufferPool = new ObjectPool<byte[]>(() => { return new byte[bufferSize]; });
+            this.bufferPool = bufferPool;
             this.chunkedReceiveStream = new PooledMemoryStream(bufferPool);
         }
 
@@ -159,7 +115,7 @@ namespace ArenaNet.SockNet.Common
         {
             if (modules.GetOrAdd(module, true))
             {
-                SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, "Installing module: [{0}]", module);
+                SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Installing module: [{0}]", module);
 
                 module.Install(this);
             }
@@ -182,7 +138,7 @@ namespace ArenaNet.SockNet.Common
 
             if (modules.TryRemove(module, out value) && value)
             {
-                SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, "Uninstalling module: [{0}]", module);
+                SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Uninstalling module: [{0}]", module);
 
                 module.Uninstall(this);
             }
@@ -200,62 +156,75 @@ namespace ArenaNet.SockNet.Common
         /// <returns></returns>
         protected bool TryFlaggingAs(SockNetState state, SockNetState previous)
         {
-            return Interlocked.CompareExchange(ref this.state, (int)state, (int)previous) == (int)previous;
+            return Interlocked.CompareExchange<SockNetState>(ref this.state, state, previous) == previous;
         }
 
         /// <summary>
-        /// A callback that gets invoked after we connect.
+        /// Attaches as a non-ssl channel.
         /// </summary>
-        /// <param name="result"></param>
-        public void Attach(bool establishSsl, RemoteCertificateValidationCallback certificateValidationCallback = null)
+        protected Promise<ISockNetChannel> Attach()
         {
             stream = new NetworkStream(Socket, true);
 
-            if (establishSsl)
-            {
-                EnableSsl(certificateValidationCallback);
-            }
-            else
-            {
-                SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, "Reading data from [{0}]...", RemoteEndpoint);
+            SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Reading data from [{0}]...", RemoteEndpoint);
 
-                PooledObject<byte[]> buffer = bufferPool.Borrow();
+            PooledObject<byte[]> buffer = bufferPool.Borrow();
 
-                currentAsyncReceive = stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), buffer);
+            currentAsyncReceive = stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), buffer);
 
-                if (OnConnect != null)
-                {
-                    OnConnect(this);
-                }
+            return (attachPromiseFulfiller = new Promise<ISockNetChannel>(this).CreateFulfiller()).Promise;
+        }
 
-                connectWaitHandle.Set();
-            }
+        /// <summary>
+        /// Attaches as a SSL channel with client auth.
+        /// </summary>
+        /// <param name="certificateValidationCallback"></param>
+        protected Promise<ISockNetChannel> AttachAsSslClient(RemoteCertificateValidationCallback certificateValidationCallback)
+        {
+            stream = new NetworkStream(Socket, true);
+
+            EnableClientSsl(certificateValidationCallback);
+
+            return (attachPromiseFulfiller = new Promise<ISockNetChannel>().CreateFulfiller()).Promise;
+        }
+
+        /// <summary>
+        /// Attaches as a SSL channel with client auth.
+        /// </summary>
+        /// <param name="certificateValidationCallback"></param>
+        protected Promise<ISockNetChannel> AttachAsSslServer(RemoteCertificateValidationCallback certificateValidationCallback, X509Certificate serverCert)
+        {
+            stream = new NetworkStream(Socket, true);
+
+            EnableServerSsl(certificateValidationCallback, serverCert);
+
+            return (attachPromiseFulfiller = new Promise<ISockNetChannel>().CreateFulfiller()).Promise;
         }
 
         /// <summary>
         /// Enables SSL on this connection.
         /// </summary>
         /// <param name="certificateValidationCallback"></param>
-        private void EnableSsl(RemoteCertificateValidationCallback certificateValidationCallback)
+        private void EnableClientSsl(RemoteCertificateValidationCallback certificateValidationCallback)
         {
-            SockNetLogger.Log(SockNetLogger.LogLevel.INFO, "Authenticating SSL with [{0}]...", RemoteEndpoint);
+            SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Authenticating SSL with [{0}]...", RemoteEndpoint);
 
             SslStream sslStream = new SslStream(stream, false, certificateValidationCallback);
-            sslStream.BeginAuthenticateAsClient(RemoteEndpoint.Address.ToString(), new AsyncCallback(EnableSslCallback), sslStream);
+            sslStream.BeginAuthenticateAsClient(RemoteEndpoint.Address.ToString(), new AsyncCallback(EnableClientSslCallback), sslStream);
         }
 
         /// <summary>
         /// A callback the gets invoked after SSL auth completes.
         /// </summary>
         /// <param name="result"></param>
-        private void EnableSslCallback(IAsyncResult result)
+        private void EnableClientSslCallback(IAsyncResult result)
         {
             SslStream sslStream = (SslStream)result.AsyncState;
 
             sslStream.EndAuthenticateAsClient(result);
 
-            SockNetLogger.Log(SockNetLogger.LogLevel.INFO, "Authenticated SSL with [{0}].", RemoteEndpoint);
-            SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, "(SSL) Reading data from [{0}]...", RemoteEndpoint);
+            SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Authenticated SSL with [{0}].", RemoteEndpoint);
+            SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "(SSL) Reading data from [{0}]...", RemoteEndpoint);
 
             this.stream = sslStream;
 
@@ -263,12 +232,41 @@ namespace ArenaNet.SockNet.Common
 
             currentAsyncReceive = stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), buffer);
 
-            if (OnConnect != null)
-            {
-                OnConnect(this);
-            }
+            attachPromiseFulfiller.Fulfill(this);
+        }
 
-            connectWaitHandle.Set();
+        /// <summary>
+        /// Enables SSL on this connection.
+        /// </summary>
+        /// <param name="certificateValidationCallback"></param>
+        private void EnableServerSsl(RemoteCertificateValidationCallback certificateValidationCallback, X509Certificate serverCert)
+        {
+            SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Authenticating SSL with [{0}]...", RemoteEndpoint);
+
+            SslStream sslStream = new SslStream(stream, false, certificateValidationCallback);
+            sslStream.BeginAuthenticateAsServer(serverCert, new AsyncCallback(EnableServerSslCallback), sslStream);
+        }
+
+        /// <summary>
+        /// A callback the gets invoked after SSL auth completes.
+        /// </summary>
+        /// <param name="result"></param>
+        private void EnableServerSslCallback(IAsyncResult result)
+        {
+            SslStream sslStream = (SslStream)result.AsyncState;
+
+            sslStream.EndAuthenticateAsServer(result);
+
+            SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Authenticated SSL with [{0}].", RemoteEndpoint);
+            SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "(SSL) Reading data from [{0}]...", RemoteEndpoint);
+
+            this.stream = sslStream;
+
+            PooledObject<byte[]> buffer = bufferPool.Borrow();
+
+            currentAsyncReceive = stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), buffer);
+
+            attachPromiseFulfiller.Fulfill(this);
         }
 
         /// <summary>
@@ -281,7 +279,7 @@ namespace ArenaNet.SockNet.Common
 
             PooledObject<byte[]> buffer = (PooledObject<byte[]>)result.AsyncState;
 
-            SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, (result.AsyncState is SslStream ? "[SSL] " : "") + "Received [{0}] bytes from [{1}].", count, RemoteEndpoint);
+            SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, (result.AsyncState is SslStream ? "[SSL] " : "") + "Received [{0}] bytes from [{1}].", count, RemoteEndpoint);
 
             if (count > 0)
             {
@@ -295,34 +293,31 @@ namespace ArenaNet.SockNet.Common
 
                     object obj = chunkedReceiveStream;
 
-                    InPipe.HandleMessage(ref obj);
+                    Pipe.HandleIncomingData(ref obj);
                 }
                 catch (Exception ex)
                 {
-                    SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, ex.Message);
+                    SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, ex.Message);
                 }
                 finally
                 {
                     chunkedReceiveStream.Flush();
 
-                    if (IsConnected)
+                    try
                     {
-                        try
-                        {
-                            buffer = bufferPool.Borrow();
+                        buffer = bufferPool.Borrow();
 
-                            currentAsyncReceive = stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), buffer);
-                        }
-                        catch (Exception)
-                        {
-                            Disconnect();
-                        }
+                        currentAsyncReceive = stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), buffer);
+                    }
+                    catch (Exception)
+                    {
+                        Close();
                     }
                 }
             }
             else
             {
-                Disconnect();
+                Close();
             }
         }
 
@@ -332,20 +327,15 @@ namespace ArenaNet.SockNet.Common
         /// <param name="data"></param>
         public void Send(object data)
         {
-            if (State != SockNetState.CONNECTED)
-            {
-                throw new Exception("Must be connected.");
-            }
-
             object obj = data;
 
             try
             {
-                OutPipe.HandleMessage(ref obj);
+                Pipe.HandleOutgoingData(ref obj);
             }
             catch (Exception ex)
             {
-                SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, ex.Message);
+                SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, ex.Message);
             }
             finally
             {
@@ -353,7 +343,7 @@ namespace ArenaNet.SockNet.Common
                 {
                     byte[] rawSendableData = (byte[])obj;
 
-                    SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, (IsConnectionEncrypted ? "[SSL] " : "") + "Sending [{0}] bytes to [{1}]...", rawSendableData.Length, RemoteEndpoint);
+                    SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, (IsConnectionEncrypted ? "[SSL] " : "") + "Sending [{0}] bytes to [{1}]...", rawSendableData.Length, RemoteEndpoint);
 
                     if (streamWriteSemaphore.WaitOne(10000))
                     {
@@ -377,7 +367,7 @@ namespace ArenaNet.SockNet.Common
                 }
                 else
                 {
-                    SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, "Unable to send object: {0}", obj);
+                    SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Unable to send object: {0}", obj);
                 }
             }
         }
@@ -401,7 +391,7 @@ namespace ArenaNet.SockNet.Common
 
             int bytesSending = state.stream.EndRead(result);
 
-            SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, (IsConnectionEncrypted ? "[SSL] " : "") + "Sending [{0}] bytes to [{1}]...", bytesSending, RemoteEndpoint);
+            SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, (IsConnectionEncrypted ? "[SSL] " : "") + "Sending [{0}] bytes to [{1}]...", bytesSending, RemoteEndpoint);
 
             if (streamWriteSemaphore.WaitOne(10000))
             {
@@ -435,7 +425,7 @@ namespace ArenaNet.SockNet.Common
         /// <param name="result"></param>
         private void SendCallback(IAsyncResult result)
         {
-            SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, (result.AsyncState is SslStream ? "[SSL] " : "") + "Sent data to [{0}].", RemoteEndpoint);
+            SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, (result.AsyncState is SslStream ? "[SSL] " : "") + "Sent data to [{0}].", RemoteEndpoint);
 
             if (result.AsyncState is PooledObject<byte[]>)
             {
@@ -453,54 +443,14 @@ namespace ArenaNet.SockNet.Common
         }
 
         /// <summary>
-        /// Disconnects from the IPEndpoint.
+        /// Closes this channel.
         /// </summary>
-        public WaitHandle Disconnect()
-        {
-            if (TryFlaggingAs(SockNetState.DISCONNECTING, SockNetState.CONNECTED))
-            {
-                SockNetLogger.Log(SockNetLogger.LogLevel.INFO, "Disconnecting from [{0}]...", RemoteEndpoint);
-
-                disconnectWaitHandle.Reset();
-
-                Socket.BeginDisconnect(true, new AsyncCallback(DisconnectCallback), Socket);
-            }
-            else
-            {
-                if (OnDisconnect != null)
-                {
-                    OnDisconnect(this);
-                }
-            }
-
-            return disconnectWaitHandle;
-        }
+        /// <returns></returns>
+        public abstract Promise<ISockNetChannel> Close();
 
         /// <summary>
-        /// A callback that gets invoked after we disconnect from the IPEndpoint.
+        /// Returns true if this channel is active.
         /// </summary>
-        /// <param name="result"></param>
-        private void DisconnectCallback(IAsyncResult result)
-        {
-            if (TryFlaggingAs(SockNetState.DISCONNECTED, SockNetState.DISCONNECTING))
-            {
-                SockNetLogger.Log(SockNetLogger.LogLevel.INFO, "Disconnected from [{0}].", RemoteEndpoint);
-
-                ((Socket)result.AsyncState).EndDisconnect(result);
-
-                stream.Close();
-
-                if (OnDisconnect != null)
-                {
-                    OnDisconnect(this);
-                }
-
-                disconnectWaitHandle.Set();
-            }
-            else
-            {
-                throw new Exception("Must be disconnecting.");
-            }
-        }
+        public abstract bool IsActive { get; }
     }
 }

@@ -11,7 +11,7 @@ namespace ArenaNet.SockNet.Common
         /// </summary>
         /// <param name="logLevel"></param>
         /// <param name="text"></param>
-        public delegate void LogSinkDelegate(LogLevel logLevel, string text, params object[] args);
+        public delegate void LogSinkDelegate(LogLevel logLevel, object source, string text, params object[] args);
         
         /// <summary>
         /// Log leves.
@@ -33,20 +33,24 @@ namespace ArenaNet.SockNet.Common
         static SockNetLogger()
         {
             LogSinkLevel = LogLevel.DEBUG;
-            LogSink = (level, message, args) => { Console.WriteLine(System.Enum.GetName(level.GetType(), level) + " - " + string.Format(message, args)); };
+            LogSink = (level, source, message, args) => 
+            { 
+                Console.WriteLine(string.Format("{0:s} - [{1}] ({2}) {3}", DateTime.Now, System.Enum.GetName(level.GetType(), level), source.GetType().Name, string.Format(message, args)));
+            };
         }
 
         /// <summary>
         /// Logs a message.
         /// </summary>
         /// <param name="level"></param>
+        /// <param name="source"></param>
         /// <param name="message"></param>
         /// <param name="args"></param>
-        public static void Log(LogLevel level, string message, params object[] args)
+        public static void Log(LogLevel level, object source, string message, params object[] args)
         {
             if (LogSink != null && (int)level >= (int)LogSinkLevel)
             {
-                LogSink(level, message, args);
+                LogSink(level, source, message, args);
             }
         }
     }

@@ -8,47 +8,14 @@ using ArenaNet.SockNet.Common.Pool;
 namespace ArenaNet.SockNet.Common
 {
     /// <summary>
-    /// State of the SockNetClient
+    /// A socknet channel.
     /// </summary>
-    public enum SockNetState
-    {
-        DISCONNECTING,
-        DISCONNECTED,
-        CONNECTING,
-        CONNECTED,
-    }
-
-    /// <summary>
-    /// A delegate that is used for connect notifications.
-    /// </summary>
-    /// <param name="sockNet"></param>
-    public delegate void OnConnectedDelegate(ISockNetChannel sockNet);
-
-    /// <summary>
-    /// A delegate that is used for disconnect notification.
-    /// </summary>
-    /// <param name="sockNet"></param>
-    public delegate void OnDisconnectedDelegate(ISockNetChannel sockNet);
-
-    /// <summary>
-    /// A delegate that is used for incoming and outgoing data.
-    /// </summary>
-    /// <typeparam name="T"></typeparam>
-    /// <param name="channel"></param>
-    /// <param name="data"></param>
-    public delegate void OnDataDelegate<T>(ISockNetChannel channel, ref T data);
-
     public interface ISockNetChannel
     {
         /// <summary>
-        /// The SockNetPipe for incoming data
+        /// The SockNetPipe.
         /// </summary>
-        SockNetChannelPipe InPipe { get; }
-
-        /// <summary>
-        /// The SockNetPipe for outgoing data
-        /// </summary>
-        SockNetChannelPipe OutPipe { get; }
+        SockNetChannelPipe Pipe { get; }
 
         /// <summary>
         /// The buffer pool
@@ -80,14 +47,14 @@ namespace ArenaNet.SockNet.Common
         ISockNetChannel RemoveModule(ISockNetChannelModule module);
 
         /// <summary>
+        /// Returns true if this channel is active.
+        /// </summary>
+        bool IsActive { get; }
+
+        /// <summary>
         /// Gets the current state
         /// </summary>
         SockNetState State { get; }
-
-        /// <summary>
-        /// Returns true if this channel thinks it's connected
-        /// </summary>
-        bool IsConnected { get; }
 
         /// <summary>
         /// Sends the given message to this channel
@@ -96,19 +63,9 @@ namespace ArenaNet.SockNet.Common
         void Send(object data);
 
         /// <summary>
-        /// An event that will be triggered when this client is connected to its IPEndpoint.
-        /// </summary>
-        event OnConnectedDelegate OnConnect;
-
-        /// <summary>
-        /// An event that will be triggered when this client is disconnected from its IPEndpoint.
-        /// </summary>
-        event OnDisconnectedDelegate OnDisconnect;
-
-        /// <summary>
-        /// Disconnects this channel from the remote endpoint
+        /// Closes this channel.
         /// </summary>
         /// <returns></returns>
-        WaitHandle Disconnect();
+        Promise<ISockNetChannel> Close();
     }
 }

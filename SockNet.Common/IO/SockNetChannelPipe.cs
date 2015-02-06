@@ -6,11 +6,37 @@ using ArenaNet.SockNet.Common.Collections;
 namespace ArenaNet.SockNet.Common.IO
 {
     /// <summary>
+    /// A delegate that is used for notifying when a channel is open.
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <param name="channel"></param>
+    public delegate void OnOpenedDelegate(ISockNetChannel channel);
+
+    /// <summary>
+    /// A delegate that is used for notifying when a channel is open.
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <param name="channel"></param>
+    public delegate void OnClosedDelegate(ISockNetChannel channel);
+
+    /// <summary>
+    /// A delegate that is used for incoming and outgoing data.
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <param name="channel"></param>
+    /// <param name="data"></param>
+    public delegate void OnDataDelegate<T>(ISockNetChannel channel, ref T data);
+
+    /// <summary>
     /// A pipe in SockNet.
     /// </summary>
     public class SockNetChannelPipe
     {
-        private IterableLinkedList<IDelegateReference> handlers = new IterableLinkedList<IDelegateReference>();
+        private IterableLinkedList<OnOpenedDelegate> openedHandlers = new IterableLinkedList<OnOpenedDelegate>();
+        private IterableLinkedList<OnClosedDelegate> closedHandlers = new IterableLinkedList<OnClosedDelegate>();
+
+        private IterableLinkedList<IDelegateReference> incomingHandlers = new IterableLinkedList<IDelegateReference>();
+        private IterableLinkedList<IDelegateReference> outgoingHandlers = new IterableLinkedList<IDelegateReference>();
 
         private ISockNetChannel parent;
 
@@ -24,13 +50,115 @@ namespace ArenaNet.SockNet.Common.IO
         }
 
         /// <summary>
-        /// Handles a message.
+        /// Clones this pipe and sets the given parent.
         /// </summary>
-        public void HandleMessage(ref object message)
+        /// <param name="newParent"></param>
+        /// <returns></returns>
+        public SockNetChannelPipe Clone(ISockNetChannel newParent)
         {
-            lock (handlers)
+            SockNetChannelPipe newPipe = new SockNetChannelPipe(newParent);
+
+            lock (openedHandlers)
             {
-                foreach (IDelegateReference delegateRef in handlers)
+                foreach (OnOpenedDelegate del in openedHandlers)
+                {
+                    newPipe.openedHandlers.AddFirst(del);
+                }
+            }
+
+            lock (closedHandlers)
+            {
+                foreach (OnClosedDelegate del in closedHandlers)
+                {
+                    newPipe.closedHandlers.AddFirst(del);
+                }
+            }
+
+            lock (incomingHandlers)
+            {
+                foreach (IDelegateReference del in incomingHandlers)
+                {
+                    newPipe.incomingHandlers.AddFirst(del);
+                }
+            }
+
+            lock (outgoingHandlers)
+            {
+                foreach (IDelegateReference del in outgoingHandlers)
+                {
+                    newPipe.outgoingHandlers.AddFirst(del);
+                }
+            }
+
+            return newPipe;
+        }
+
+        /// <summary>
+        /// Handles opened channel.
+        /// </summary>
+        public void HandleOpened()
+        {
+            lock (openedHandlers)
+            {
+                foreach (OnOpenedDelegate delegateRef in openedHandlers)
+                {
+                    if (delegateRef != null)
+                    {
+                        delegateRef(parent);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Handles opened channel.
+        /// </summary>
+        public void HandleClosed()
+        {
+            lock (closedHandlers)
+            {
+                foreach (OnClosedDelegate delegateRef in closedHandlers)
+                {
+                    if (delegateRef != null)
+                    {
+                        delegateRef(parent);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Handles outgoing data.
+        /// </summary>
+        public void HandleOutgoingData(ref object message)
+        {
+            lock (outgoingHandlers)
+            {
+                foreach (IDelegateReference delegateRef in outgoingHandlers)
+                {
+                    if (delegateRef != null && delegateRef.DelegateType.IsAssignableFrom(message.GetType()))
+                    {
+                        object[] args = new object[2]
+                                {
+                                  parent,
+                                  message
+                                };
+
+                        delegateRef.Delegate.DynamicInvoke(args);
+                        message = args[1];
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Handles incoming data.
+        /// </summary>
+        public void HandleIncomingData(ref object message)
+        {
+            lock (incomingHandlers)
+            {
+                foreach (IDelegateReference delegateRef in incomingHandlers)
                 {
                     if (delegateRef != null && delegateRef.DelegateType.IsAssignableFrom(message.GetType()))
                     {
@@ -55,11 +183,11 @@ namespace ArenaNet.SockNet.Common.IO
         /// <param name="previous"></param>
         /// <param name="dataDelegate"></param>
         /// <returns></returns>
-        public bool AddBefore<T, R>(OnDataDelegate<T> previous, OnDataDelegate<R> dataDelegate)
+        public bool AddOpenedBefore(OnOpenedDelegate previous, OnOpenedDelegate dataDelegate)
         {
-            lock (handlers)
+            lock (openedHandlers)
             {
-                return handlers.AddBefore(new DelegateReference<T>(previous), new DelegateReference<R>(dataDelegate));
+                return openedHandlers.AddBefore(previous, dataDelegate);
             }
         }
 
@@ -68,11 +196,11 @@ namespace ArenaNet.SockNet.Common.IO
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="dataDelegate"></param>
-        public void AddFirst<T>(OnDataDelegate<T> dataDelegate)
+        public void AddOpenedFirst(OnOpenedDelegate dataDelegate)
         {
-            lock (handlers)
+            lock (openedHandlers)
             {
-                handlers.AddFirst(new DelegateReference<T>(dataDelegate));
+                openedHandlers.AddFirst(dataDelegate);
             }
         }
 
@@ -81,11 +209,11 @@ namespace ArenaNet.SockNet.Common.IO
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="dataDelegate"></param>
-        public void AddLast<T>(OnDataDelegate<T> dataDelegate)
+        public void AddOpenedLast(OnOpenedDelegate dataDelegate)
         {
-            lock (handlers)
+            lock (openedHandlers)
             {
-                handlers.AddLast(new DelegateReference<T>(dataDelegate));
+                openedHandlers.AddLast(dataDelegate);
             }
         }
 
@@ -97,11 +225,155 @@ namespace ArenaNet.SockNet.Common.IO
         /// <param name="next"></param>
         /// <param name="dataDelegate"></param>
         /// <returns></returns>
-        public bool AddAfter<T, R>(OnDataDelegate<T> next, OnDataDelegate<R> dataDelegate)
+        public bool AddOpenedAfter(OnOpenedDelegate next, OnOpenedDelegate dataDelegate)
         {
-            lock (handlers)
+            lock (openedHandlers)
             {
-                return handlers.AddAfter(new DelegateReference<T>(next), new DelegateReference<R>(dataDelegate));
+                return openedHandlers.AddAfter(next, dataDelegate);
+            }
+        }
+
+        /// <summary>
+        /// Removes the given handler.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="dataDelegate"></param>
+        /// <returns></returns>
+        public bool RemoveOpened(OnOpenedDelegate dataDelegate)
+        {
+            lock (openedHandlers)
+            {
+                return openedHandlers.Remove(dataDelegate);
+            }
+        }
+
+        /// <summary>
+        /// Adds a data handler {dataDelegate} before the given handler {previous}.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="R"></typeparam>
+        /// <param name="previous"></param>
+        /// <param name="dataDelegate"></param>
+        /// <returns></returns>
+        public bool AddClosedBefore(OnClosedDelegate previous, OnClosedDelegate dataDelegate)
+        {
+            lock (closedHandlers)
+            {
+                return closedHandlers.AddBefore(previous, dataDelegate);
+            }
+        }
+
+        /// <summary>
+        /// Adds this given data handler as the first handler in the  data handler chain.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="dataDelegate"></param>
+        public void AddClosedFirst(OnClosedDelegate dataDelegate)
+        {
+            lock (closedHandlers)
+            {
+                closedHandlers.AddFirst(dataDelegate);
+            }
+        }
+
+        /// <summary>
+        /// Adds this given data handler as the last handler in the  data handler chain.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="dataDelegate"></param>
+        public void AddClosedLast(OnClosedDelegate dataDelegate)
+        {
+            lock (closedHandlers)
+            {
+                closedHandlers.AddLast(dataDelegate);
+            }
+        }
+
+        /// <summary>
+        /// Adds a data handler {dataDelegate} after the given handler {next}.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="R"></typeparam>
+        /// <param name="next"></param>
+        /// <param name="dataDelegate"></param>
+        /// <returns></returns>
+        public bool AddClosedAfter(OnClosedDelegate next, OnClosedDelegate dataDelegate)
+        {
+            lock (closedHandlers)
+            {
+                return closedHandlers.AddAfter(next, dataDelegate);
+            }
+        }
+
+        /// <summary>
+        /// Removes the given handler.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="dataDelegate"></param>
+        /// <returns></returns>
+        public bool RemoveClosed(OnClosedDelegate dataDelegate)
+        {
+            lock (closedHandlers)
+            {
+                return closedHandlers.Remove(dataDelegate);
+            }
+        }
+
+        /// <summary>
+        /// Adds a data handler {dataDelegate} before the given handler {previous}.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="R"></typeparam>
+        /// <param name="previous"></param>
+        /// <param name="dataDelegate"></param>
+        /// <returns></returns>
+        public bool AddOutgoingBefore<T, R>(OnDataDelegate<T> previous, OnDataDelegate<R> dataDelegate)
+        {
+            lock (outgoingHandlers)
+            {
+                return outgoingHandlers.AddBefore(new DelegateReference<T>(previous), new DelegateReference<R>(dataDelegate));
+            }
+        }
+
+        /// <summary>
+        /// Adds this given data handler as the first handler in the  data handler chain.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="dataDelegate"></param>
+        public void AddOutgoingFirst<T>(OnDataDelegate<T> dataDelegate)
+        {
+            lock (outgoingHandlers)
+            {
+                outgoingHandlers.AddFirst(new DelegateReference<T>(dataDelegate));
+            }
+        }
+
+        /// <summary>
+        /// Adds this given data handler as the last handler in the  data handler chain.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="dataDelegate"></param>
+        public void AddOutgoingLast<T>(OnDataDelegate<T> dataDelegate)
+        {
+            lock (outgoingHandlers)
+            {
+                outgoingHandlers.AddLast(new DelegateReference<T>(dataDelegate));
+            }
+        }
+
+        /// <summary>
+        /// Adds a data handler {dataDelegate} after the given handler {next}.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="R"></typeparam>
+        /// <param name="next"></param>
+        /// <param name="dataDelegate"></param>
+        /// <returns></returns>
+        public bool AddOutgoingAfter<T, R>(OnDataDelegate<T> next, OnDataDelegate<R> dataDelegate)
+        {
+            lock (outgoingHandlers)
+            {
+                return outgoingHandlers.AddAfter(new DelegateReference<T>(next), new DelegateReference<R>(dataDelegate));
             }
         }
 
@@ -111,11 +383,83 @@ namespace ArenaNet.SockNet.Common.IO
         /// <typeparam name="T"></typeparam>
         /// <param name="dataDelegate"></param>
         /// <returns></returns>
-        public bool Remove<T>(OnDataDelegate<T> dataDelegate)
+        public bool RemoveOutgoing<T>(OnDataDelegate<T> dataDelegate)
         {
-            lock (handlers)
+            lock (outgoingHandlers)
             {
-                return handlers.Remove(new DelegateReference<T>(dataDelegate));
+                return outgoingHandlers.Remove(new DelegateReference<T>(dataDelegate));
+            }
+        }
+
+        /// <summary>
+        /// Adds a data handler {dataDelegate} before the given handler {previous}.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="R"></typeparam>
+        /// <param name="previous"></param>
+        /// <param name="dataDelegate"></param>
+        /// <returns></returns>
+        public bool AddIncomingBefore<T, R>(OnDataDelegate<T> previous, OnDataDelegate<R> dataDelegate)
+        {
+            lock (incomingHandlers)
+            {
+                return incomingHandlers.AddBefore(new DelegateReference<T>(previous), new DelegateReference<R>(dataDelegate));
+            }
+        }
+
+        /// <summary>
+        /// Adds this given data handler as the first handler in the  data handler chain.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="dataDelegate"></param>
+        public void AddIncomingFirst<T>(OnDataDelegate<T> dataDelegate)
+        {
+            lock (incomingHandlers)
+            {
+                incomingHandlers.AddFirst(new DelegateReference<T>(dataDelegate));
+            }
+        }
+
+        /// <summary>
+        /// Adds this given data handler as the last handler in the  data handler chain.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="dataDelegate"></param>
+        public void AddIncomingLast<T>(OnDataDelegate<T> dataDelegate)
+        {
+            lock (incomingHandlers)
+            {
+                incomingHandlers.AddLast(new DelegateReference<T>(dataDelegate));
+            }
+        }
+
+        /// <summary>
+        /// Adds a data handler {dataDelegate} after the given handler {next}.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <typeparam name="R"></typeparam>
+        /// <param name="next"></param>
+        /// <param name="dataDelegate"></param>
+        /// <returns></returns>
+        public bool AddIncomingAfter<T, R>(OnDataDelegate<T> next, OnDataDelegate<R> dataDelegate)
+        {
+            lock (incomingHandlers)
+            {
+                return incomingHandlers.AddAfter(new DelegateReference<T>(next), new DelegateReference<R>(dataDelegate));
+            }
+        }
+
+        /// <summary>
+        /// Removes the given handler.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="dataDelegate"></param>
+        /// <returns></returns>
+        public bool RemoveIncoming<T>(OnDataDelegate<T> dataDelegate)
+        {
+            lock (incomingHandlers)
+            {
+                return incomingHandlers.Remove(new DelegateReference<T>(dataDelegate));
             }
         }
 

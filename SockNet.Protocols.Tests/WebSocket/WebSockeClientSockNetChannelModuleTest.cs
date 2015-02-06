@@ -23,14 +23,14 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
             ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(new IPEndPoint(Dns.GetHostEntry("echo.websocket.org").AddressList[0], 80))
                 .AddModule(new WebSocketClientSockNetChannelModule("/", "echo.websocket.org", (ISockNetChannel sockNetClient) => { blockingCollection.Add(true); }));
 
-            client.Connect().WaitOne(TimeSpan.FromSeconds(5));
+            client.Connect().WaitForValue(TimeSpan.FromSeconds(5));
 
             object currentObject;
 
             Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
             Assert.IsTrue((bool)currentObject);
 
-            client.InPipe.AddLast<WebSocketFrame>((ISockNetChannel sockNetClient, ref WebSocketFrame data) => { blockingCollection.Add(data); });
+            client.Pipe.AddIncomingLast<WebSocketFrame>((ISockNetChannel sockNetClient, ref WebSocketFrame data) => { blockingCollection.Add(data); });
 
             client.Send(WebSocketFrame.CreateTextFrame("some test", true));
 
@@ -41,7 +41,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
             Console.WriteLine("Got response: \n" + ((WebSocketFrame)currentObject).DataAsString);
 
-            client.Disconnect().WaitOne(TimeSpan.FromSeconds(5));
+            client.Disconnect().WaitForValue(TimeSpan.FromSeconds(5));
         }
 
         [TestMethod]
@@ -53,14 +53,14 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
                 .AddModule(new WebSocketClientSockNetChannelModule("/", "echo.websocket.org", (ISockNetChannel sockNetClient) => { blockingCollection.Add(true); }));
 
             client.ConnectWithTLS((object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => { return true; })
-                .WaitOne(TimeSpan.FromSeconds(5));
+                .WaitForValue(TimeSpan.FromSeconds(5));
 
             object currentObject;
 
             Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
             Assert.IsTrue((bool)currentObject);
 
-            client.InPipe.AddLast<WebSocketFrame>((ISockNetChannel sockNetClient, ref WebSocketFrame data) => { blockingCollection.Add(data); });
+            client.Pipe.AddIncomingLast<WebSocketFrame>((ISockNetChannel sockNetClient, ref WebSocketFrame data) => { blockingCollection.Add(data); });
 
             client.Send(WebSocketFrame.CreateTextFrame("some test", true));
 
@@ -71,7 +71,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
             Console.WriteLine("Got response: \n" + ((WebSocketFrame)currentObject).DataAsString);
 
-            client.Disconnect().WaitOne(TimeSpan.FromSeconds(5));
+            client.Disconnect().WaitForValue(TimeSpan.FromSeconds(5));
         }
 
         [TestMethod]
@@ -82,14 +82,14 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
             ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(new IPEndPoint(Dns.GetHostEntry("echo.websocket.org").AddressList[0], 80))
                 .AddModule(new WebSocketClientSockNetChannelModule("/", "echo.websocket.org", (ISockNetChannel sockNetClient) => { blockingCollection.Add(true); }));
 
-            client.Connect().WaitOne(TimeSpan.FromSeconds(5));
+            client.Connect().WaitForValue(TimeSpan.FromSeconds(5));
 
             object currentObject;
 
             Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
             Assert.IsTrue((bool)currentObject);
 
-            client.InPipe.AddLast<WebSocketFrame>((ISockNetChannel sockNetClient, ref WebSocketFrame data) => { blockingCollection.Add(data); });
+            client.Pipe.AddIncomingLast<WebSocketFrame>((ISockNetChannel sockNetClient, ref WebSocketFrame data) => { blockingCollection.Add(data); });
 
             client.Send(WebSocketFrame.CreateTextFrame("some test", true));
 
@@ -100,7 +100,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
             Console.WriteLine("Got response: \n" + ((WebSocketFrame)currentObject).DataAsString);
 
-            client.Disconnect().WaitOne(TimeSpan.FromSeconds(5));
+            client.Disconnect().WaitForValue(TimeSpan.FromSeconds(5));
         }
     }
 }

@@ -23,11 +23,11 @@ namespace ArenaNet.SockNet.Client
 
             ClientSockNetChannel client = SockNetClient.Create(new IPEndPoint(Dns.GetHostEntry("www.guildwars2.com").AddressList[0], 80));
 
-            client.Connect().WaitOne(TimeSpan.FromSeconds(5));
+            client.Connect().WaitForValue(TimeSpan.FromSeconds(5));
 
             object currentObject;
 
-            client.InPipe.AddFirst<Stream>((ISockNetChannel sockNetClient, ref Stream data) => { blockingCollection.Add(data); });
+            client.Pipe.AddIncomingFirst<Stream>((ISockNetChannel sockNetClient, ref Stream data) => { blockingCollection.Add(data); });
 
             client.Send(Encoding.UTF8.GetBytes("GET / HTTP/1.1\r\nHost: www.guildwars2.com\r\n\r\n"));
 
@@ -36,7 +36,7 @@ namespace ArenaNet.SockNet.Client
 
             Console.WriteLine("Got response: \n" + new StreamReader((Stream)currentObject, Encoding.UTF8).ReadToEnd());
 
-            client.Disconnect().WaitOne(TimeSpan.FromSeconds(5));
+            client.Disconnect().WaitForValue(TimeSpan.FromSeconds(5));
         }
 
         [TestMethod]
@@ -44,13 +44,13 @@ namespace ArenaNet.SockNet.Client
         {
             BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
 
-            ClientSockNetChannel client = SockNetClient.Create(new IPEndPoint(Dns.GetHostEntry("www.guildwars2.com").AddressList[0], 80), false, 32, 10);
+            ClientSockNetChannel client = SockNetClient.Create(new IPEndPoint(Dns.GetHostEntry("www.guildwars2.com").AddressList[0], 80), false, 32);
 
-            client.Connect().WaitOne(TimeSpan.FromSeconds(5));
+            client.Connect().WaitForValue(TimeSpan.FromSeconds(5));
 
             object currentObject;
 
-            client.InPipe.AddFirst<Stream>((ISockNetChannel sockNetClient, ref Stream data) => { blockingCollection.Add(data); });
+            client.Pipe.AddIncomingFirst<Stream>((ISockNetChannel sockNetClient, ref Stream data) => { blockingCollection.Add(data); });
 
             PooledMemoryStream sendStream = new PooledMemoryStream(client.BufferPool);
             byte[] sendData = Encoding.UTF8.GetBytes("GET / HTTP/1.1\r\nHost: www.guildwars2.com\r\n\r\n");
@@ -64,7 +64,7 @@ namespace ArenaNet.SockNet.Client
 
             Console.WriteLine("Got response: \n" + new StreamReader((Stream)currentObject, Encoding.UTF8).ReadToEnd());
 
-            client.Disconnect().WaitOne(TimeSpan.FromSeconds(5));
+            client.Disconnect().WaitForValue(TimeSpan.FromSeconds(5));
         }
 
         [TestMethod]
@@ -75,11 +75,11 @@ namespace ArenaNet.SockNet.Client
             ClientSockNetChannel client = SockNetClient.Create(new IPEndPoint(Dns.GetHostEntry("www.guildwars2.com").AddressList[0], 443));
 
             client.ConnectWithTLS((object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => { return true; })
-                .WaitOne(TimeSpan.FromSeconds(5));
+                .WaitForValue(TimeSpan.FromSeconds(5));
 
             object currentObject;
 
-            client.InPipe.AddFirst<Stream>((ISockNetChannel sockNetClient, ref Stream data) => { blockingCollection.Add(data); });
+            client.Pipe.AddIncomingFirst<Stream>((ISockNetChannel sockNetClient, ref Stream data) => { blockingCollection.Add(data); });
 
             client.Send(Encoding.UTF8.GetBytes("GET / HTTP/1.1\r\nHost: www.guildwars2.com\r\n\r\n"));
 
@@ -88,7 +88,7 @@ namespace ArenaNet.SockNet.Client
 
             Console.WriteLine("Got response: \n" + new StreamReader((Stream)currentObject, Encoding.UTF8).ReadToEnd());
 
-            client.Disconnect().WaitOne(TimeSpan.FromSeconds(5));
+            client.Disconnect().WaitForValue(TimeSpan.FromSeconds(5));
         }
     }
 }

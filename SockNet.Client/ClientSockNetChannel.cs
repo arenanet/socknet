@@ -4,9 +4,33 @@ using System.Net.Security;
 using System.Net.Sockets;
 using System.Threading;
 using ArenaNet.SockNet.Common;
+using ArenaNet.SockNet.Common.Pool;
 
 namespace ArenaNet.SockNet.Client
 {
+    /// <summary>
+    /// States for this socknet channel.
+    /// </summary>
+    public class ClientSockNetChannelStates : SockNetStates
+    {
+        private static int NumberOfStates = 0;
+
+        public static SockNetState CONNECTING = new SockNetState("CONNECTING", NumberOfStates++);
+        public static SockNetState CONNECTED = new SockNetState("CONNECTED", NumberOfStates++);
+        public static SockNetState DISCONNECTING = new SockNetState("DISCONNECTING", NumberOfStates++);
+        public static SockNetState DISCONNECTED = new SockNetState("DISCONNECTED", NumberOfStates++);
+
+        public static ClientSockNetChannelStates Instance { get; set; }
+        static ClientSockNetChannelStates()
+        {
+            Instance = new ClientSockNetChannelStates(CONNECTING, CONNECTED, DISCONNECTING, DISCONNECTED);
+        }
+
+        public ClientSockNetChannelStates(params SockNetState[] states) : base(states)
+        { 
+        }
+    }
+
     /// <summary>
     /// A channel that can be used to connect to remote endpoints
     /// </summary>
@@ -18,23 +42,50 @@ namespace ArenaNet.SockNet.Client
         private RemoteCertificateValidationCallback certificateValidationCallback;
 
         /// <summary>
-        /// Creates a socknet client that can connect to the given address and port using a receive buffer size.
+        /// Returns true if this channel is active.
+        /// </summary>
+        public override bool IsActive { get { return IsConnected; } }
+
+        /// <summary>
+        /// Returns true if this socket is connected.
+        /// </summary>
+        public bool IsConnected
+        {
+            get
+            {
+                try
+                {
+                    return State == ClientSockNetChannelStates.CONNECTED && (!this.Socket.Poll(1, SelectMode.SelectRead) || this.Socket.Available != 0);
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Creates a socknet client that can connect to the given address and port using the given buffer pool.
         /// </summary>
         /// <param name="address"></param>
         /// <param name="port"></param>
-        /// <param name="bufferSize"></param>
-        internal ClientSockNetChannel(IPAddress address, int port, int bufferSize = BaseSockNetChannel.DefaultBufferSize) : this(new IPEndPoint(address, port), bufferSize)
+        /// <param name="bufferPool"></param>
+        public ClientSockNetChannel(IPAddress address, int port, ObjectPool<byte[]> bufferPool)
+            : this(new IPEndPoint(address, port), bufferPool)
         {
         }
 
         /// <summary>
-        /// Creates a SockNet client with an endpoint and a receive buffer size.
+        /// Creates a SockNet client with an endpoint and a buffer pool
         /// </summary>
         /// <param name="endpoint"></param>
-        /// <param name="bufferSize"></param>
-        internal ClientSockNetChannel(IPEndPoint endpoint, int bufferSize = BaseSockNetChannel.DefaultBufferSize) : base(new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp), bufferSize)
+        /// <param name="bufferPool"></param>
+        public ClientSockNetChannel(IPEndPoint endpoint, ObjectPool<byte[]> bufferPool) :
+            base(new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp), bufferPool)
         {
             this.connectEndpoint = endpoint;
+
+            this.State = ClientSockNetChannelStates.DISCONNECTED;
         }
 
         /// <summary>
@@ -64,7 +115,7 @@ namespace ArenaNet.SockNet.Client
         /// <summary>
         /// Attempts to connect to the configured IPEndpoint and performs a TLS handshake.
         /// </summary>
-        public WaitHandle ConnectWithTLS(RemoteCertificateValidationCallback certificateValidationCallback)
+        public Promise<ISockNetChannel> ConnectWithTLS(RemoteCertificateValidationCallback certificateValidationCallback)
         {
             return Connect(true, certificateValidationCallback);
         }
@@ -72,7 +123,7 @@ namespace ArenaNet.SockNet.Client
         /// <summary>
         /// Attempts to connect to the configured IPEndpoint.
         /// </summary>
-        public WaitHandle Connect()
+        public Promise<ISockNetChannel> Connect()
         {
             return Connect(false, null);
         }
@@ -83,23 +134,25 @@ namespace ArenaNet.SockNet.Client
         /// <param name="isSsl"></param>
         /// <param name="certificateValidationCallback"></param>
         /// <returns></returns>
-        private WaitHandle Connect(bool isSsl, RemoteCertificateValidationCallback certificateValidationCallback)
+        private Promise<ISockNetChannel> Connect(bool isSsl, RemoteCertificateValidationCallback certificateValidationCallback)
         {
-            if (TryFlaggingAs(SockNetState.CONNECTING, SockNetState.DISCONNECTED))
+            Promise<ISockNetChannel> promise = new Promise<ISockNetChannel>();
+
+            if (TryFlaggingAs(ClientSockNetChannelStates.CONNECTING, ClientSockNetChannelStates.DISCONNECTED))
             {
-                SockNetLogger.Log(SockNetLogger.LogLevel.INFO, "Connecting to [{0}]...", connectEndpoint);
+                SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Connecting to [{0}]...", connectEndpoint);
 
                 this.isSsl = isSsl;
                 this.certificateValidationCallback = certificateValidationCallback;
 
-                Socket.BeginConnect((EndPoint)connectEndpoint, new AsyncCallback(ConnectCallback), Socket);
+                Socket.BeginConnect((EndPoint)connectEndpoint, new AsyncCallback(ConnectCallback), promise);
             }
             else
             {
                 throw new Exception("The client is already connected.");
             }
 
-            return connectWaitHandle;
+            return promise;
         }
 
         /// <summary>
@@ -108,18 +161,93 @@ namespace ArenaNet.SockNet.Client
         /// <param name="result"></param>
         private void ConnectCallback(IAsyncResult result)
         {
-            if (TryFlaggingAs(SockNetState.CONNECTED, SockNetState.CONNECTING))
+            if (TryFlaggingAs(ClientSockNetChannelStates.CONNECTED, ClientSockNetChannelStates.CONNECTING))
             {
-                SockNetLogger.Log(SockNetLogger.LogLevel.INFO, "Connected to [{0}].", connectEndpoint);
+                SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Connected to [{0}].", connectEndpoint);
 
                 Socket.EndConnect(result);
 
-                Attach(isSsl, certificateValidationCallback);
+                // create inital fake promise fulfilment delegate
+                Promise<ISockNetChannel>.OnFulfilledDelegate onFulfilled = new Promise<ISockNetChannel>.OnFulfilledDelegate(
+                    (ISockNetChannel value, Exception e, Promise<ISockNetChannel> promise) => { });
+
+                onFulfilled = (ISockNetChannel value, Exception e, Promise<ISockNetChannel> promise) =>
+                {
+                    promise.OnFulfilled -= onFulfilled;
+
+                    Pipe.HandleOpened();
+
+                    ((Promise<ISockNetChannel>)result.AsyncState).CreateFulfiller().Fulfill(this);
+                };
+
+                if (isSsl)
+                {
+                    AttachAsSslClient(certificateValidationCallback).OnFulfilled += onFulfilled;
+                }
+                else
+                {
+                    Attach().OnFulfilled += onFulfilled;
+                }
             }
             else
             {
                 throw new Exception("The client isn't connecting.");
             }
+        }
+
+        /// <summary>
+        /// Disconnects from the IPEndpoint.
+        /// </summary>
+        public Promise<ISockNetChannel> Disconnect()
+        {
+            Promise<ISockNetChannel> promise = new Promise<ISockNetChannel>();
+
+            if (TryFlaggingAs(ClientSockNetChannelStates.DISCONNECTING, ClientSockNetChannelStates.CONNECTED))
+            {
+                SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Disconnecting from [{0}]...", RemoteEndpoint);
+
+                Socket.BeginDisconnect(true, new AsyncCallback(DisconnectCallback), promise);
+            }
+            else
+            {
+                promise.CreateFulfiller().Fulfill(this);
+            }
+
+            return promise;
+        }
+
+        /// <summary>
+        /// A callback that gets invoked after we disconnect from the IPEndpoint.
+        /// </summary>
+        /// <param name="result"></param>
+        private void DisconnectCallback(IAsyncResult result)
+        {
+            if (TryFlaggingAs(ClientSockNetChannelStates.DISCONNECTED, ClientSockNetChannelStates.DISCONNECTING))
+            {
+                SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Disconnected from [{0}]", RemoteEndpoint);
+
+                Socket.EndDisconnect(result);
+
+                stream.Close();
+
+                Pipe.HandleClosed();
+
+                Promise<ISockNetChannel> promise = (Promise<ISockNetChannel>)result.AsyncState;
+                promise.CreateFulfiller().Fulfill(this);
+            }
+            else
+            {
+                throw new Exception("Must be disconnecting.");
+            }
+        }
+
+        /// <summary>
+        /// Closes this channel.
+        /// </summary>
+        /// <returns></returns>
+        public override Promise<ISockNetChannel> Close()
+        {
+            return Disconnect();
         }
     }
 }

@@ -4,11 +4,11 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{409023E0-1369-4F59-8A30-EBDC6B84FCEE}</ProjectGuid>
+    <ProjectGuid>{C65DF4CD-1B0F-4B5D-97F5-48FD082CB685}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>ArenaNet.SockNet.Common</RootNamespace>
-    <AssemblyName>SockNet.Common</AssemblyName>
+    <RootNamespace>ArenaNet.SockNet.Server</RootNamespace>
+    <AssemblyName>SockNet.Server</AssemblyName>
     <TargetFrameworkVersion>v2.0</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
@@ -34,25 +34,17 @@
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="SockNetState.cs" />
-    <Compile Include="Collections\ConcurrentDictionary.cs" />
-    <Compile Include="Collections\ConcurrentQueue.cs" />
-    <Compile Include="Collections\ConditionalWeakTable.cs" />
-    <Compile Include="Collections\IProducerConsumerCollection.cs" />
-    <Compile Include="Collections\IterableLinkedList.cs" />
-    <Compile Include="ISockNetChannel.cs" />
-    <Compile Include="ISockNetChannelModule.cs" />
-    <Compile Include="Pool\ObjectPool.cs" />
-    <Compile Include="IO\PooledMemoryStream.cs" />
-    <Compile Include="Pool\PooledObject.cs" />
-    <Compile Include="IO\SockNetChannelPipe.cs" />
-    <Compile Include="Promise.cs" />
+    <Compile Include="RemoteSockNetChannel.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="BaseSockNetChannel.cs" />
-    <Compile Include="SockNetLogger.cs" />
-    <Compile Include="Threading\Volatile.cs" />
+    <Compile Include="ServerSockNetChannel.cs" />
+    <Compile Include="SockNetServer.cs" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <ProjectReference Include="..\SockNet.Common\SockNet.Common.csproj">
+      <Project>{409023e0-1369-4f59-8a30-ebdc6b84fcee}</Project>
+      <Name>SockNet.Common</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
