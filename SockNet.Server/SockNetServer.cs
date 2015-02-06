@@ -12,10 +12,6 @@ namespace ArenaNet.SockNet.Server
     /// </summary>
     public static class SockNetServer
     {
-        public const int DefaultBufferSize = 1024;
-
-        private static readonly ObjectPool<byte[]> SharedPool = new ObjectPool<byte[]>(() => { return new byte[DefaultBufferSize]; });
-
         public static ServerSockNetChannel Create(IPAddress bindAddress, int bindPort, int backlog = ServerSockNetChannel.DefaultBacklog)
         {
             return Create(new IPEndPoint(bindAddress, bindPort), backlog);
@@ -24,7 +20,7 @@ namespace ArenaNet.SockNet.Server
         public static ServerSockNetChannel Create(IPEndPoint bindEndpoint, int backlog = ServerSockNetChannel.DefaultBacklog)
         {
             // TODO possibly track?
-            return new ServerSockNetChannel(bindEndpoint, SharedPool, backlog);
+            return new ServerSockNetChannel(bindEndpoint, BaseSockNetChannel.GlobalBufferPool, backlog);
         }
     }
 }

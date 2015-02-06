@@ -49,25 +49,7 @@ namespace ArenaNet.SockNet.Server
         /// <summary>
         /// Returns true if this channel is active.
         /// </summary>
-        public override bool IsActive { get { return IsConnected; } }
-
-        /// <summary>
-        /// Returns true if this socket is connected.
-        /// </summary>
-        public bool IsConnected
-        {
-            get
-            {
-                try
-                {
-                    return State == ServerSockNetChannelStates.BOUND;
-                }
-                catch
-                {
-                    return false;
-                }
-            }
-        }
+        public override bool IsActive { get { return State == ServerSockNetChannelStates.BOUND; } }
 
         private IPEndPoint bindEndpoint = null;
         private int backlog;
@@ -220,6 +202,8 @@ namespace ArenaNet.SockNet.Server
                 Socket.Close();
 
                 this.State = ServerSockNetChannelStates.CLOSED;
+
+                SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Not bound to [{0}].", bindEndpoint);
             }
 
             return new Promise<ISockNetChannel>(this);

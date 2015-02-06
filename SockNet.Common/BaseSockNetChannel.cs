@@ -20,6 +20,7 @@ namespace ArenaNet.SockNet.Common
     public abstract class BaseSockNetChannel : ISockNetChannel
     {
         public const int DefaultBufferSize = 1024;
+        public static readonly ObjectPool<byte[]> GlobalBufferPool = new ObjectPool<byte[]>(() => { return new byte[DefaultBufferSize]; });
 
         // the pool for byte chunks
         private readonly ObjectPool<byte[]> bufferPool;
