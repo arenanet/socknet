@@ -6,13 +6,23 @@ using ArenaNet.SockNet.Common.Pool;
 
 namespace ArenaNet.SockNet.Common.IO
 {
+    /// <summary>
+    /// A memory stream that uses an ObjectPool of byte arrays to chain data blobs.
+    /// </summary>
     public class PooledMemoryStream : Stream
     {
         private ObjectPool<byte[]> pool = null;
 
         private bool isClosed = false;
 
+        /// <summary>
+        /// The root in the memory chunk chain
+        /// </summary>
         private MemoryChunk rootChunk;
+
+        /// <summary>
+        /// Represents a memory chunk in the chain.
+        /// </summary>
         private class MemoryChunk
         {
             public PooledObject<byte[]> pooledBytes;
@@ -22,28 +32,45 @@ namespace ArenaNet.SockNet.Common.IO
             public MemoryChunk next;
         }
 
+        /// <summary>
+        /// Returns true if this stream is readable
+        /// </summary>
         public override bool CanRead
         {
             get { return !isClosed; }
         }
 
+        /// <summary>
+        /// Returns true if this stream can stream.
+        /// </summary>
         public override bool CanSeek
         {
-            get { return false; }
+            get { return !isClosed; }
         }
 
+        /// <summary>
+        /// Returns true if this stream is writable.
+        /// </summary>
         public override bool CanWrite
         {
             get { return !isClosed; }
         }
 
         private long length = 0;
+
+        /// <summary>
+        /// The length of data in this tream
+        /// </summary>
         public override long Length
         {
             get { return length; }
         }
 
         private long position = 0;
+
+        /// <summary>
+        /// The position the stream is in
+        /// </summary>
         public override long Position
         {
             get
@@ -56,11 +83,18 @@ namespace ArenaNet.SockNet.Common.IO
             }
         }
 
+        /// <summary>
+        /// Creates a pooled memory stream with the given pool.
+        /// </summary>
+        /// <param name="pool"></param>
         public PooledMemoryStream(ObjectPool<byte[]> pool)
         {
             this.pool = pool;
         }
 
+        /// <summary>
+        /// Closes this stream and returns all pooled memory chunks into the pool.
+        /// </summary>
         public override void Close()
         {
             base.Close();
@@ -75,6 +109,9 @@ namespace ArenaNet.SockNet.Common.IO
             }
         }
 
+        /// <summary>
+        /// Flushes this stream and clears any read pooled memory chunks.
+        /// </summary>
         public override void Flush()
         {
             lock (this)
@@ -99,6 +136,13 @@ namespace ArenaNet.SockNet.Common.IO
             }
         }
 
+        /// <summary>
+        /// Reads data into the given buffer from the current position.
+        /// </summary>
+        /// <param name="buffer"></param>
+        /// <param name="offset"></param>
+        /// <param name="count"></param>
+        /// <returns></returns>
         public override int Read(byte[] buffer, int offset, int count)
         {
             lock (this)
@@ -146,18 +190,62 @@ namespace ArenaNet.SockNet.Common.IO
             }
         }
 
+        /// <summary>
+        /// Seeks the current position
+        /// </summary>
+        /// <param name="offset"></param>
+        /// <param name="origin"></param>
+        /// <returns></returns>
         public override long Seek(long offset, SeekOrigin origin)
         {
-            throw new NotSupportedException();
+            lock (this)
+            {
+                switch (origin)
+                {
+                    case SeekOrigin.Begin:
+                        Position = offset;
+                        break;
+                    case SeekOrigin.Current:
+                        Position += offset;
+                        break;
+                    case SeekOrigin.End:
+                        long newPosition = Length + offset;
+
+                        if (newPosition > Length)
+                        {
+                            throw new Exception("Applied offset to position exceeds length.");
+                        }
+
+                        Position = newPosition;
+                        break;
+                }
+            }
+
+            return Position;
         }
 
+        /// <summary>
+        /// Sets the length of the stream. Note: Trucation is not supported.
+        /// </summary>
+        /// <param name="value"></param>
         public override void SetLength(long value)
         {
             throw new NotSupportedException();
         }
 
+        /// <summary>
+        /// Affers a pooled memory chunk to this stream.
+        /// </summary>
+        /// <param name="pooledBytes"></param>
+        /// <param name="offset"></param>
+        /// <param name="count"></param>
         public void OfferChunk(PooledObject<byte[]> pooledBytes, int offset, int count)
         {
+            if (pooledBytes.Pool != pool)
+            {
+                throw new Exception("The given pooled object does not beong to ths pool that is assigned to this stream.");
+            }
+
             MemoryChunk chunk = new MemoryChunk()
             {
                 pooledBytes = pooledBytes,
@@ -169,6 +257,12 @@ namespace ArenaNet.SockNet.Common.IO
             AppendChunk(chunk);
         }
 
+        /// <summary>
+        /// Writes the given data into this stream.
+        /// </summary>
+        /// <param name="buffer"></param>
+        /// <param name="offset"></param>
+        /// <param name="count"></param>
         public override void Write(byte[] buffer, int offset, int count)
         {
             lock (this)
@@ -193,6 +287,10 @@ namespace ArenaNet.SockNet.Common.IO
             }
         }
 
+        /// <summary>
+        /// Appeds the given chunk to this stream.
+        /// </summary>
+        /// <param name="chunk"></param>
         private void AppendChunk(MemoryChunk chunk)
         {
             lock (this)
