@@ -6,7 +6,6 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{C65DF4CD-1B0F-4B5D-97F5-48FD082CB685}</ProjectGuid>
     <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>ArenaNet.SockNet.Server</RootNamespace>
     <AssemblyName>SockNet.Server</AssemblyName>
     <TargetFrameworkVersion>v2.0</TargetFrameworkVersion>
@@ -35,7 +34,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="RemoteSockNetChannel.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ServerSockNetChannel.cs" />
     <Compile Include="SockNetServer.cs" />
   </ItemGroup>

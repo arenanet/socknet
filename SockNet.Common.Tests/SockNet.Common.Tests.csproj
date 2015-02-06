@@ -5,7 +5,6 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{54C15C1B-D296-41C4-9653-C48D3CDF1B0A}</ProjectGuid>
     <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>ArenaNet.SockNet.Common</RootNamespace>
     <AssemblyName>SockNet.Common.Tests</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
@@ -53,7 +52,6 @@
   <ItemGroup>
     <Compile Include="IO\ObjectPoolTest.cs" />
     <Compile Include="IO\PooledMemoryStreamTest.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\SockNet.Common\SockNet.Common.csproj">

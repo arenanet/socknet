@@ -6,7 +6,6 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{D51E44CA-A6CF-401F-BD8E-C1CD1CB0FD16}</ProjectGuid>
     <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>ArenaNet.SockNet.Protocols</RootNamespace>
     <AssemblyName>SockNet.Protocols</AssemblyName>
     <TargetFrameworkVersion>v2.0</TargetFrameworkVersion>
@@ -34,7 +33,6 @@
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="WebSocket\WebSocketFrame.cs" />
     <Compile Include="WebSocket\WebSocketClientSockNetChannelModule.cs" />
   </ItemGroup>
