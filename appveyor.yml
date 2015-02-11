@@ -1,4 +1,27 @@
 version: 1.0.{build}
+nuget:
+  account_feed: true
+  project_feed: true
 build:
   project: SockNet.sln
   verbosity: minimal
+artifacts:
+- path: '**\*.dll'
+- path: '**\*.nupkg'
+deploy_script:
+- ps: >-
+    nuget pack SockNet.Common\SockNet.Common.csproj
+
+    nuget pack SockNet.Client\SockNet.Client.csproj
+
+    nuget pack SockNet.Server\SockNet.Server.csproj
+
+    nuget pack SockNet.Protocols\SockNet.Protocols.csproj
+
+    appveyor PushArtifact SockNet.Common\SockNet.Common.nupkg
+
+    appveyor PushArtifact SockNet.Client\SockNet.Client.nupkg
+
+    appveyor PushArtifact SockNet.Server\SockNet.Server.nupkg
+
+    appveyor PushArtifact SockNet.Protocols\SockNet.Protocols.nupkg
