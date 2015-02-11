@@ -4,7 +4,7 @@ Tests for [SockNet.Protocols](https://github.com/arenanet/socknet/tree/master/So
 
 ## Bugs and Feedback
 
-For bugs, questions and discussions please use the [Github Issues](https://github.com/ArenaNet/SockNet/issues).
+For bugs, questions and discussions please use the [GitHub Issues](https://github.com/ArenaNet/SockNet/issues).
 
 ## LICENSE
 

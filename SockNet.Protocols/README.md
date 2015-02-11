@@ -10,7 +10,7 @@ Bellow is a list of modules implemented by this library:
 
 ## Bugs and Feedback
 
-For bugs, questions and discussions please use the [Github Issues](https://github.com/ArenaNet/SockNet/issues).
+For bugs, questions and discussions please use the [GitHub Issues](https://github.com/ArenaNet/SockNet/issues).
 
 ## LICENSE
 
