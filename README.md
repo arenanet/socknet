@@ -1,6 +1,6 @@
 SockNet
 =====
-[![Build Status](https://travis-ci.org/arenanet/socknet.svg)](https://travis-ci.org/arenanet/socknet)
+[![Build status](https://ci.appveyor.com/api/projects/status/ygnc2qccn8mm5aqt?svg=true)](https://ci.appveyor.com/project/elvirb/socknet)
 
 A powerful, yet simple, asynchronous network application framework used for implementing low-latency and high-performance servers and clients.
 
