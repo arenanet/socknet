@@ -2,9 +2,9 @@ SockNet
 =====
 [![Build status](https://ci.appveyor.com/api/projects/status/ygnc2qccn8mm5aqt?svg=true)](https://ci.appveyor.com/project/elvirb/socknet)
 
-A powerful, yet simple, asynchronous network application framework used for implementing low-latency and high-performance servers and clients.
+A powerful, yet simple, asynchronous network application framework used for implementing low-latency and high-performance server and client applications.
 
-<b>Note:</b> These libraries depend on the .NET 2.0 Framework have been safely tested to work with Unity.
+<b>Note:</b> SockNet depends on the .NET 2.0 Framework and has been tested to work with Unity 3D.
 
 Getting Started
 ==========
