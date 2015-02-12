@@ -31,7 +31,7 @@ try
 	object currentObject;
 	blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT);
 
-	if (currentObject != null) 
+	if (currentObject == null) 
 	{
 		throw new Exception("Receive timeout.")
 	}
@@ -42,7 +42,7 @@ try
 finally
 {
 	// disconnect
-	if (client.Disconnect().WaitForValue(TimeSpan.FromSeconds(5)) != null)
+	if (client.Disconnect().WaitForValue(TimeSpan.FromSeconds(5)) == null)
 	{
 		throw new Exception("Internal socket error.");
 	}

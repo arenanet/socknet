@@ -9,10 +9,13 @@ The example bellow will shows a client connecting to "echo.websocket.org", send 
 ```csharp
 // this collection will hold the incoming frames
 BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
+s
+// create a promise that will be set once we perform the websocket handshake
+Promise<ISockNetChannel> webSocketAuthPromise = new Promise<ISockNetChannel>();
 
 // create a SockNetClient that will connect to "echo.websocket.org" on port 80 and install the WebSocketClient module
 ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(new IPEndPoint(Dns.GetHostEntry("echo.websocket.org").AddressList[0], 80))
-    .AddModule(new WebSocketClientSockNetChannelModule("/", "echo.websocket.org", (ISockNetChannel sockNetClient) => { blockingCollection.Add(true); }));
+    .AddModule(new WebSocketClientSockNetChannelModule("/", "echo.websocket.org", (ISockNetChannel sockNetClient) => { webSocketAuthPromise.CreateFulfiller().Fulfill(sockNetClient); }));
 
 // connect and wait for 5 seconds
 if (client.Connect().WaitForValue(TimeSpan.FromSeconds(5)) == null) 
@@ -22,10 +25,8 @@ if (client.Connect().WaitForValue(TimeSpan.FromSeconds(5)) == null)
 
 try
 {
-    // get the first object which should be the bool value "true" to indicate the established WebSocket connection
-    object currentObject;
-
-    if (!blockingCollection.TryTake(out currentObject, 5) || !(bool)currentObject)
+    // wait for handshake to complete
+    if (webSocketAuthPromise.WaitForValue(TimeSpan.FromSeconds(5)) == null)
     {
         throw new Exception("Handshake timed out.")
     }
@@ -37,6 +38,8 @@ try
     client.Send(WebSocketFrame.CreateTextFrame("some test", true));
 
     // wait for a response
+    object currentObject;
+
     if (blockingCollection.TryTake(out currentObject, 5))
     {
         throw new Exception("Receive timeout.");
@@ -58,7 +61,7 @@ try
 finally
 {
     // disconnect
-    if (client.Disconnect().WaitForValue(TimeSpan.FromSeconds(5)) != null)
+    if (client.Disconnect().WaitForValue(TimeSpan.FromSeconds(5)) == null)
     {
         throw new Exception("Internal socket error.");
     }
