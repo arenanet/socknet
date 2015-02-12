@@ -2,6 +2,3 @@ version: 1.0.{build}
 build:
   project: SockNet.sln
   verbosity: minimal
-artifacts:
-- path: '**\*.dll'
-- path: '**\*.nupkg'
