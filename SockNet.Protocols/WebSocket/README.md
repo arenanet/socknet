@@ -9,7 +9,7 @@ The example bellow will shows a client connecting to "echo.websocket.org", send 
 ```csharp
 // this collection will hold the incoming frames
 BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
-s
+
 // create a promise that will be set once we perform the websocket handshake
 Promise<ISockNetChannel> webSocketAuthPromise = new Promise<ISockNetChannel>();
 
