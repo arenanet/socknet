@@ -1,4 +1,6 @@
 version: 1.0.{build}
+configuration: Release
+platform: Any CPU
 build:
   project: SockNet.sln
   verbosity: minimal
@@ -6,4 +8,4 @@ nuget:
   account_feed: true
   project_feed: true
 artifacts:
-- path: '**\*.dll'
+- path: '**\Release\*.dll'
