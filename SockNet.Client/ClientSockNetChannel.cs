@@ -11,30 +11,18 @@ namespace ArenaNet.SockNet.Client
     /// <summary>
     /// States for this socknet channel.
     /// </summary>
-    public class ClientSockNetChannelStates : SockNetStates
+    public enum ClientSockNetChannelState
     {
-        private static int NumberOfStates = 0;
-
-        public static SockNetState CONNECTING = new SockNetState("CONNECTING", NumberOfStates++);
-        public static SockNetState CONNECTED = new SockNetState("CONNECTED", NumberOfStates++);
-        public static SockNetState DISCONNECTING = new SockNetState("DISCONNECTING", NumberOfStates++);
-        public static SockNetState DISCONNECTED = new SockNetState("DISCONNECTED", NumberOfStates++);
-
-        public static ClientSockNetChannelStates Instance { get; set; }
-        static ClientSockNetChannelStates()
-        {
-            Instance = new ClientSockNetChannelStates(CONNECTING, CONNECTED, DISCONNECTING, DISCONNECTED);
-        }
-
-        public ClientSockNetChannelStates(params SockNetState[] states) : base(states)
-        { 
-        }
+        CONNECTING,
+        CONNECTED,
+        DISCONNECTING,
+        DISCONNECTED
     }
 
     /// <summary>
     /// A channel that can be used to connect to remote endpoints
     /// </summary>
-    public class ClientSockNetChannel : BaseSockNetChannel
+    public class ClientSockNetChannel : BaseSockNetChannel<ClientSockNetChannelState>
     {
         private IPEndPoint connectEndpoint = null;
 
@@ -55,7 +43,7 @@ namespace ArenaNet.SockNet.Client
             {
                 try
                 {
-                    return State == ClientSockNetChannelStates.CONNECTED && (!this.Socket.Poll(1, SelectMode.SelectRead) || this.Socket.Available != 0);
+                    return ClientSockNetChannelState.CONNECTED.Equals(State) && (!this.Socket.Poll(1, SelectMode.SelectRead) || this.Socket.Available != 0);
                 }
                 catch
                 {
@@ -85,7 +73,7 @@ namespace ArenaNet.SockNet.Client
         {
             this.connectEndpoint = endpoint;
 
-            this.State = ClientSockNetChannelStates.DISCONNECTED;
+            this.State = ClientSockNetChannelState.DISCONNECTED;
         }
 
         /// <summary>
@@ -138,7 +126,7 @@ namespace ArenaNet.SockNet.Client
         {
             Promise<ISockNetChannel> promise = new Promise<ISockNetChannel>();
 
-            if (TryFlaggingAs(ClientSockNetChannelStates.CONNECTING, ClientSockNetChannelStates.DISCONNECTED))
+            if (TryFlaggingAs(ClientSockNetChannelState.CONNECTING, ClientSockNetChannelState.DISCONNECTED))
             {
                 SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Connecting to [{0}]...", connectEndpoint);
 
@@ -161,7 +149,7 @@ namespace ArenaNet.SockNet.Client
         /// <param name="result"></param>
         private void ConnectCallback(IAsyncResult result)
         {
-            if (TryFlaggingAs(ClientSockNetChannelStates.CONNECTED, ClientSockNetChannelStates.CONNECTING))
+            if (TryFlaggingAs(ClientSockNetChannelState.CONNECTED, ClientSockNetChannelState.CONNECTING))
             {
                 SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Connected to [{0}].", connectEndpoint);
 
@@ -202,7 +190,7 @@ namespace ArenaNet.SockNet.Client
         {
             Promise<ISockNetChannel> promise = new Promise<ISockNetChannel>();
 
-            if (TryFlaggingAs(ClientSockNetChannelStates.DISCONNECTING, ClientSockNetChannelStates.CONNECTED))
+            if (TryFlaggingAs(ClientSockNetChannelState.DISCONNECTING, ClientSockNetChannelState.CONNECTED))
             {
                 SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Disconnecting from [{0}]...", RemoteEndpoint);
 
@@ -222,7 +210,7 @@ namespace ArenaNet.SockNet.Client
         /// <param name="result"></param>
         private void DisconnectCallback(IAsyncResult result)
         {
-            if (TryFlaggingAs(ClientSockNetChannelStates.DISCONNECTED, ClientSockNetChannelStates.DISCONNECTING))
+            if (TryFlaggingAs(ClientSockNetChannelState.DISCONNECTED, ClientSockNetChannelState.DISCONNECTING))
             {
                 SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Disconnected from [{0}]", RemoteEndpoint);
 

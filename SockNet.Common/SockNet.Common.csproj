@@ -33,7 +33,6 @@
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="SockNetState.cs" />
     <Compile Include="Collections\ConcurrentDictionary.cs" />
     <Compile Include="Collections\ConcurrentQueue.cs" />
     <Compile Include="Collections\ConditionalWeakTable.cs" />

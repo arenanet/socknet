@@ -8,6 +8,16 @@ using ArenaNet.SockNet.Common.Pool;
 namespace ArenaNet.SockNet.Common
 {
     /// <summary>
+    /// 
+    /// </summary>
+    public static class SockNetChannelGlobals
+    {
+        public const int DefaultBufferSize = 1024;
+
+        public static readonly ObjectPool<byte[]> GlobalBufferPool = new ObjectPool<byte[]>(() => { return new byte[DefaultBufferSize]; });
+    }
+
+    /// <summary>
     /// A socknet channel.
     /// </summary>
     public interface ISockNetChannel
@@ -54,7 +64,7 @@ namespace ArenaNet.SockNet.Common
         /// <summary>
         /// Gets the current state
         /// </summary>
-        SockNetState State { get; }
+        Enum State { get; }
 
         /// <summary>
         /// Sends the given message to this channel

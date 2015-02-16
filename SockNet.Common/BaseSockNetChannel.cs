@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using System.IO;
 using System.Net;
 using System.Threading;
@@ -17,11 +18,9 @@ namespace ArenaNet.SockNet.Common
     /// <summary>
     /// A simplification layer on top of System.Net.Sockets that enables users to implement custom stream incomingHandlers easier.
     /// </summary>
-    public abstract class BaseSockNetChannel : ISockNetChannel
+    /// <typeparam name="S">The type representing the state.</typeparam>
+    public abstract class BaseSockNetChannel<S> : ISockNetChannel where S : struct, IComparable, IFormattable, IConvertible
     {
-        public const int DefaultBufferSize = 1024;
-        public static readonly ObjectPool<byte[]> GlobalBufferPool = new ObjectPool<byte[]>(() => { return new byte[DefaultBufferSize]; });
-
         // the pool for byte chunks
         private readonly ObjectPool<byte[]> bufferPool;
         public ObjectPool<byte[]> BufferPool { get { return bufferPool; } }
@@ -82,8 +81,9 @@ namespace ArenaNet.SockNet.Common
         /// <summary>
         /// Gets the current state of the client.
         /// </summary>
-        private SockNetState state;
-        public SockNetState State { get { return state; } set { state = value; } }
+        private readonly Array stateValues;
+        public int state;
+        public Enum State { get { return (Enum)stateValues.GetValue(state); } set { state = ((IConvertible)value).ToInt32(null); } }
 
         /// <summary>
         /// The current async receive result.
@@ -105,6 +105,8 @@ namespace ArenaNet.SockNet.Common
             
             this.bufferPool = bufferPool;
             this.chunkedReceiveStream = new PooledMemoryStream(bufferPool);
+
+            this.stateValues = Enum.GetValues(typeof(S));
         }
 
         /// <summary>
@@ -155,9 +157,12 @@ namespace ArenaNet.SockNet.Common
         /// Flag this channel as connecting.
         /// </summary>
         /// <returns></returns>
-        protected bool TryFlaggingAs(SockNetState state, SockNetState previous)
+        protected bool TryFlaggingAs(S state, S previous)
         {
-            return Interlocked.CompareExchange<SockNetState>(ref this.state, state, previous) == previous;
+            int actualState = state.ToInt32(null);
+            int actualPrevious = previous.ToInt32(null);
+
+            return Interlocked.CompareExchange(ref this.state, actualState, actualPrevious) == actualPrevious;
         }
 
         /// <summary>

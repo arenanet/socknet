@@ -11,30 +11,17 @@ namespace ArenaNet.SockNet.Server
     /// <summary>
     /// States for this socknet channel.
     /// </summary>
-    public class RemoteSockNetChannelStates : SockNetStates
+    public enum RemoteSockNetChannelState
     {
-        private static int NumberOfStates = 0;
-
-        public static SockNetState CONNECTED = new SockNetState("CONNECTED", NumberOfStates++);
-        public static SockNetState DISCONNECTING = new SockNetState("DISCONNECTING", NumberOfStates++);
-        public static SockNetState DISCONNECTED = new SockNetState("DISCONNECTED", NumberOfStates++);
-
-        public static RemoteSockNetChannelStates Instance { get; set; }
-        static RemoteSockNetChannelStates()
-        {
-            Instance = new RemoteSockNetChannelStates(CONNECTED, DISCONNECTING, DISCONNECTED);
-        }
-
-        public RemoteSockNetChannelStates(params SockNetState[] states)
-            : base(states)
-        {
-        }
+        CONNECTED,
+        DISCONNECTING,
+        DISCONNECTED
     }
 
     /// <summary>
     /// A channel that is used for tracking remote clients.
     /// </summary>
-    public class RemoteSockNetChannel : BaseSockNetChannel
+    public class RemoteSockNetChannel : BaseSockNetChannel<RemoteSockNetChannelState>
     {
         private ServerSockNetChannel parent;
 
@@ -52,7 +39,7 @@ namespace ArenaNet.SockNet.Server
             {
                 try
                 {
-                    return State == RemoteSockNetChannelStates.CONNECTED && (!this.Socket.Poll(1, SelectMode.SelectRead) || this.Socket.Available != 0);
+                    return RemoteSockNetChannelState.CONNECTED.Equals(State) && (!this.Socket.Poll(1, SelectMode.SelectRead) || this.Socket.Available != 0);
                 }
                 catch
                 {
@@ -73,7 +60,7 @@ namespace ArenaNet.SockNet.Server
 
             this.Pipe = parent.Pipe.Clone(this);
 
-            this.State = RemoteSockNetChannelStates.DISCONNECTED;
+            this.State = RemoteSockNetChannelState.DISCONNECTED;
 
             if (parent.IsSsl)
             {
@@ -97,7 +84,7 @@ namespace ArenaNet.SockNet.Server
 
             Pipe.HandleOpened();
 
-            State = RemoteSockNetChannelStates.CONNECTED;
+            State = RemoteSockNetChannelState.CONNECTED;
         }
 
         /// <summary>
@@ -131,7 +118,7 @@ namespace ArenaNet.SockNet.Server
         {
             Promise<ISockNetChannel> promise = new Promise<ISockNetChannel>();
 
-            if (TryFlaggingAs(RemoteSockNetChannelStates.DISCONNECTING, RemoteSockNetChannelStates.CONNECTED))
+            if (TryFlaggingAs(RemoteSockNetChannelState.DISCONNECTING, RemoteSockNetChannelState.CONNECTED))
             {
                 SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Disconnecting from [{0}]...", RemoteEndpoint);
 
@@ -151,7 +138,7 @@ namespace ArenaNet.SockNet.Server
         /// <param name="result"></param>
         private void DisconnectCallback(IAsyncResult result)
         {
-            if (TryFlaggingAs(RemoteSockNetChannelStates.DISCONNECTED, RemoteSockNetChannelStates.DISCONNECTING))
+            if (TryFlaggingAs(RemoteSockNetChannelState.DISCONNECTED, RemoteSockNetChannelState.DISCONNECTING))
             {
                 SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Disconnected from [{0}]", RemoteEndpoint);
 

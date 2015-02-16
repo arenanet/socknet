@@ -17,7 +17,7 @@ SockNet contains multiple libraries that enable the developer to write less boil
 <br />
 [SockNet.Protocols](https://github.com/arenanet/socknet/tree/master/SockNet.Protocols) - Various protocol implementations that can be used with SockNet channels. Depends on SockNet.Common.
 <br />
-[SockNet.Common](https://github.com/arenanet/socknet/tree/master/SockNet.Common) - Varios helper classes and required dependency for all SockNet libraries.
+[SockNet.Common](https://github.com/arenanet/socknet/tree/master/SockNet.Common) - Various helper classes and a required dependency for all SockNet libraries.
 
 ## Bugs and Feedback
 

@@ -24,7 +24,7 @@ namespace ArenaNet.SockNet.Client
         public static ClientSockNetChannel Create(IPEndPoint endpoint, bool noDelay = false, short ttl = 32)
         {
             // TODO client track channels
-            return new ClientSockNetChannel(endpoint, BaseSockNetChannel.GlobalBufferPool).WithNoDelay(noDelay).WithTtl(ttl);
+            return new ClientSockNetChannel(endpoint, SockNetChannelGlobals.GlobalBufferPool).WithNoDelay(noDelay).WithTtl(ttl);
         }
     }
 }

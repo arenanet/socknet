@@ -14,31 +14,18 @@ namespace ArenaNet.SockNet.Server
     /// <summary>
     /// States for this socknet channel.
     /// </summary>
-    public class ServerSockNetChannelStates : SockNetStates
+    public enum ServerSockNetChannelState
     {
-        private static int NumberOfStates = 0;
-
-        public static SockNetState BINDING = new SockNetState("BINDING", NumberOfStates++);
-        public static SockNetState BOUND = new SockNetState("BOUND", NumberOfStates++);
-        public static SockNetState CLOSING = new SockNetState("CLOSING", NumberOfStates++);
-        public static SockNetState CLOSED = new SockNetState("CLOSED", NumberOfStates++);
-
-        public static ServerSockNetChannelStates Instance { get; set; }
-        static ServerSockNetChannelStates()
-        {
-            Instance = new ServerSockNetChannelStates(BINDING, BOUND, CLOSING, CLOSED);
-        }
-
-        public ServerSockNetChannelStates(params SockNetState[] states)
-            : base(states)
-        {
-        }
+        BINDING,
+        BOUND,
+        CLOSING,
+        CLOSED
     }
 
     /// <summary>
     /// A server/binding SockNetChannel.
     /// </summary>
-    public class ServerSockNetChannel : BaseSockNetChannel
+    public class ServerSockNetChannel : BaseSockNetChannel<ServerSockNetChannelState>
     {
         public bool IsSsl { get; private set; }
         public RemoteCertificateValidationCallback CertificateValidationCallback { get; private set; }
@@ -49,7 +36,7 @@ namespace ArenaNet.SockNet.Server
         /// <summary>
         /// Returns true if this channel is active.
         /// </summary>
-        public override bool IsActive { get { return State == ServerSockNetChannelStates.BOUND; } }
+        public override bool IsActive { get { return ServerSockNetChannelState.BOUND.Equals(State); } }
 
         private IPEndPoint bindEndpoint = null;
         private int backlog;
@@ -78,7 +65,7 @@ namespace ArenaNet.SockNet.Server
             this.bindEndpoint = bindEndpoint;
             this.backlog = backlog;
 
-            this.State = ServerSockNetChannelStates.CLOSED;
+            this.State = ServerSockNetChannelState.CLOSED;
         }
 
         /// <summary>
@@ -131,7 +118,7 @@ namespace ArenaNet.SockNet.Server
         {
             Promise<ISockNetChannel> promise = new Promise<ISockNetChannel>();
 
-            if (TryFlaggingAs(ServerSockNetChannelStates.BINDING, ServerSockNetChannelStates.CLOSED))
+            if (TryFlaggingAs(ServerSockNetChannelState.BINDING, ServerSockNetChannelState.CLOSED))
             {
                 SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Binding to [{0}]...", bindEndpoint);
 
@@ -146,13 +133,13 @@ namespace ArenaNet.SockNet.Server
 
                 Socket.BeginAccept(new AsyncCallback(AcceptCallback), Socket);
 
-                this.State = ServerSockNetChannelStates.BOUND;
+                this.State = ServerSockNetChannelState.BOUND;
 
                 promise.CreateFulfiller().Fulfill(this);
             }
             else
             {
-                throw new Exception("The client is already connected.");
+                throw new Exception("The server is already bound.");
             }
 
             return promise;
@@ -195,13 +182,13 @@ namespace ArenaNet.SockNet.Server
         /// <returns></returns>
         public override Promise<ISockNetChannel> Close()
         {
-            if (TryFlaggingAs(ServerSockNetChannelStates.CLOSING, ServerSockNetChannelStates.BOUND))
+            if (TryFlaggingAs(ServerSockNetChannelState.CLOSING, ServerSockNetChannelState.BOUND))
             {
                 SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Unbinding from [{0}]...", LocalEndpoint);
 
                 Socket.Close();
 
-                this.State = ServerSockNetChannelStates.CLOSED;
+                this.State = ServerSockNetChannelState.CLOSED;
 
                 SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Not bound to [{0}].", bindEndpoint);
             }

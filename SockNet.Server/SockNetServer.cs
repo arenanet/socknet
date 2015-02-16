@@ -20,7 +20,7 @@ namespace ArenaNet.SockNet.Server
         public static ServerSockNetChannel Create(IPEndPoint bindEndpoint, int backlog = ServerSockNetChannel.DefaultBacklog)
         {
             // TODO possibly track?
-            return new ServerSockNetChannel(bindEndpoint, BaseSockNetChannel.GlobalBufferPool, backlog);
+            return new ServerSockNetChannel(bindEndpoint, SockNetChannelGlobals.GlobalBufferPool, backlog);
         }
     }
 }
