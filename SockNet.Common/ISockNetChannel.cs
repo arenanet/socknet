@@ -8,7 +8,7 @@ using ArenaNet.SockNet.Common.Pool;
 namespace ArenaNet.SockNet.Common
 {
     /// <summary>
-    /// 
+    /// Globals for SockNet.
     /// </summary>
     public static class SockNetChannelGlobals
     {
@@ -18,7 +18,7 @@ namespace ArenaNet.SockNet.Common
     }
 
     /// <summary>
-    /// A socknet channel.
+    /// A SockNet channel.
     /// </summary>
     public interface ISockNetChannel
     {
