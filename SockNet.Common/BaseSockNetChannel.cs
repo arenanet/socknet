@@ -83,7 +83,7 @@ namespace ArenaNet.SockNet.Common
         /// </summary>
         private readonly Array stateValues;
         public int state;
-        public Enum State { get { return (Enum)stateValues.GetValue(state); } set { state = ((IConvertible)value).ToInt32(null); } }
+        public Enum State { get { return (Enum)stateValues.GetValue(state); } protected set { state = ((IConvertible)value).ToInt32(null); } }
 
         /// <summary>
         /// The current async receive result.
