@@ -33,9 +33,7 @@
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Collections\ConcurrentDictionary.cs" />
     <Compile Include="Collections\ConcurrentQueue.cs" />
-    <Compile Include="Collections\ConditionalWeakTable.cs" />
     <Compile Include="Collections\IProducerConsumerCollection.cs" />
     <Compile Include="Collections\IterableLinkedList.cs" />
     <Compile Include="ISockNetChannel.cs" />
@@ -47,7 +45,6 @@
     <Compile Include="Promise.cs" />
     <Compile Include="BaseSockNetChannel.cs" />
     <Compile Include="SockNetLogger.cs" />
-    <Compile Include="Threading\Volatile.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

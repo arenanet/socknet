@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Threading;
+using System.Collections.Generic;
 using System.Security.Cryptography.X509Certificates;
 using System.Security.Authentication;
 using ArenaNet.SockNet.Common;
@@ -41,7 +42,7 @@ namespace ArenaNet.SockNet.Server
         private IPEndPoint bindEndpoint = null;
         private int backlog;
 
-        private ConcurrentDictionary<IPEndPoint, RemoteSockNetChannel> remoteChannels = new ConcurrentDictionary<IPEndPoint, RemoteSockNetChannel>();
+        private Dictionary<IPEndPoint, RemoteSockNetChannel> remoteChannels = new Dictionary<IPEndPoint, RemoteSockNetChannel>();
 
         /// <summary>
         /// Creates a socknet client that can connect to the given address and port using a receive buffer size.
@@ -172,7 +173,10 @@ namespace ArenaNet.SockNet.Server
             if (remoteSocket != null)
             {
                 RemoteSockNetChannel channel = new RemoteSockNetChannel(this, remoteSocket, BufferPool);
-                remoteChannels[channel.RemoteEndpoint] = channel;
+                lock (remoteChannels)
+                {
+                    remoteChannels[channel.RemoteEndpoint] = channel;
+                }
             }
         }
 

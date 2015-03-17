@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
 using System.IO;
 using System.Net;
 using System.Threading;
@@ -32,7 +31,7 @@ namespace ArenaNet.SockNet.Common
         protected Socket Socket { get; private set; }
 
         // the installed modules
-        protected ConcurrentDictionary<ISockNetChannelModule, bool> modules = new ConcurrentDictionary<ISockNetChannelModule, bool>();
+        protected Dictionary<ISockNetChannelModule, bool> modules = new Dictionary<ISockNetChannelModule, bool>();
 
         // the current stream
         protected Stream stream;
@@ -116,15 +115,20 @@ namespace ArenaNet.SockNet.Common
         /// <returns></returns>
         public ISockNetChannel AddModule(ISockNetChannelModule module)
         {
-            if (modules.GetOrAdd(module, true))
+            lock (modules)
             {
-                SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Installing module: [{0}]", module);
+                if (!modules.ContainsKey(module))
+                {
+                    modules[module] = true;
 
-                module.Install(this);
-            }
-            else
-            {
-                throw new Exception("Module [" + module + "] already installed.");
+                    SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Installing module: [{0}]", module);
+
+                    module.Install(this);
+                }
+                else
+                {
+                    throw new Exception("Module [" + module + "] already installed.");
+                }
             }
 
             return this;
@@ -137,17 +141,18 @@ namespace ArenaNet.SockNet.Common
         /// <returns></returns>
         public ISockNetChannel RemoveModule(ISockNetChannelModule module)
         {
-            bool value = true;
-
-            if (modules.TryRemove(module, out value) && value)
+            lock (modules)
             {
-                SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Uninstalling module: [{0}]", module);
+                if (modules.Remove(module))
+                {
+                    SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Uninstalling module: [{0}]", module);
 
-                module.Uninstall(this);
-            }
-            else
-            {
-                throw new Exception("Module [" + module + "] not installed.");
+                    module.Uninstall(this);
+                }
+                else
+                {
+                    throw new Exception("Module [" + module + "] not installed.");
+                }
             }
 
             return this;
