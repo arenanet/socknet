@@ -102,9 +102,16 @@ namespace ArenaNet.SockNet.Common.IO
             {
                 foreach (OnOpenedDelegate delegateRef in openedHandlers)
                 {
-                    if (delegateRef != null)
+                    try
                     {
-                        delegateRef(parent);
+                        if (delegateRef != null)
+                        {
+                            delegateRef(parent);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Pipe invokation failed on: " + delegateRef, e);
                     }
                 }
             }
@@ -119,9 +126,16 @@ namespace ArenaNet.SockNet.Common.IO
             {
                 foreach (OnClosedDelegate delegateRef in closedHandlers)
                 {
-                    if (delegateRef != null)
+                    try
                     {
-                        delegateRef(parent);
+                        if (delegateRef != null)
+                        {
+                            delegateRef(parent);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Pipe invokation failed on: " + delegateRef, e);
                     }
                 }
             }
@@ -136,16 +150,23 @@ namespace ArenaNet.SockNet.Common.IO
             {
                 foreach (IDelegateReference delegateRef in outgoingHandlers)
                 {
-                    if (delegateRef != null && delegateRef.DelegateType.IsAssignableFrom(message.GetType()))
+                    try
                     {
-                        object[] args = new object[2]
+                        if (delegateRef != null && delegateRef.DelegateType.IsAssignableFrom(message.GetType()))
+                        {
+                            object[] args = new object[2]
                                 {
                                   parent,
                                   message
                                 };
 
-                        delegateRef.Delegate.DynamicInvoke(args);
-                        message = args[1];
+                            delegateRef.Delegate.DynamicInvoke(args);
+                            message = args[1];
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Pipe invokation failed on: " + delegateRef.Delegate, e);
                     }
                 }
             }
@@ -160,16 +181,23 @@ namespace ArenaNet.SockNet.Common.IO
             {
                 foreach (IDelegateReference delegateRef in incomingHandlers)
                 {
-                    if (delegateRef != null && delegateRef.DelegateType.IsAssignableFrom(message.GetType()))
+                    try
                     {
-                        object[] args = new object[2]
+                        if (delegateRef != null && delegateRef.DelegateType.IsAssignableFrom(message.GetType()))
+                        {
+                            object[] args = new object[2]
                                 {
                                   parent,
                                   message
                                 };
 
-                        delegateRef.Delegate.DynamicInvoke(args);
-                        message = args[1];
+                            delegateRef.Delegate.DynamicInvoke(args);
+                            message = args[1];
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Pipe invokation failed on: " + delegateRef.Delegate, e);
                     }
                 }
             }

@@ -290,7 +290,7 @@ namespace ArenaNet.SockNet.Common
 
             PooledObject<byte[]> buffer = (PooledObject<byte[]>)result.AsyncState;
 
-            SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, (result.AsyncState is SslStream ? "[SSL] " : "") + "Received [{0}] bytes from [{1}].", count, RemoteEndpoint);
+            SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, (this.stream is SslStream ? "[SSL] " : "") + "Received [{0}] bytes from [{1}].", count, RemoteEndpoint);
 
             if (count > 0)
             {
