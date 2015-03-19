@@ -336,27 +336,56 @@ namespace ArenaNet.SockNet.Common
             }
         }
 
-        public IAsyncResult BeginRead(Stream stream, byte[] buffer, int offset, int count, AsyncCallback callback, object state)
+        /// <summary>
+        /// Begins an async read.
+        /// </summary>
+        /// <param name="stream"></param>
+        /// <param name="buffer"></param>
+        /// <param name="offset"></param>
+        /// <param name="count"></param>
+        /// <param name="callback"></param>
+        /// <param name="state"></param>
+        /// <returns></returns>
+        private IAsyncResult BeginRead(Stream stream, byte[] buffer, int offset, int count, AsyncCallback callback, object state)
         {
             ReadDelegate read = stream.Read;
             return read.BeginInvoke(buffer, offset, count, callback, state);
         }
 
-        public int EndRead(IAsyncResult asyncResult)
+        /// <summary>
+        /// Completes the async read.
+        /// </summary>
+        /// <param name="asyncResult"></param>
+        /// <returns></returns>
+        private int EndRead(IAsyncResult asyncResult)
         {
             AsyncResult result = (AsyncResult)asyncResult;
             ReadDelegate caller = (ReadDelegate)result.AsyncDelegate;
             return caller.EndInvoke(asyncResult);
         }
 
-        public IAsyncResult BeginWrite(Stream stream, byte[] buffer, int offset,
+        /// <summary>
+        /// Begins an async write.
+        /// </summary>
+        /// <param name="stream"></param>
+        /// <param name="buffer"></param>
+        /// <param name="offset"></param>
+        /// <param name="count"></param>
+        /// <param name="callback"></param>
+        /// <param name="state"></param>
+        /// <returns></returns>
+        private IAsyncResult BeginWrite(Stream stream, byte[] buffer, int offset,
                   int count, AsyncCallback callback, object state)
         {
             WriteDelegate write = stream.Write;
             return write.BeginInvoke(buffer, offset, count, callback, state);
         }
 
-        public void EndWrite(IAsyncResult asyncResult)
+        /// <summary>
+        /// Completes an async write.
+        /// </summary>
+        /// <param name="asyncResult"></param>
+        private void EndWrite(IAsyncResult asyncResult)
         {
             AsyncResult result = (AsyncResult)asyncResult;
             WriteDelegate caller = (WriteDelegate)result.AsyncDelegate;
