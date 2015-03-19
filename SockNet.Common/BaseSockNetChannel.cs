@@ -4,6 +4,7 @@ using System.IO;
 using System.Net;
 using System.Threading;
 using System.Net.Security;
+using System.Runtime.Remoting.Messaging;
 using System.Security.Cryptography.X509Certificates;
 using System.Security.Authentication;
 using System.Net.Sockets;
@@ -23,6 +24,10 @@ namespace ArenaNet.SockNet.Common
         // the pool for byte chunks
         private readonly ObjectPool<byte[]> bufferPool;
         public ObjectPool<byte[]> BufferPool { get { return bufferPool; } }
+
+        // async read/write delegates
+        private delegate int ReadDelegate(byte[] buffer, int offset, int count);
+        private delegate void WriteDelegate(byte[] buffer, int offset, int count);
 
         // the receive stream that will be sent to incomingHandlers to handle data
         private readonly PooledMemoryStream chunkedReceiveStream;
@@ -83,11 +88,6 @@ namespace ArenaNet.SockNet.Common
         private readonly Array stateValues;
         public int state;
         public Enum State { get { return (Enum)stateValues.GetValue(state); } protected set { state = ((IConvertible)value).ToInt32(null); } }
-
-        /// <summary>
-        /// The current async receive result.
-        /// </summary>
-        protected IAsyncResult currentAsyncReceive = null;
 
         protected Semaphore streamWriteSemaphore = new Semaphore(1, 1);
 
@@ -181,7 +181,7 @@ namespace ArenaNet.SockNet.Common
 
             PooledObject<byte[]> buffer = bufferPool.Borrow();
 
-            currentAsyncReceive = stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), buffer);
+            BeginRead(stream, buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), buffer);
 
             return (attachPromiseFulfiller = new Promise<ISockNetChannel>(this).CreateFulfiller()).Promise;
         }
@@ -235,13 +235,13 @@ namespace ArenaNet.SockNet.Common
             sslStream.EndAuthenticateAsClient(result);
 
             SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Authenticated SSL with [{0}].", RemoteEndpoint);
-            SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "(SSL) Reading data from [{0}]...", RemoteEndpoint);
+            SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "[SSL] Reading data from [{0}]...", RemoteEndpoint);
 
             this.stream = sslStream;
 
             PooledObject<byte[]> buffer = bufferPool.Borrow();
 
-            currentAsyncReceive = stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), buffer);
+            BeginRead(stream, buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), buffer);
 
             attachPromiseFulfiller.Fulfill(this);
         }
@@ -269,13 +269,13 @@ namespace ArenaNet.SockNet.Common
             sslStream.EndAuthenticateAsServer(result);
 
             SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Authenticated SSL with [{0}].", RemoteEndpoint);
-            SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "(SSL) Reading data from [{0}]...", RemoteEndpoint);
+            SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "[SSL] Reading data from [{0}]...", RemoteEndpoint);
 
             this.stream = sslStream;
 
             PooledObject<byte[]> buffer = bufferPool.Borrow();
 
-            currentAsyncReceive = stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), buffer);
+            BeginRead(stream, buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), buffer);
 
             attachPromiseFulfiller.Fulfill(this);
         }
@@ -286,7 +286,7 @@ namespace ArenaNet.SockNet.Common
         /// <param name="result"></param>
         private void ReceiveCallback(IAsyncResult result)
         {
-            int count = stream.EndRead(result);
+            int count = EndRead(result);
 
             PooledObject<byte[]> buffer = (PooledObject<byte[]>)result.AsyncState;
 
@@ -312,16 +312,20 @@ namespace ArenaNet.SockNet.Common
                 }
                 finally
                 {
-                    chunkedReceiveStream.Flush();
-
                     try
                     {
+                        chunkedReceiveStream.Flush();
+
                         buffer = bufferPool.Borrow();
 
-                        currentAsyncReceive = stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), buffer);
+                        SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, (this.stream is SslStream ? "[SSL] " : "") + "Reading data from [{0}]...", RemoteEndpoint);
+
+                        BeginRead(stream, buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), buffer);
                     }
-                    catch (Exception)
+                    catch (Exception e)
                     {
+                        SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Unable to begin reading.", e);
+
                         Close();
                     }
                 }
@@ -330,6 +334,33 @@ namespace ArenaNet.SockNet.Common
             {
                 Close();
             }
+        }
+
+        public IAsyncResult BeginRead(Stream stream, byte[] buffer, int offset, int count, AsyncCallback callback, object state)
+        {
+            ReadDelegate read = stream.Read;
+            return read.BeginInvoke(buffer, offset, count, callback, state);
+        }
+
+        public int EndRead(IAsyncResult asyncResult)
+        {
+            AsyncResult result = (AsyncResult)asyncResult;
+            ReadDelegate caller = (ReadDelegate)result.AsyncDelegate;
+            return caller.EndInvoke(asyncResult);
+        }
+
+        public IAsyncResult BeginWrite(Stream stream, byte[] buffer, int offset,
+                  int count, AsyncCallback callback, object state)
+        {
+            WriteDelegate write = stream.Write;
+            return write.BeginInvoke(buffer, offset, count, callback, state);
+        }
+
+        public void EndWrite(IAsyncResult asyncResult)
+        {
+            AsyncResult result = (AsyncResult)asyncResult;
+            WriteDelegate caller = (WriteDelegate)result.AsyncDelegate;
+            caller.EndInvoke(asyncResult);
         }
 
         /// <summary>
@@ -358,7 +389,7 @@ namespace ArenaNet.SockNet.Common
 
                     if (streamWriteSemaphore.WaitOne(10000))
                     {
-                        stream.BeginWrite(rawSendableData, 0, rawSendableData.Length, new AsyncCallback(SendCallback), stream);
+                        BeginWrite(stream, rawSendableData, 0, rawSendableData.Length, new AsyncCallback(SendCallback), stream);
                     }
                     else
                     {
@@ -370,7 +401,8 @@ namespace ArenaNet.SockNet.Common
                     Stream sendableStream = ((Stream)obj);
                     PooledObject<byte[]> sendableDataBuffer = bufferPool.Borrow();
 
-                    sendableStream.BeginRead(sendableDataBuffer.Value, 
+                    BeginRead(sendableStream,
+                        sendableDataBuffer.Value, 
                         0,
                         (int)Math.Min(sendableDataBuffer.Value.Length, sendableStream.Length - sendableStream.Position), 
                         StreamSendCallback,
@@ -400,13 +432,13 @@ namespace ArenaNet.SockNet.Common
         {
             StreamSendState state = ((StreamSendState)result.AsyncState);
 
-            int bytesSending = state.stream.EndRead(result);
+            int bytesSending = EndRead(result);
 
             SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, (IsConnectionEncrypted ? "[SSL] " : "") + "Sending [{0}] bytes to [{1}]...", bytesSending, RemoteEndpoint);
 
             if (streamWriteSemaphore.WaitOne(10000))
             {
-                stream.BeginWrite(state.buffer.Value, 0, bytesSending, new AsyncCallback(SendCallback), state.buffer);
+                BeginWrite(stream, state.buffer.Value, 0, bytesSending, new AsyncCallback(SendCallback), state.buffer);
             }
             else
             {
@@ -417,7 +449,8 @@ namespace ArenaNet.SockNet.Common
             {
                 state.buffer = bufferPool.Borrow();
 
-                state.stream.BeginRead(state.buffer.Value,
+                BeginRead(state.stream,
+                    state.buffer.Value,
                     0,
                     (int)Math.Min(state.buffer.Value.Length, state.stream.Length - state.stream.Position),
                     StreamSendCallback,
@@ -445,7 +478,7 @@ namespace ArenaNet.SockNet.Common
 
             try
             {
-                stream.EndWrite(result);
+                EndWrite(result);
             }
             finally
             {

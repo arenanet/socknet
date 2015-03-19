@@ -161,7 +161,7 @@ namespace ArenaNet.SockNet.Client
 
                 onFulfilled = (ISockNetChannel value, Exception e, Promise<ISockNetChannel> promise) =>
                 {
-                    promise.OnFulfilled -= onFulfilled;
+                    promise.OnFulfilled = null;
 
                     Pipe.HandleOpened();
 
@@ -170,11 +170,11 @@ namespace ArenaNet.SockNet.Client
 
                 if (isSsl)
                 {
-                    AttachAsSslClient(certificateValidationCallback).OnFulfilled += onFulfilled;
+                    AttachAsSslClient(certificateValidationCallback).OnFulfilled = onFulfilled;
                 }
                 else
                 {
-                    Attach().OnFulfilled += onFulfilled;
+                    Attach().OnFulfilled = onFulfilled;
                 }
             }
             else

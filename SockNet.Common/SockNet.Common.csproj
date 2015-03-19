@@ -33,7 +33,6 @@
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Collections\ConcurrentQueue.cs" />
     <Compile Include="Collections\IProducerConsumerCollection.cs" />
     <Compile Include="Collections\IterableLinkedList.cs" />
     <Compile Include="ISockNetChannel.cs" />

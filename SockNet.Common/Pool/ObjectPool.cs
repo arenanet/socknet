@@ -24,7 +24,7 @@ namespace ArenaNet.SockNet.Common.Pool
         /// </summary>
         public int TotalNumberOfObjects { get { return totalPoolSize; } }
 
-        private ConcurrentQueue<PooledObject<T>> pool = new ConcurrentQueue<PooledObject<T>>();
+        private Queue<PooledObject<T>> pool = new Queue<PooledObject<T>>();
         private int totalPoolSize = 0;
 
         private OnNewObjectDelegate onNewObject;
@@ -52,14 +52,23 @@ namespace ArenaNet.SockNet.Common.Pool
         {
             PooledObject<T> pooledObject = null;
 
-            if (!pool.TryDequeue(out pooledObject))
+            lock (pool)
             {
-                pooledObject = new PooledObject<T>(this, onNewObject());
-                totalPoolSize++;
-            }
-            else if (onUpdateObject != null)
-            {
-                pooledObject.Value = onUpdateObject(pooledObject.Value);
+                if (pool.Count == 0)
+                {
+                    pooledObject = new PooledObject<T>(this, onNewObject());
+
+                    totalPoolSize++;
+                }
+                else
+                {
+                    pooledObject = pool.Dequeue();
+
+                    if (onUpdateObject != null)
+                    {
+                        pooledObject.Value = onUpdateObject(pooledObject.Value);
+                    }
+                }
             }
 
             return pooledObject;
@@ -92,12 +101,15 @@ namespace ArenaNet.SockNet.Common.Pool
 
             if (doEnqueue)
             {
-                if (onDestroyObject != null)
+                lock (pool)
                 {
-                    pooledObject.Value = onDestroyObject(pooledObject.Value);
-                }
+                    if (onDestroyObject != null)
+                    {
+                        pooledObject.Value = onDestroyObject(pooledObject.Value);
+                    }
 
-                pool.Enqueue(pooledObject);
+                    pool.Enqueue(pooledObject);
+                }
             }
         }
     }

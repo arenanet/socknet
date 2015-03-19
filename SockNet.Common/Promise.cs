@@ -45,22 +45,21 @@ namespace ArenaNet.SockNet.Common
         /// <summary>
         /// An event that will get invoked when this promise is fulfilled.
         /// </summary>
-        private event OnFulfilledDelegate OnFulfilledPrivate;
-        public event OnFulfilledDelegate OnFulfilled
+        private OnFulfilledDelegate onFulfilledInternal = null;
+        public OnFulfilledDelegate OnFulfilled
         {
-            add
+            set
             {
-                if (IsFulfilled)
+                if (IsFulfilled && value != null)
                 {
                     value(this.value, valueException, this);
                 }
 
-                 OnFulfilledPrivate += value;
+                onFulfilledInternal = value;
             }
-
-            remove
+            get
             {
-                OnFulfilledPrivate -= value;
+                return onFulfilledInternal;
             }
         }
 
@@ -95,6 +94,7 @@ namespace ArenaNet.SockNet.Common
         /// <param name="value"></param>
         public Promise(T value)
         {
+            IsFulfilled = false;
             valueWaitHandle.Reset();
 
             this.value = value;
@@ -154,9 +154,9 @@ namespace ArenaNet.SockNet.Common
             IsFulfilled = true;
             valueWaitHandle.Set();
 
-            if (OnFulfilledPrivate != null)
+            if (onFulfilledInternal != null)
             {
-                OnFulfilledPrivate(value, valueException, this);
+                onFulfilledInternal(value, valueException, this);
             }
         }
     }

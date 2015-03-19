@@ -64,11 +64,11 @@ namespace ArenaNet.SockNet.Server
 
             if (parent.IsSsl)
             {
-                AttachAsSslServer(parent.CertificateValidationCallback, parent.ServerCertificate).OnFulfilled += OnAttached;
+                AttachAsSslServer(parent.CertificateValidationCallback, parent.ServerCertificate).OnFulfilled = OnAttached;
             }
             else
             {
-                Attach().OnFulfilled += OnAttached;
+                Attach().OnFulfilled = OnAttached;
             }
         }
 
@@ -80,7 +80,7 @@ namespace ArenaNet.SockNet.Server
         /// <param name="promise"></param>
         private void OnAttached(ISockNetChannel channel, Exception error, Promise<ISockNetChannel> promise)
         {
-            promise.OnFulfilled -= OnAttached;
+            promise.OnFulfilled = null;
 
             Pipe.HandleOpened();
 
