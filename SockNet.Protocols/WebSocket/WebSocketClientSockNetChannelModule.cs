@@ -41,8 +41,8 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         /// <param name="channel"></param>
         public void Install(ISockNetChannel channel)
         {
-            channel.Pipe.AddOpenedLast(OnConnected);
             channel.AddModule(httpModule);
+            channel.Pipe.AddOpenedLast(OnConnected);
         }
 
         /// <summary>
@@ -93,9 +93,9 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
             if (expectedAccept.Equals(data.Header[WebSocketAcceptHeader]))
             {
                 SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Established Web-Socket connection.");
-                channel.Pipe.AddIncomingBefore<HttpResponse, object>(new OnDataDelegate<HttpResponse>(HandleHandshake), new OnDataDelegate<object>(HandleIncomingFrames));
-                channel.Pipe.AddOutgoingLast<object>(new OnDataDelegate<object>(HandleOutgoingFrames));
-                channel.Pipe.RemoveIncoming<HttpResponse>(new OnDataDelegate<HttpResponse>(HandleHandshake));
+                channel.Pipe.RemoveIncoming<HttpResponse>(HandleHandshake);
+                channel.Pipe.AddIncomingFirst<object>(HandleIncomingFrames);
+                channel.Pipe.AddOutgoingLast<object>(HandleOutgoingFrames);
 
                 if (onWebSocketEstablished != null)
                 {
