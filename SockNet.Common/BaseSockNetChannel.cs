@@ -286,7 +286,18 @@ namespace ArenaNet.SockNet.Common
         /// <param name="result"></param>
         private void ReceiveCallback(IAsyncResult result)
         {
-            int count = EndRead(result);
+            int count = 0;
+
+            try
+            {
+                count = EndRead(result);
+            }
+            catch (Exception)
+            {
+                // this means that the connection closed...
+                Close();
+                return;
+            }
 
             PooledObject<byte[]> buffer = (PooledObject<byte[]>)result.AsyncState;
 
