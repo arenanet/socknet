@@ -156,9 +156,9 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
             }
 
             WebSocketFrame webSocketFrame = (WebSocketFrame)data;
-            MemoryStream memoryStream = new MemoryStream();
-            webSocketFrame.Write((Stream)memoryStream);
-            data = (object)memoryStream.ToArray();
+            ChunkedBuffer buffer = new ChunkedBuffer(channel.BufferPool);
+            webSocketFrame.Write(buffer.Stream);
+            data = buffer;
         }
 
         /// <summary>
