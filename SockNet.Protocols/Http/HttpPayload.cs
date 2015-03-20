@@ -10,9 +10,11 @@ namespace ArenaNet.SockNet.Protocols.Http
     /// </summary>
     public abstract class HttpPayload
     {
-        public abstract string CommandLine { get; }
+        private static readonly ASCIIEncoding ASCII = new ASCIIEncoding();
 
         private static readonly char[] LineEnding = new char[] { '\r', '\n' };
+
+        public abstract string CommandLine { get; }
 
         internal Dictionary<string, List<string>> headers = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         public class SingleValueHeaderView
@@ -156,10 +158,10 @@ namespace ArenaNet.SockNet.Protocols.Http
         /// <returns></returns>
         public void Write(Stream stream, bool closeStream = false)
         {
-            StreamWriter writer = new StreamWriter(stream);
+            StreamWriter headerWriter = new StreamWriter(stream, ASCII);
 
-            writer.Write(CommandLine);
-            writer.Write(LineEnding);
+            headerWriter.Write(CommandLine);
+            headerWriter.Write(LineEnding);
 
             foreach (KeyValuePair<string, List<string>> header in headers)
             {
@@ -175,22 +177,22 @@ namespace ArenaNet.SockNet.Protocols.Http
                     }
                 }
 
-                writer.Write(header.Key);
-                writer.Write(": ");
-                writer.Write(value.ToString());
-                writer.Write(LineEnding);
+                headerWriter.Write(header.Key);
+                headerWriter.Write(": ");
+                headerWriter.Write(value.ToString());
+                headerWriter.Write(LineEnding);
             }
 
-            writer.Write(LineEnding);
+            headerWriter.Write(LineEnding);
 
-            writer.Flush();
+            headerWriter.Flush();
 
             Body.Position = 0;
             Copy(Body, stream, BodySize);
 
             if (closeStream)
             {
-                writer.Close();
+                headerWriter.Close();
             }
         }
 
@@ -214,7 +216,7 @@ namespace ArenaNet.SockNet.Protocols.Http
                     // parse the header
                     string line = null;
 
-                    while (ReadLine(stream, Encoding.ASCII, out line))
+                    while (ReadLine(stream, ASCII, out line))
                     {
                         switch (state)
                         {
