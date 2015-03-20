@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text;
 using ArenaNet.SockNet.Common;
 using ArenaNet.SockNet.Common.IO;
+using ArenaNet.SockNet.Protocols.Http;
 
 namespace ArenaNet.SockNet.Protocols.WebSocket
 {
@@ -22,6 +23,8 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         private string secKey;
         private string expectedAccept;
 
+        private HttpSockNetChannelModule httpModule = new HttpSockNetChannelModule(HttpSockNetChannelModule.ParsingMode.Client);
+
         public WebSocketClientSockNetChannelModule(string path, string hostname, OnWebSocketEstablishedDelegate onWebSocketEstablished)
         {
             this.path = path;
@@ -39,6 +42,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         public void Install(ISockNetChannel channel)
         {
             channel.Pipe.AddOpenedLast(OnConnected);
+            channel.AddModule(httpModule);
         }
 
         /// <summary>
@@ -47,10 +51,11 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         /// <param name="channel"></param>
         public void Uninstall(ISockNetChannel channel)
         {
-            channel.Pipe.RemoveIncoming<Stream>(HandleHandshake);
+            channel.Pipe.RemoveIncoming<HttpResponse>(HandleHandshake);
             channel.Pipe.RemoveIncoming<object>(HandleIncomingFrames);
             channel.Pipe.RemoveOutgoing<object>(HandleOutgoingFrames);
             channel.Pipe.RemoveOpened(OnConnected);
+            channel.RemoveModule(httpModule);
         }
 
         /// <summary>
@@ -61,9 +66,21 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         {
             SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Sending WebSocket upgrade request.");
 
-            channel.Pipe.AddIncomingFirst<Stream>(new OnDataDelegate<Stream>(HandleHandshake));
-            byte[] bytes = Encoding.UTF8.GetBytes("GET " + path + " HTTP/1.1\r\nHost: " + hostname + "\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: " + secKey + "\r\nSec-WebSocket-Version: 13\r\n\r\n");
-            channel.Send((object)bytes);
+            channel.Pipe.AddIncomingLast<HttpResponse>(HandleHandshake);
+
+            HttpRequest request = new HttpRequest()
+            {
+                Action = "GET",
+                Path = path,
+                Version = "HTTP/1.1"
+            };
+            request.Header["Host"] = hostname;
+            request.Header["Upgrade"] = "websocket";
+            request.Header["Connection"] = "Upgrade";
+            request.Header["Sec-WebSocket-Key"] = secKey;
+            request.Header["Sec-WebSocket-Version"] = "13";
+
+            channel.Send(request);
         }
 
         /// <summary>
@@ -71,43 +88,14 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         /// </summary>
         /// <param name="channel"></param>
         /// <param name="data"></param>
-        private void HandleHandshake(ISockNetChannel channel, ref Stream data)
+        private void HandleHandshake(ISockNetChannel channel, ref HttpResponse data)
         {
-            StreamReader headerReader = new StreamReader(data, Encoding.ASCII);
-
-            long startingPosition = data.Position;
-
-            string foundAccept = null;
-            bool foundEndOfHeaders = false;
-            string line = null;
-
-            while ((line = headerReader.ReadLine()) != null)
-            {
-                line = line.Trim();
-
-                if (line.StartsWith(WebSocketAcceptHeader))
-                {
-                    foundAccept = line.Split(new char[] { ':' }, 2)[1].Trim();
-                }
-
-                if (line.Equals(""))
-                {
-                    foundEndOfHeaders = true;
-                }
-            }
-
-            if (!foundEndOfHeaders)
-            {
-                data.Position = startingPosition;
-                return;
-            }
-
-            if (expectedAccept.Equals(foundAccept))
+            if (expectedAccept.Equals(data.Header[WebSocketAcceptHeader]))
             {
                 SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Established Web-Socket connection.");
-                channel.Pipe.AddIncomingBefore<Stream, object>(new OnDataDelegate<Stream>(HandleHandshake), new OnDataDelegate<object>(HandleIncomingFrames));
+                channel.Pipe.AddIncomingBefore<HttpResponse, object>(new OnDataDelegate<HttpResponse>(HandleHandshake), new OnDataDelegate<object>(HandleIncomingFrames));
                 channel.Pipe.AddOutgoingLast<object>(new OnDataDelegate<object>(HandleOutgoingFrames));
-                channel.Pipe.RemoveIncoming<Stream>(new OnDataDelegate<Stream>(HandleHandshake));
+                channel.Pipe.RemoveIncoming<HttpResponse>(new OnDataDelegate<HttpResponse>(HandleHandshake));
 
                 if (onWebSocketEstablished != null)
                 {
@@ -129,22 +117,22 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         /// <param name="data"></param>
         private void HandleIncomingFrames(ISockNetChannel channel, ref object data)
         {
-            if (!(data is Stream))
+            if (!(data is ChunkedBuffer))
             {
                 return;
             }
 
-            Stream stream = (Stream)data;
-            long startingPosition = stream.Position;
+            ChunkedBuffer stream = (ChunkedBuffer)data;
+            long startingPosition = stream.ReadPosition;
 
             try
             {
-                data = WebSocketFrame.ParseFrame(stream);
+                data = WebSocketFrame.ParseFrame(stream.Stream);
             }
             catch (ArgumentOutOfRangeException)
             {
                 // websocket frame isn't done
-                stream.Position = startingPosition;
+                stream.ReadPosition = startingPosition;
             }
             catch (Exception e)
             {

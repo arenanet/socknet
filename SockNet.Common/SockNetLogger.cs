@@ -36,6 +36,17 @@ namespace ArenaNet.SockNet.Common
             LogSink = (level, source, message, args) => 
             { 
                 Console.WriteLine(string.Format("{0:s} - [{1}] ({2}) {3}", DateTime.Now, System.Enum.GetName(level.GetType(), level), source.GetType().Name, string.Format(message, args)));
+
+                if (args != null && args.Length > 0)
+                {
+                    for (int i = 0; i < args.Length; i++)
+                    {
+                        if (args[i] is Exception)
+                        {
+                            Console.WriteLine("Exception thrown: " + ((Exception)args[i]).ToString());
+                        }
+                    }
+                }
             };
         }
 

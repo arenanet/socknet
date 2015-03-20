@@ -24,7 +24,7 @@ namespace ArenaNet.SockNet.Server
             {
                 server.Bind();
 
-                server.Pipe.AddIncomingFirst<Stream>((ISockNetChannel channel, ref Stream data) => 
+                server.Pipe.AddIncomingFirst<ChunkedBuffer>((ISockNetChannel channel, ref ChunkedBuffer data) => 
                 {
                     channel.Send(data);
                 });
@@ -34,9 +34,9 @@ namespace ArenaNet.SockNet.Server
                 ClientSockNetChannel client = SockNetClient.Create(GetLocalIpAddress(), server.LocalEndpoint.Port);
                 Assert.IsNotNull(client.Connect().WaitForValue(TimeSpan.FromSeconds(5)));
 
-                client.Pipe.AddIncomingFirst((ISockNetChannel channel, ref Stream data) =>
+                client.Pipe.AddIncomingFirst((ISockNetChannel channel, ref ChunkedBuffer data) =>
                 {
-                    StreamReader reader = new StreamReader(data);
+                    StreamReader reader = new StreamReader(data.Stream);
 
                     incomingData.Add(reader.ReadToEnd());
                 });

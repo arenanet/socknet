@@ -30,7 +30,7 @@ namespace ArenaNet.SockNet.Common
         private delegate void WriteDelegate(byte[] buffer, int offset, int count);
 
         // the receive stream that will be sent to incomingHandlers to handle data
-        private readonly PooledMemoryStream chunkedReceiveStream;
+        private readonly ChunkedBuffer chunkedBuffer;
 
         // the raw socket
         protected Socket Socket { get; private set; }
@@ -103,7 +103,7 @@ namespace ArenaNet.SockNet.Common
             this.Pipe = new SockNetChannelPipe(this);
             
             this.bufferPool = bufferPool;
-            this.chunkedReceiveStream = new PooledMemoryStream(bufferPool);
+            this.chunkedBuffer = new ChunkedBuffer(bufferPool);
 
             this.stateValues = Enum.GetValues(typeof(S));
         }
@@ -296,13 +296,9 @@ namespace ArenaNet.SockNet.Common
             {
                 try
                 {
-                    long startingPosition = chunkedReceiveStream.Position;
+                    chunkedBuffer.OfferChunk(buffer, 0, count);
 
-                    chunkedReceiveStream.OfferChunk(buffer, 0, count);
-
-                    chunkedReceiveStream.Position = startingPosition;
-
-                    object obj = chunkedReceiveStream;
+                    object obj = chunkedBuffer;
 
                     Pipe.HandleIncomingData(ref obj);
                 }
@@ -314,7 +310,7 @@ namespace ArenaNet.SockNet.Common
                 {
                     try
                     {
-                        chunkedReceiveStream.Flush();
+                        chunkedBuffer.Flush();
 
                         buffer = bufferPool.Borrow();
 
@@ -424,6 +420,18 @@ namespace ArenaNet.SockNet.Common
                     {
                         throw new ThreadStateException("Unable to obtain lock to write message.");
                     }
+                }
+                else if (obj is ChunkedBuffer)
+                {
+                    ChunkedBuffer sendableStream = ((ChunkedBuffer)obj);
+                    PooledObject<byte[]> sendableDataBuffer = bufferPool.Borrow();
+
+                    BeginRead(sendableStream.Stream,
+                        sendableDataBuffer.Value,
+                        0,
+                        (int)Math.Min(sendableDataBuffer.Value.Length, sendableStream.AvailableBytesToRead),
+                        StreamSendCallback,
+                        new StreamSendState() { stream = sendableStream.Stream, buffer = sendableDataBuffer });
                 }
                 else if (obj is Stream)
                 {

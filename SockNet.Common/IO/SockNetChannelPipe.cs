@@ -111,7 +111,7 @@ namespace ArenaNet.SockNet.Common.IO
                     }
                     catch (Exception e)
                     {
-                        SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Pipe invokation failed on: " + delegateRef, e);
+                        SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Pipe invokation failed on: " + delegateRef.Target + "." + delegateRef.Method, e);
                     }
                 }
             }
@@ -135,7 +135,7 @@ namespace ArenaNet.SockNet.Common.IO
                     }
                     catch (Exception e)
                     {
-                        SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Pipe invokation failed on: " + delegateRef, e);
+                        SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Pipe invokation failed on: " + delegateRef.Target + "." + delegateRef.Method, e);
                     }
                 }
             }
@@ -166,7 +166,7 @@ namespace ArenaNet.SockNet.Common.IO
                     }
                     catch (Exception e)
                     {
-                        SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Pipe invokation failed on: " + delegateRef.Delegate, e);
+                        SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Pipe invokation failed on: " + delegateRef.Delegate.Target + "." + delegateRef.Delegate.Method, e);
                     }
                 }
             }
@@ -197,7 +197,7 @@ namespace ArenaNet.SockNet.Common.IO
                     }
                     catch (Exception e)
                     {
-                        SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Pipe invokation failed on: " + delegateRef.Delegate, e);
+                        SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Pipe invokation failed on: " + delegateRef.Delegate.Target + "." + delegateRef.Delegate.Method, e);
                     }
                 }
             }

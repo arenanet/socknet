@@ -27,14 +27,14 @@ namespace ArenaNet.SockNet.Client
 
             object currentObject;
 
-            client.Pipe.AddIncomingFirst<Stream>((ISockNetChannel sockNetClient, ref Stream data) => { blockingCollection.Add(data); });
+            client.Pipe.AddIncomingFirst<ChunkedBuffer>((ISockNetChannel sockNetClient, ref ChunkedBuffer data) => { blockingCollection.Add(data); });
 
             client.Send(Encoding.UTF8.GetBytes("GET / HTTP/1.1\r\nHost: www.guildwars2.com\r\n\r\n"));
 
             Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
-            Assert.IsTrue(currentObject is Stream);
+            Assert.IsTrue(currentObject is ChunkedBuffer);
 
-            Console.WriteLine("Got response: \n" + new StreamReader((Stream)currentObject, Encoding.UTF8).ReadToEnd());
+            Console.WriteLine("Got response: \n" + new StreamReader(((ChunkedBuffer)currentObject).Stream, Encoding.UTF8).ReadToEnd());
 
             client.Disconnect().WaitForValue(TimeSpan.FromSeconds(5));
         }
@@ -50,19 +50,18 @@ namespace ArenaNet.SockNet.Client
 
             object currentObject;
 
-            client.Pipe.AddIncomingFirst<Stream>((ISockNetChannel sockNetClient, ref Stream data) => { blockingCollection.Add(data); });
+            client.Pipe.AddIncomingFirst<ChunkedBuffer>((ISockNetChannel sockNetClient, ref ChunkedBuffer data) => { blockingCollection.Add(data); });
 
-            PooledMemoryStream sendStream = new PooledMemoryStream(client.BufferPool);
+            ChunkedBuffer buffer = new ChunkedBuffer(client.BufferPool);
             byte[] sendData = Encoding.UTF8.GetBytes("GET / HTTP/1.1\r\nHost: www.guildwars2.com\r\n\r\n");
-            sendStream.Write(sendData, 0, sendData.Length);
-            sendStream.Position = 0;
+            buffer.Write(sendData, 0, sendData.Length);
 
-            client.Send(sendStream);
+            client.Send(buffer);
 
             Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
-            Assert.IsTrue(currentObject is Stream);
+            Assert.IsTrue(currentObject is ChunkedBuffer);
 
-            Console.WriteLine("Got response: \n" + new StreamReader((Stream)currentObject, Encoding.UTF8).ReadToEnd());
+            Console.WriteLine("Got response: \n" + new StreamReader(((ChunkedBuffer)currentObject).Stream, Encoding.UTF8).ReadToEnd());
 
             client.Disconnect().WaitForValue(TimeSpan.FromSeconds(5));
         }
@@ -79,14 +78,14 @@ namespace ArenaNet.SockNet.Client
 
             object currentObject;
 
-            client.Pipe.AddIncomingFirst<Stream>((ISockNetChannel sockNetClient, ref Stream data) => { blockingCollection.Add(data); });
+            client.Pipe.AddIncomingFirst<ChunkedBuffer>((ISockNetChannel sockNetClient, ref ChunkedBuffer data) => { blockingCollection.Add(data); });
 
             client.Send(Encoding.UTF8.GetBytes("GET / HTTP/1.1\r\nHost: www.guildwars2.com\r\n\r\n"));
 
             Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
-            Assert.IsTrue(currentObject is Stream);
+            Assert.IsTrue(currentObject is ChunkedBuffer);
 
-            Console.WriteLine("Got response: \n" + new StreamReader((Stream)currentObject, Encoding.UTF8).ReadToEnd());
+            Console.WriteLine("Got response: \n" + new StreamReader(((ChunkedBuffer)currentObject).Stream, Encoding.UTF8).ReadToEnd());
 
             client.Disconnect().WaitForValue(TimeSpan.FromSeconds(5));
         }

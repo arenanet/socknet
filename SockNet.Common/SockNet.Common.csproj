@@ -33,12 +33,13 @@
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="IO\ChunkedBuffer.cs" />
     <Compile Include="Collections\IProducerConsumerCollection.cs" />
     <Compile Include="Collections\IterableLinkedList.cs" />
+    <Compile Include="IO\ChunkedBufferStream.cs" />
     <Compile Include="ISockNetChannel.cs" />
     <Compile Include="ISockNetChannelModule.cs" />
     <Compile Include="Pool\ObjectPool.cs" />
-    <Compile Include="IO\PooledMemoryStream.cs" />
     <Compile Include="Pool\PooledObject.cs" />
     <Compile Include="IO\SockNetChannelPipe.cs" />
     <Compile Include="Promise.cs" />

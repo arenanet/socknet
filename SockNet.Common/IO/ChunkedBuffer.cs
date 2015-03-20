@@ -1,19 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Threading;
 using ArenaNet.SockNet.Common.Pool;
 
 namespace ArenaNet.SockNet.Common.IO
 {
     /// <summary>
-    /// A memory stream that uses an ObjectPool of byte arrays to chain data blobs.
+    /// A chunked buffer.
     /// </summary>
-    public class PooledMemoryStream : Stream
+    public class ChunkedBuffer
     {
         private ObjectPool<byte[]> pool = null;
 
-        private bool isClosed = false;
+        public bool IsClosed { private set; get; }
 
         /// <summary>
         /// The root in the memory chunk chain
@@ -32,87 +30,61 @@ namespace ArenaNet.SockNet.Common.IO
             public MemoryChunk next;
         }
 
-        /// <summary>
-        /// Returns true if this stream is readable
-        /// </summary>
-        public override bool CanRead
+        private long _readPosition = 0;
+        public long ReadPosition
         {
-            get { return !isClosed; }
-        }
-
-        /// <summary>
-        /// Returns true if this stream can stream.
-        /// </summary>
-        public override bool CanSeek
-        {
-            get { return !isClosed; }
-        }
-
-        /// <summary>
-        /// Returns true if this stream is writable.
-        /// </summary>
-        public override bool CanWrite
-        {
-            get { return !isClosed; }
-        }
-
-        private long length = 0;
-
-        /// <summary>
-        /// The length of data in this tream
-        /// </summary>
-        public override long Length
-        {
-            get { return length; }
-        }
-
-        private long position = 0;
-
-        /// <summary>
-        /// The position the stream is in
-        /// </summary>
-        public override long Position
-        {
-            get
-            {
-                return position;
-            }
             set
             {
-                this.position = value;
+                if (value > WritePosition)
+                {
+                    throw new InvalidOperationException("Value cannot ve greated then write position.");
+                }
+
+                _readPosition = value;
+            }
+            get {
+                return _readPosition;
             }
         }
 
+        public long WritePosition { private set; get; }
+        public long AvailableBytesToRead { get { return Math.Max(0, WritePosition - ReadPosition); } }
+
+        public ChunkedBufferStream Stream { private set; get; }
+        
         /// <summary>
         /// Creates a pooled memory stream with the given pool.
         /// </summary>
         /// <param name="pool"></param>
-        public PooledMemoryStream(ObjectPool<byte[]> pool)
+        public ChunkedBuffer(ObjectPool<byte[]> pool)
         {
             this.pool = pool;
+
+            this.Stream = new ChunkedBufferStream(this);
+            this.IsClosed = false;
+            this.WritePosition = 0;
+            this.ReadPosition = 0;
         }
 
         /// <summary>
         /// Closes this stream and returns all pooled memory chunks into the pool.
         /// </summary>
-        public override void Close()
+        public void Close()
         {
-            base.Close();
-
             lock (this)
             {
-                position = length;
+                ReadPosition = WritePosition;
 
                 Flush();
 
-                isClosed = true;
+                IsClosed = true;
             }
         }
 
         /// <summary>
         /// Flushes this stream and clears any read pooled memory chunks.
         /// </summary>
-        public override void Flush()
+        public void Flush()
         {
             lock (this)
             {
@@ -120,20 +92,34 @@ namespace ArenaNet.SockNet.Common.IO
 
                 while (currentChunk != null)
                 {
-                    if (position < currentChunk.count)
+                    if (currentChunk.count > ReadPosition)
                     {
                         break;
                     }
 
                     currentChunk.pooledBytes.Return();
-
                     rootChunk = currentChunk.next;
-                    length -= currentChunk.count;
-                    position -= currentChunk.count;
-
+                    ReadPosition -= currentChunk.count;
+                    WritePosition = Math.Max(0, WritePosition - currentChunk.count);
                     currentChunk = currentChunk.next;
                 }
             }
+        }
+
+        /// <summary>
+        /// Reads a single byte.
+        /// </summary>
+        /// <returns></returns>
+        public int Read()
+        {
+            byte[] buffer = new byte[0];
+
+            if (Read(buffer, 0, 1) == 1)
+            {
+                return buffer[1];
+            }
+
+            return -1;
         }
 
         /// <summary>
@@ -143,15 +129,15 @@ namespace ArenaNet.SockNet.Common.IO
         /// <param name="offset"></param>
         /// <param name="count"></param>
         /// <returns></returns>
-        public override int Read(byte[] buffer, int offset, int count)
+        public int Read(byte[] buffer, int offset, int count)
         {
             lock (this)
             {
-                if (Length == Position)
+                if (WritePosition == ReadPosition)
                 {
                     return 0;
                 }
-                
+
                 int bytesScanned = 0;
                 int bytesRead = 0;
 
@@ -159,22 +145,22 @@ namespace ArenaNet.SockNet.Common.IO
 
                 while (currentChunk != null && bytesRead < count)
                 {
-                    if (bytesScanned > position)
+                    if (bytesScanned > ReadPosition)
                     {
                         int bytesToCopy = Math.Min(currentChunk.count, count - bytesRead);
 
-                        Buffer.BlockCopy(currentChunk.pooledBytes.Value, 0, buffer, bytesRead, bytesToCopy);
+                        Buffer.BlockCopy(currentChunk.pooledBytes.Value, 0, buffer, offset + bytesRead, bytesToCopy);
 
                         bytesRead += bytesToCopy;
                     }
                     else
                     {
-                        if (currentChunk.count + bytesScanned >= position)
+                        if (currentChunk.count + bytesScanned >= ReadPosition)
                         {
-                            int sourceChunkOffset = (int)(position - bytesScanned);
+                            int sourceChunkOffset = (int)(ReadPosition - bytesScanned);
                             int bytesToCopy = Math.Min(currentChunk.count - sourceChunkOffset, count - bytesRead);
 
-                            Buffer.BlockCopy(currentChunk.pooledBytes.Value, sourceChunkOffset, buffer, bytesRead, bytesToCopy);
+                            Buffer.BlockCopy(currentChunk.pooledBytes.Value, sourceChunkOffset, buffer, offset + bytesRead, bytesToCopy);
 
                             bytesRead += bytesToCopy;
                         } // else keep scanning
@@ -184,53 +170,10 @@ namespace ArenaNet.SockNet.Common.IO
                     currentChunk = currentChunk.next;
                 }
 
-                position += bytesRead;
+                ReadPosition += bytesRead;
 
                 return bytesRead;
             }
-        }
-
-        /// <summary>
-        /// Seeks the current position
-        /// </summary>
-        /// <param name="offset"></param>
-        /// <param name="origin"></param>
-        /// <returns></returns>
-        public override long Seek(long offset, SeekOrigin origin)
-        {
-            lock (this)
-            {
-                switch (origin)
-                {
-                    case SeekOrigin.Begin:
-                        Position = offset;
-                        break;
-                    case SeekOrigin.Current:
-                        Position += offset;
-                        break;
-                    case SeekOrigin.End:
-                        long newPosition = Length + offset;
-
-                        if (newPosition > Length)
-                        {
-                            throw new Exception("Applied offset to position exceeds length.");
-                        }
-
-                        Position = newPosition;
-                        break;
-                }
-            }
-
-            return Position;
-        }
-
-        /// <summary>
-        /// Sets the length of the stream. Note: Trucation is not supported.
-        /// </summary>
-        /// <param name="value"></param>
-        public override void SetLength(long value)
-        {
-            throw new NotSupportedException();
         }
 
         /// <summary>
@@ -263,11 +206,16 @@ namespace ArenaNet.SockNet.Common.IO
         /// <param name="buffer"></param>
         /// <param name="offset"></param>
         /// <param name="count"></param>
-        public override void Write(byte[] buffer, int offset, int count)
+        public void Write(byte[] buffer, int offset, int count)
         {
+            if (buffer.Length < offset + count)
+            {
+                throw new ArgumentOutOfRangeException("Offset + count must be less then the buffer length.");
+            }
+
             lock (this)
             {
-                for (int i = 0; i < count;)
+                for (int i = offset; i < count; )
                 {
                     PooledObject<byte[]> pooledBytes = pool.Borrow();
                     int bytesToCopy = Math.Min(pooledBytes.Value.Length, count - i);
@@ -317,8 +265,7 @@ namespace ArenaNet.SockNet.Common.IO
                     }
                 }
 
-                position += chunk.count;
-                length += chunk.count;
+                WritePosition += chunk.count;
             }
         }
     }
