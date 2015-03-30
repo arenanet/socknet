@@ -25,7 +25,7 @@ For bugs, questions and discussions please use the [GitHub Issues](https://githu
 
 ## LICENSE
 
-Copyright 2015 ArenaNet, Inc.
+Copyright 2015 ArenaNet, LLC.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

@@ -4,7 +4,7 @@ WebSocket implementation on top of SockNet.
 
 Example
 ==========
-The example bellow will shows a client connecting to "echo.websocket.org", send a text WebSocket frame, retrieve the echoed WebSocketFrame, print it out, and then disconnect.
+The example bellow shows a client connecting to "echo.websocket.org", sending a text WebSocket frame, retrieving the echoed WebSocketFrame, printing it out, and then disconnecting.
 
 ```csharp
 // this collection will hold the incoming frames
@@ -74,7 +74,7 @@ For bugs, questions and discussions please use the [GitHub Issues](https://githu
 
 ## LICENSE
 
-Copyright 2015 ArenaNet, Inc.
+Copyright 2015 ArenaNet, LLC.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

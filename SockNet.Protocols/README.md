@@ -6,6 +6,7 @@ Getting Started
 ==========
 Bellow is a list of modules implemented by this library:
 
+[SockNet.Protocols.Http](https://github.com/arenanet/socknet/tree/master/SockNet.Protocols/Http) - HTTP implementation on top of SockNet.
 [SockNet.Protocols.WebSocket](https://github.com/arenanet/socknet/tree/master/SockNet.Protocols/WebSocket) - WebSocket implementation on top of SockNet.
 
 ## Bugs and Feedback
@@ -14,7 +15,7 @@ For bugs, questions and discussions please use the [GitHub Issues](https://githu
 
 ## LICENSE
 
-Copyright 2015 ArenaNet, Inc.
+Copyright 2015 ArenaNet, LLC.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
