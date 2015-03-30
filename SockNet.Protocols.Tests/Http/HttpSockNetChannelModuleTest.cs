@@ -157,10 +157,14 @@ namespace ArenaNet.SockNet.Protocols.Http
                     Copy(data.Body.Stream, response.Body.Stream, data.BodySize);
                     response.BodySize = data.BodySize;
 
-                    channel.Send(response).OnFulfilled = (ISockNetChannel value, Exception e, Promise<ISockNetChannel> promise) =>
+                    Promise<ISockNetChannel> sendPromise = channel.Send(response);
+                    if (!"keep-alive".Equals(data.Header["connection"], StringComparison.CurrentCultureIgnoreCase))
                     {
-                        value.Close();
-                    };
+                        sendPromise.OnFulfilled = (ISockNetChannel value, Exception e, Promise<ISockNetChannel> promise) =>
+                        {
+                            value.Close();
+                        };
+                    }
                 });
 
                 HttpWebRequest request = (HttpWebRequest)HttpWebRequest.Create("http://" + GetLocalIpAddress() + ":" + server.LocalEndpoint.Port);
