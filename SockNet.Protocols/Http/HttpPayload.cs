@@ -317,7 +317,7 @@ namespace ArenaNet.SockNet.Protocols.Http
                             contentLength = Header["l"];
                         }
 
-                        if (IsChunked || transferEncoding != null && "chunked".Equals(transferEncoding.Trim()))
+                        if (IsChunked || (transferEncoding != null && "chunked".Equals(transferEncoding.Trim())))
                         {
                             IsChunked = true;
 
@@ -451,15 +451,12 @@ namespace ArenaNet.SockNet.Protocols.Http
 
                 if (currChar == '\r')
                 {
-                    if (reader.PeekChar() != -1)
+                    if (reader.PeekChar() == '\n')
                     {
-                        char nextChar = reader.ReadChar();
+                        reader.ReadChar();
 
-                        if (nextChar == '\n')
-                        {
-                            line = builder.ToString();
-                            return true;
-                        }
+                        line = builder.ToString();
+                        return true;
                     }
                 } else if (currChar == '\n')
                 {
