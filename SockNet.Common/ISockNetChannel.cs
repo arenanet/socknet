@@ -57,6 +57,11 @@ namespace ArenaNet.SockNet.Common
         ISockNetChannel RemoveModule(ISockNetChannelModule module);
 
         /// <summary>
+        /// Returns true if the connection  is encrypted.
+        /// </summary>
+        bool IsConnectionEncrypted { get; }
+
+        /// <summary>
         /// Returns true if this channel is active.
         /// </summary>
         bool IsActive { get; }

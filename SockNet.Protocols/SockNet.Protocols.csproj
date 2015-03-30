@@ -41,6 +41,9 @@
     <Compile Include="Http2\Hpack\Huffman.cs" />
     <Compile Include="Http2\Hpack\HuffmanDecoder.cs" />
     <Compile Include="Http2\Hpack\HuffmanEncoder.cs" />
+    <Compile Include="Http2\Http2ClientSockNetChannelModule.cs" />
+    <Compile Include="Http2\Http2Frame.cs" />
+    <Compile Include="Http2\SettingsHttp2Frame.cs" />
     <Compile Include="Http\HttpSockNetChannelModule.cs" />
     <Compile Include="Http\HttpPayload.cs" />
     <Compile Include="Http\HttpResponse.cs" />
