@@ -10,13 +10,23 @@ namespace ArenaNet.SockNet.Protocols.Http
     /// </summary>
     public abstract class HttpPayload
     {
-        private static readonly ASCIIEncoding ASCII = new ASCIIEncoding();
+        public const string LineEnding = "\r\n";
 
-        private static readonly char[] LineEnding = new char[] { '\r', '\n' };
+        private static readonly ASCIIEncoding HeaderEncoding = new ASCIIEncoding();
 
+        /// <summary>
+        /// The command line (first line in a HTTP message)
+        /// </summary>
         public abstract string CommandLine { get; }
 
+        /// <summary>
+        /// Internal header representation.
+        /// </summary>
         internal Dictionary<string, List<string>> headers = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// External header view and manipulator that deals with single-value headers.
+        /// </summary>
         public class SingleValueHeaderView
         {
             private HttpPayload parent;
@@ -67,6 +77,10 @@ namespace ArenaNet.SockNet.Protocols.Http
                 }
             }
         }
+
+        /// <summary>
+        /// External header view and manipulator that deals with multi-value headers.
+        /// </summary>
         public class MultiValueHeaderView
         {
             private HttpPayload parent;
@@ -118,15 +132,30 @@ namespace ArenaNet.SockNet.Protocols.Http
         }
 
         internal readonly MultiValueHeaderView _multiValueHeaderView;
+        /// <summary>
+        /// Multi-value view and manipulation of headers.
+        /// </summary>
         public MultiValueHeaderView Headers { get { return _multiValueHeaderView; } }
 
         internal readonly SingleValueHeaderView _singleValueHeaderView;
+        /// <summary>
+        /// Single-value view and manipulation of headers.
+        /// </summary>
         public SingleValueHeaderView Header { get { return _singleValueHeaderView; } }
 
+        /// <summary>
+        /// Returns true if this payload is chunked.
+        /// </summary>
         public bool IsChunked { private set; get; }
 
+        /// <summary>
+        /// Returns the raw stream of the body.
+        /// </summary>
         public Stream Body { private set; get; }
 
+        /// <summary>
+        /// Sets the number bytes read or to write.
+        /// </summary>
         public int BodySize { set; get; }
 
         /// <summary>
@@ -158,7 +187,7 @@ namespace ArenaNet.SockNet.Protocols.Http
         /// <returns></returns>
         public void Write(Stream stream, bool closeStream = false)
         {
-            StreamWriter headerWriter = new StreamWriter(stream, ASCII);
+            StreamWriter headerWriter = new StreamWriter(stream, HeaderEncoding);
 
             headerWriter.Write(CommandLine);
             headerWriter.Write(LineEnding);
@@ -216,7 +245,7 @@ namespace ArenaNet.SockNet.Protocols.Http
                     // parse the header
                     string line = null;
 
-                    while (ReadLine(stream, ASCII, out line))
+                    while (ReadLine(stream, HeaderEncoding, out line))
                     {
                         switch (state)
                         {
@@ -473,7 +502,7 @@ namespace ArenaNet.SockNet.Protocols.Http
         /// <param name="b1"></param>
         /// <param name="b2"></param>
         /// <returns></returns>
-        public static bool CharArraysEqual(char[] b1, char[] b2)
+        private static bool CharArraysEqual(char[] b1, char[] b2)
         {
             bool equal = true;
 

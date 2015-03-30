@@ -7,7 +7,7 @@ using ArenaNet.SockNet.Common.IO;
 namespace ArenaNet.SockNet.Protocols.Http
 {
     /// <summary>
-    /// An HTTP module.
+    /// HTTP module which enables support for HTTP 1.x and HTTP 1.x-like protocols.
     /// </summary>
     public class HttpSockNetChannelModule : ISockNetChannelModule
     {
@@ -141,7 +141,7 @@ namespace ArenaNet.SockNet.Protocols.Http
         }
 
         /// <summary>
-        /// Handles an outgoing  HttpResponse and converts it into a raw buffer.
+        /// Handles an outgoing HttpResponse and converts it into a raw buffer.
         /// </summary>
         /// <param name="channel"></param>
         /// <param name="obj"></param>

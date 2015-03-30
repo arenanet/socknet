@@ -16,18 +16,27 @@ namespace ArenaNet.SockNet.Protocols.Http
             }
         }
 
+        /// <summary>
+        /// The version of this response payload, i.e. HTTP/1.1
+        /// </summary>
         public string Version
         {
             private set;
             get;
         }
 
+        /// <summary>
+        /// The response code, i.e. 200, 404, etc.
+        /// </summary>
         public string Code
         {
             private set;
             get;
         }
 
+        /// <summary>
+        /// The reason for the above response, i.e. Bad Request
+        /// </summary>
         public string Reason
         {
             private set;

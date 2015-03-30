@@ -16,18 +16,27 @@ namespace ArenaNet.SockNet.Protocols.Http
             }
         }
 
+        /// <summary>
+        /// The action of this request, i.e. GET, POST, etc.
+        /// </summary>
         public string Action
         {
             set;
             get;
         }
 
+        /// <summary>
+        /// The path of this request, i.e. /index.html
+        /// </summary>
         public string Path
         {
             set;
             get;
         }
 
+        /// <summary>
+        /// The version of this request pyload, i.e. HTTP/1.1
+        /// </summary>
         public string Version
         {
             set;
