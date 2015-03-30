@@ -21,7 +21,7 @@ namespace ArenaNet.SockNet.Protocols.Http
         /// </summary>
         public string Version
         {
-            private set;
+            set;
             get;
         }
 
@@ -30,7 +30,7 @@ namespace ArenaNet.SockNet.Protocols.Http
         /// </summary>
         public string Code
         {
-            private set;
+            set;
             get;
         }
 
@@ -39,7 +39,7 @@ namespace ArenaNet.SockNet.Protocols.Http
         /// </summary>
         public string Reason
         {
-            private set;
+            set;
             get;
         }
 

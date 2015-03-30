@@ -70,7 +70,7 @@ namespace ArenaNet.SockNet.Common
         /// Sends the given message to this channel
         /// </summary>
         /// <param name="data"></param>
-        void Send(object data);
+        Promise<ISockNetChannel> Send(object data);
 
         /// <summary>
         /// Closes this channel.

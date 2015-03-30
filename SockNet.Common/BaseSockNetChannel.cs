@@ -403,8 +403,10 @@ namespace ArenaNet.SockNet.Common
         /// Sets the given message to the IPEndpoint.
         /// </summary>
         /// <param name="data"></param>
-        public void Send(object data)
+        public Promise<ISockNetChannel> Send(object data)
         {
+            Promise<ISockNetChannel> promise = new Promise<ISockNetChannel>();
+
             object obj = data;
 
             try
@@ -425,7 +427,7 @@ namespace ArenaNet.SockNet.Common
 
                     if (streamWriteSemaphore.WaitOne(10000))
                     {
-                        stream.BeginWrite(rawSendableData, 0, rawSendableData.Length, new AsyncCallback(SendCallback), stream);
+                        stream.BeginWrite(rawSendableData, 0, rawSendableData.Length, new AsyncCallback(SendCallback), new SendState() { buffer = rawSendableData, promise = promise });
                     }
                     else
                     {
@@ -441,7 +443,7 @@ namespace ArenaNet.SockNet.Common
                         0,
                         (int)Math.Min(sendableDataBuffer.Value.Length, sendableStream.AvailableBytesToRead),
                         StreamSendCallback,
-                        new StreamSendState() { stream = sendableStream.Stream, buffer = sendableDataBuffer });
+                        new StreamSendState() { stream = sendableStream.Stream, buffer = sendableDataBuffer, promise = promise });
                 }
                 else if (obj is Stream)
                 {
@@ -452,13 +454,14 @@ namespace ArenaNet.SockNet.Common
                         0,
                         (int)Math.Min(sendableDataBuffer.Value.Length, sendableStream.Length - sendableStream.Position), 
                         StreamSendCallback,
-                        new StreamSendState() { stream = sendableStream, buffer = sendableDataBuffer });
+                        new StreamSendState() { stream = sendableStream, buffer = sendableDataBuffer, promise = promise });
                 }
                 else
                 {
                     SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Unable to send object: {0}", obj);
                 }
             }
+            return promise;
         }
 
         /// <summary>
@@ -468,6 +471,7 @@ namespace ArenaNet.SockNet.Common
         {
             public Stream stream;
             public PooledObject<byte[]> buffer;
+            public Promise<ISockNetChannel> promise;
         }
 
         /// <summary>
@@ -484,7 +488,7 @@ namespace ArenaNet.SockNet.Common
 
             if (streamWriteSemaphore.WaitOne(10000))
             {
-                stream.BeginWrite(state.buffer.Value, 0, bytesSending, new AsyncCallback(SendCallback), state.buffer);
+                stream.BeginWrite(state.buffer.Value, 0, bytesSending, new AsyncCallback(SendCallback), new SendState() { buffer = state.buffer });
             }
             else
             {
@@ -505,7 +509,17 @@ namespace ArenaNet.SockNet.Common
             {
                 bufferPool.Return(state.buffer);
                 state.stream.Close();
+                state.promise.CreateFulfiller().Fulfill(this);
             }
+        }
+
+        /// <summary>
+        /// A state class used between streamed sends.
+        /// </summary>
+        private class SendState
+        {
+            public object buffer;
+            public Promise<ISockNetChannel> promise;
         }
 
         /// <summary>
@@ -514,20 +528,34 @@ namespace ArenaNet.SockNet.Common
         /// <param name="result"></param>
         private void SendCallback(IAsyncResult result)
         {
+            SendState state = ((SendState)result.AsyncState);
+
             SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, (result.AsyncState is SslStream ? "[SSL] " : "") + "Sent data to [{0}].", RemoteEndpoint);
 
-            if (result.AsyncState is PooledObject<byte[]>)
+            if (state.buffer is PooledObject<byte[]>)
             {
-                ((PooledObject<byte[]>)result.AsyncState).Return();
+                ((PooledObject<byte[]>)state.buffer).Return();
             }
 
             try
             {
                 stream.EndWrite(result);
+
+                streamWriteSemaphore.Release();
+
+                if (state.promise != null)
+                {
+                    state.promise.CreateFulfiller().Fulfill(this);
+                }
             }
-            finally
+            catch (Exception e)
             {
                 streamWriteSemaphore.Release();
+
+                if (state.promise != null)
+                {
+                    state.promise.CreateFulfiller().Fulfill(e);
+                }
             }
         }
 

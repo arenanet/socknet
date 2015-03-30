@@ -68,6 +68,10 @@
       <Project>{d51e44ca-a6cf-401f-bd8e-c1cd1cb0fd16}</Project>
       <Name>SockNet.Protocols</Name>
     </ProjectReference>
+    <ProjectReference Include="..\SockNet.Server\SockNet.Server.csproj">
+      <Project>{c65df4cd-1b0f-4b5d-97f5-48fd082cb685}</Project>
+      <Name>SockNet.Server</Name>
+    </ProjectReference>
   </ItemGroup>
   <Choose>
     <When Condition="'$(VisualStudioVersion)' == '10.0' And '$(IsCodedUITest)' == 'True'">
