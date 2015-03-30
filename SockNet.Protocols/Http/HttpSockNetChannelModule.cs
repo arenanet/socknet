@@ -83,7 +83,7 @@ namespace ArenaNet.SockNet.Protocols.Http
 
             if (currentIncoming == null)
             {
-                currentIncoming = new HttpRequest();
+                currentIncoming = new HttpRequest(channel.BufferPool);
             }
 
             if (currentIncoming.Parse(data.Stream, channel.IsActive))
@@ -109,7 +109,7 @@ namespace ArenaNet.SockNet.Protocols.Http
 
             if (currentIncoming == null)
             {
-                currentIncoming = new HttpResponse();
+                currentIncoming = new HttpResponse(channel.BufferPool);
             }
 
             if (currentIncoming.Parse(data.Stream, channel.IsActive))

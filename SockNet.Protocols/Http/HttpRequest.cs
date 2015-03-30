@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using ArenaNet.SockNet.Common.Pool;
 
 namespace ArenaNet.SockNet.Protocols.Http
 {
@@ -41,6 +42,11 @@ namespace ArenaNet.SockNet.Protocols.Http
         {
             set;
             get;
+        }
+
+        public HttpRequest(ObjectPool<byte[]> bufferPool) : base(bufferPool)
+        {
+
         }
 
         /// <summary>

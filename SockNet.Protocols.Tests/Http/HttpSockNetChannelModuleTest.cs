@@ -25,7 +25,7 @@ namespace ArenaNet.SockNet.Protocols.Http
             client.Pipe.AddIncomingLast<HttpResponse>((ISockNetChannel channel, ref HttpResponse data) => { responses.Add(data); });
             client.Connect().WaitForValue(TimeSpan.FromSeconds(5));
 
-            HttpRequest request = new HttpRequest()
+            HttpRequest request = new HttpRequest(client.BufferPool)
             {
                 Action = "GET",
                 Path = "/en/",
@@ -65,7 +65,7 @@ namespace ArenaNet.SockNet.Protocols.Http
             client.ConnectWithTLS((object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => { return true; })
                 .WaitForValue(TimeSpan.FromSeconds(5));
 
-            HttpRequest request = new HttpRequest()
+            HttpRequest request = new HttpRequest(client.BufferPool)
             {
                 Action = "GET",
                 Path = "/en/",
@@ -104,7 +104,7 @@ namespace ArenaNet.SockNet.Protocols.Http
             client.Pipe.AddIncomingLast<HttpResponse>((ISockNetChannel channel, ref HttpResponse data) => { responses.Add(data); });
             Assert.IsNotNull(client.Connect().WaitForValue(TimeSpan.FromSeconds(5)));
 
-            HttpRequest request = new HttpRequest()
+            HttpRequest request = new HttpRequest(client.BufferPool)
             {
                 Action = "GET",
                 Path = "/httpgallery/chunked/chunkedimage.aspx",
@@ -147,15 +147,14 @@ namespace ArenaNet.SockNet.Protocols.Http
 
                 server.Pipe.AddIncomingFirst<HttpRequest>((ISockNetChannel channel, ref HttpRequest data) =>
                 {
-                    HttpResponse response = new HttpResponse()
+                    HttpResponse response = new HttpResponse(channel.BufferPool)
                     {
                         Version = data.Version,
                         Code = "200",
                         Reason = "OK"
                     };
                     response.Header["Content-Length"] = "" + data.BodySize;
-                    data.Body.Position = 0;
-                    Copy(data.Body, response.Body, data.BodySize);
+                    Copy(data.Body.Stream, response.Body.Stream, data.BodySize);
                     response.BodySize = data.BodySize;
 
                     channel.Send(response).OnFulfilled = (ISockNetChannel value, Exception e, Promise<ISockNetChannel> promise) =>

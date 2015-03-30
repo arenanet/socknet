@@ -12,16 +12,17 @@ namespace ArenaNet.SockNet.Protocols.Http
     [TestClass]
     public class HttpResponseTest
     {
+        private ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[100]; });
+
         [TestMethod]
         public void TestSimpleClosed()
         {
             string sampleRequest = "HTTP/1.0 200 OK\r\nHost: localhost\r\n\r\n";
 
-            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[500]; });
             ChunkedBuffer buffer = new ChunkedBuffer(pool);
             buffer.Write(Encoding.ASCII.GetBytes(sampleRequest), 0, Encoding.ASCII.GetByteCount(sampleRequest));
 
-            HttpResponse response = new HttpResponse();
+            HttpResponse response = new HttpResponse(pool);
             Assert.IsTrue(response.Parse(buffer.Stream, true));
 
             Assert.AreEqual("HTTP/1.0", response.Version);
@@ -30,7 +31,7 @@ namespace ArenaNet.SockNet.Protocols.Http
             Assert.AreEqual("HTTP/1.0 200 OK", response.CommandLine);
             Assert.AreEqual("localhost", response.Header["Host"]);
             Assert.AreEqual(0, response.BodySize);
-            Assert.AreEqual(0, response.Body.Position);
+            Assert.AreEqual(0, response.Body.WritePosition);
 
             MemoryStream stream = new MemoryStream();
             response.Write(stream, false);
@@ -49,11 +50,10 @@ namespace ArenaNet.SockNet.Protocols.Http
             int sampleContentLength = Encoding.UTF8.GetByteCount(sampleContent);
             string sampleRequest = "HTTP/1.0 200 OK\r\nHost: localhost\r\nContent-Length: " + sampleContentLength + "\r\n\r\n" + sampleContent;
 
-            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[500]; });
             ChunkedBuffer buffer = new ChunkedBuffer(pool);
             buffer.Write(Encoding.ASCII.GetBytes(sampleRequest), 0, Encoding.ASCII.GetByteCount(sampleRequest));
 
-            HttpResponse response = new HttpResponse();
+            HttpResponse response = new HttpResponse(pool);
             Assert.IsTrue(response.Parse(buffer.Stream, false));
 
             Assert.AreEqual("HTTP/1.0", response.Version);
@@ -62,7 +62,7 @@ namespace ArenaNet.SockNet.Protocols.Http
             Assert.AreEqual("HTTP/1.0 200 OK", response.CommandLine);
             Assert.AreEqual("localhost", response.Header["Host"]);
             Assert.AreEqual(sampleContentLength, response.BodySize);
-            Assert.AreEqual(sampleContentLength, response.Body.Position);
+            Assert.AreEqual(sampleContentLength, response.Body.WritePosition);
 
             MemoryStream stream = new MemoryStream();
             response.Write(stream, false);
@@ -86,11 +86,10 @@ namespace ArenaNet.SockNet.Protocols.Http
             string sampleRequest2 = sampleRequest.Substring(partialSize, partialSize);
             string sampleRequest3 = sampleRequest.Substring(partialSize * 2, sampleRequest.Length - (partialSize * 2));
 
-            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[500]; });
             ChunkedBuffer buffer = new ChunkedBuffer(pool);
             buffer.Write(Encoding.ASCII.GetBytes(sampleRequest1), 0, Encoding.ASCII.GetByteCount(sampleRequest1));
 
-            HttpResponse response = new HttpResponse();
+            HttpResponse response = new HttpResponse(pool);
             Assert.IsFalse(response.Parse(buffer.Stream, false));
 
             buffer.Write(Encoding.ASCII.GetBytes(sampleRequest2), 0, Encoding.ASCII.GetByteCount(sampleRequest2));
@@ -105,7 +104,7 @@ namespace ArenaNet.SockNet.Protocols.Http
             Assert.AreEqual("HTTP/1.0 200 OK", response.CommandLine);
             Assert.AreEqual("localhost", response.Header["Host"]);
             Assert.AreEqual(sampleContentLength, response.BodySize);
-            Assert.AreEqual(sampleContentLength, response.Body.Position);
+            Assert.AreEqual(sampleContentLength, response.Body.WritePosition);
 
             MemoryStream stream = new MemoryStream();
             response.Write(stream, false);
@@ -124,11 +123,10 @@ namespace ArenaNet.SockNet.Protocols.Http
             int sampleContentLength = Encoding.UTF8.GetByteCount(sampleContent);
             string sampleRequest = "HTTP/1.0 200 OK\r\nHost: localhost\r\nContent-Length: " + sampleContentLength + "\r\n\r\n" + sampleContent;
 
-            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[500]; });
             ChunkedBuffer buffer = new ChunkedBuffer(pool);
             buffer.Write(Encoding.ASCII.GetBytes(sampleRequest), 0, Encoding.ASCII.GetByteCount(sampleRequest));
 
-            HttpResponse response = new HttpResponse();
+            HttpResponse response = new HttpResponse(pool);
             Assert.IsTrue(response.Parse(buffer.Stream, true));
 
             Assert.AreEqual("HTTP/1.0", response.Version);
@@ -137,7 +135,7 @@ namespace ArenaNet.SockNet.Protocols.Http
             Assert.AreEqual("HTTP/1.0 200 OK", response.CommandLine);
             Assert.AreEqual("localhost", response.Header["Host"]);
             Assert.AreEqual(sampleContentLength, response.BodySize);
-            Assert.AreEqual(sampleContentLength, response.Body.Position);
+            Assert.AreEqual(sampleContentLength, response.Body.WritePosition);
 
             MemoryStream stream = new MemoryStream();
             response.Write(stream, false);
@@ -169,8 +167,6 @@ namespace ArenaNet.SockNet.Protocols.Http
             string chunk3Request = string.Format("{0:X}", chunk3ContentLength) + "\r\n" + chunk3Content + "\r\n";
             string chunk4Request = "0\r\n\r\n";
 
-            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[500]; });
-
             ChunkedBuffer buffer1 = new ChunkedBuffer(pool);
             buffer1.Write(Encoding.ASCII.GetBytes(chunk1Request), 0, Encoding.ASCII.GetByteCount(chunk1Request));
 
@@ -183,7 +179,7 @@ namespace ArenaNet.SockNet.Protocols.Http
             ChunkedBuffer buffer4 = new ChunkedBuffer(pool);
             buffer4.Write(Encoding.ASCII.GetBytes(chunk4Request), 0, Encoding.ASCII.GetByteCount(chunk4Request));
 
-            HttpResponse response = new HttpResponse();
+            HttpResponse response = new HttpResponse(pool);
             Assert.IsFalse(response.IsChunked);
             Assert.IsFalse(response.Parse(buffer1.Stream, false));
             Assert.IsTrue(response.IsChunked);
@@ -200,7 +196,7 @@ namespace ArenaNet.SockNet.Protocols.Http
             Assert.AreEqual("HTTP/1.0 200 OK", response.CommandLine);
             Assert.AreEqual("localhost", response.Header["Host"]);
             Assert.AreEqual(sampleContentLength, response.BodySize);
-            Assert.AreEqual(sampleContentLength, response.Body.Position);
+            Assert.AreEqual(sampleContentLength, response.Body.WritePosition);
 
             MemoryStream stream = new MemoryStream();
             response.Write(stream, false);

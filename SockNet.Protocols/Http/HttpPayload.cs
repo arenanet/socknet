@@ -2,6 +2,8 @@
 using System.IO;
 using System.Collections.Generic;
 using System.Text;
+using ArenaNet.SockNet.Common.IO;
+using ArenaNet.SockNet.Common.Pool;
 
 namespace ArenaNet.SockNet.Protocols.Http
 {
@@ -151,7 +153,7 @@ namespace ArenaNet.SockNet.Protocols.Http
         /// <summary>
         /// Returns the raw stream of the body.
         /// </summary>
-        public Stream Body { private set; get; }
+        public ChunkedBuffer Body { private set; get; }
 
         /// <summary>
         /// Sets the number bytes read or to write.
@@ -161,13 +163,13 @@ namespace ArenaNet.SockNet.Protocols.Http
         /// <summary>
         /// Creates a HTTP payload.
         /// </summary>
-        public HttpPayload()
+        public HttpPayload(ObjectPool<byte[]> bufferPool)
         {
             _multiValueHeaderView = new MultiValueHeaderView(this);
             _singleValueHeaderView = new SingleValueHeaderView(this);
 
             IsChunked = false;
-            Body = new MemoryStream();
+            Body = new ChunkedBuffer(bufferPool);
         }
 
         enum ParseState
@@ -216,8 +218,8 @@ namespace ArenaNet.SockNet.Protocols.Http
 
             headerWriter.Flush();
 
-            Body.Position = 0;
-            Copy(Body, stream, BodySize);
+            Body.ReadPosition = 0;
+            Copy(Body.Stream, stream, BodySize);
 
             if (closeStream)
             {
@@ -336,11 +338,11 @@ namespace ArenaNet.SockNet.Protocols.Http
                             }
                             else
                             {
-                                int actuallyRead = Copy(stream, Body, bodySize);
+                                int actuallyRead = Copy(stream, Body.Stream, bodySize);
 
                                 if (actuallyRead != bodySize || !ReadLine(stream, Encoding.ASCII, out length))
                                 {
-                                    Body.Position = 0;
+                                    Body.ReadPosition = 0;
                                     stream.Position = bodyStartPosition;
                                 }
                                 else
@@ -355,11 +357,11 @@ namespace ArenaNet.SockNet.Protocols.Http
                         {
                             int bodySize = Convert.ToInt32(contentLength, 10);
 
-                            int actuallyRead = Copy(stream, Body, bodySize);
+                            int actuallyRead = Copy(stream, Body.Stream, bodySize);
 
                             if (actuallyRead != bodySize)
                             {
-                                Body.Position = 0;
+                                Body.ReadPosition = 0;
                                 stream.Position = startingPosition;
 
                                 return false;
@@ -373,7 +375,7 @@ namespace ArenaNet.SockNet.Protocols.Http
                         }
                         else if (isClosed)
                         {
-                            BodySize = Copy(stream, Body, int.MaxValue);
+                            BodySize = Copy(stream, Body.Stream, int.MaxValue);
 
                             return true;
                         }

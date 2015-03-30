@@ -68,7 +68,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
             channel.Pipe.AddIncomingLast<HttpResponse>(HandleHandshake);
 
-            HttpRequest request = new HttpRequest()
+            HttpRequest request = new HttpRequest(channel.BufferPool)
             {
                 Action = "GET",
                 Path = path,
