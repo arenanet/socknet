@@ -50,7 +50,6 @@
     </Otherwise>
   </Choose>
   <ItemGroup>
-    <Compile Include="Http2\Hpack\HpackTest.cs" />
     <Compile Include="Http\HttpResponseTest.cs" />
     <Compile Include="Http\HttpRequestTest.cs" />
     <Compile Include="Http\HttpSockNetChannelModuleTest.cs" />

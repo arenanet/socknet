@@ -33,14 +33,6 @@
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Http2\Hpack\HpackDecoder.cs" />
-    <Compile Include="Http2\Hpack\HpackDynamicTable.cs" />
-    <Compile Include="Http2\Hpack\HpackEncoder.cs" />
-    <Compile Include="Http2\Hpack\HpackHeader.cs" />
-    <Compile Include="Http2\Hpack\HpackStaticTable.cs" />
-    <Compile Include="Http2\Hpack\Huffman.cs" />
-    <Compile Include="Http2\Hpack\HuffmanDecoder.cs" />
-    <Compile Include="Http2\Hpack\HuffmanEncoder.cs" />
     <Compile Include="Http\HttpSockNetChannelModule.cs" />
     <Compile Include="Http\HttpPayload.cs" />
     <Compile Include="Http\HttpResponse.cs" />
