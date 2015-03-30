@@ -158,7 +158,8 @@ namespace ArenaNet.SockNet.Protocols.Http
                     response.BodySize = data.BodySize;
 
                     Promise<ISockNetChannel> sendPromise = channel.Send(response);
-                    if (!"keep-alive".Equals(data.Header["connection"], StringComparison.CurrentCultureIgnoreCase))
+                    if (("http/1.0".Equals(data.Version) && !"keep-alive".Equals(data.Header["connection"], StringComparison.CurrentCultureIgnoreCase)) ||
+                        "close".Equals(data.Header["connection"], StringComparison.CurrentCultureIgnoreCase))
                     {
                         sendPromise.OnFulfilled = (ISockNetChannel value, Exception e, Promise<ISockNetChannel> promise) =>
                         {
