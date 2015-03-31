@@ -97,7 +97,10 @@ namespace ArenaNet.SockNet.Common.IO
                         break;
                     }
 
-                    currentChunk.pooledBytes.Return();
+                    if (currentChunk.pooledBytes.RefCount.Decrement() < 1)
+                    {
+                        currentChunk.pooledBytes.Return();
+                    }
                     rootChunk = currentChunk.next;
                     ReadPosition -= currentChunk.count;
                     WritePosition = Math.Max(0, WritePosition - currentChunk.count);
@@ -145,25 +148,22 @@ namespace ArenaNet.SockNet.Common.IO
 
                 while (currentChunk != null && bytesRead < count)
                 {
-                    if (bytesScanned > ReadPosition)
+                    if (bytesScanned >= ReadPosition)
                     {
                         int bytesToCopy = Math.Min(currentChunk.count, count - bytesRead);
 
-                        Buffer.BlockCopy(currentChunk.pooledBytes.Value, 0, buffer, offset + bytesRead, bytesToCopy);
+                        Buffer.BlockCopy(currentChunk.pooledBytes.Value, currentChunk.offset, buffer, offset + bytesRead, bytesToCopy);
 
                         bytesRead += bytesToCopy;
                     }
-                    else
+                    else if (currentChunk.count + bytesScanned >= ReadPosition)
                     {
-                        if (currentChunk.count + bytesScanned >= ReadPosition)
-                        {
-                            int sourceChunkOffset = (int)(ReadPosition - bytesScanned);
-                            int bytesToCopy = Math.Min(currentChunk.count - sourceChunkOffset, count - bytesRead);
+                        int sourceChunkOffset = (int)(ReadPosition - bytesScanned);
+                        int bytesToCopy = Math.Min(currentChunk.count - sourceChunkOffset, count - bytesRead);
 
-                            Buffer.BlockCopy(currentChunk.pooledBytes.Value, sourceChunkOffset, buffer, offset + bytesRead, bytesToCopy);
+                        Buffer.BlockCopy(currentChunk.pooledBytes.Value, currentChunk.offset + sourceChunkOffset, buffer, offset + bytesRead, bytesToCopy);
 
-                            bytesRead += bytesToCopy;
-                        } // else keep scanning
+                        bytesRead += bytesToCopy;
                     }
 
                     bytesScanned += currentChunk.count;
@@ -196,6 +196,7 @@ namespace ArenaNet.SockNet.Common.IO
                 count = count,
                 next = null
             };
+            pooledBytes.RefCount.Increment();
 
             AppendChunk(chunk);
         }

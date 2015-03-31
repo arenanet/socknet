@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
 
 namespace ArenaNet.SockNet.Common.Pool
 {
@@ -21,6 +22,33 @@ namespace ArenaNet.SockNet.Common.Pool
         public T Value { get; internal set; }
 
         /// <summary>
+        /// External refcount setter.
+        /// </summary>
+        public class RefCountValue
+        {
+            private int value;
+            public int Value
+            {
+                get { return value; }
+            }
+
+            public int Increment()
+            {
+                return Interlocked.Increment(ref value);
+            }
+
+            public int Decrement()
+            {
+                return Interlocked.Decrement(ref value);
+            }
+        }
+        public RefCountValue RefCount
+        {
+            get;
+            internal set;
+        }
+
+        /// <summary>
         /// This value is owned by the Pool - not this object
         /// </summary>
         internal bool Pooled { set; get; }
@@ -34,6 +62,7 @@ namespace ArenaNet.SockNet.Common.Pool
         {
             this.Pool = pool;
             this.Value = value;
+            this.RefCount = new RefCountValue();
         }
 
         /// <summary>

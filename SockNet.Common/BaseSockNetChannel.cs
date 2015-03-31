@@ -16,7 +16,7 @@ using ArenaNet.SockNet.Common.Collections;
 namespace ArenaNet.SockNet.Common
 {
     /// <summary>
-    /// A simplification layer on top of System.Net.Sockets that enables users to implement custom stream incomingHandlers easier.
+    /// A simplification layer on top of System.Net.Sockets.
     /// </summary>
     /// <typeparam name="S">The type representing the state.</typeparam>
     public abstract class BaseSockNetChannel<S> : ISockNetChannel where S : struct, IComparable, IFormattable, IConvertible
@@ -180,8 +180,9 @@ namespace ArenaNet.SockNet.Common
             SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Reading data from [{0}]...", RemoteEndpoint);
 
             PooledObject<byte[]> buffer = bufferPool.Borrow();
+            buffer.RefCount.Increment();
 
-            stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), buffer);
+            stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), new ReceiveState() { buffer = buffer, offset = 0, count = buffer.Value.Length });
 
             return (attachPromiseFulfiller = new Promise<ISockNetChannel>(this).CreateFulfiller()).Promise;
         }
@@ -240,8 +241,9 @@ namespace ArenaNet.SockNet.Common
             this.stream = sslStream;
 
             PooledObject<byte[]> buffer = bufferPool.Borrow();
+            buffer.RefCount.Increment();
 
-            stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), buffer);
+            stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), new ReceiveState() { buffer = buffer, offset = 0, count = buffer.Value.Length });
 
             attachPromiseFulfiller.Fulfill(this);
         }
@@ -274,10 +276,18 @@ namespace ArenaNet.SockNet.Common
             this.stream = sslStream;
 
             PooledObject<byte[]> buffer = bufferPool.Borrow();
+            buffer.RefCount.Increment();
 
-            stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), buffer);
+            stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), new ReceiveState() { buffer = buffer, offset = 0, count = buffer.Value.Length });
 
             attachPromiseFulfiller.Fulfill(this);
+        }
+
+        public class ReceiveState
+        {
+            public PooledObject<byte[]> buffer;
+            public int offset;
+            public int count;
         }
 
         /// <summary>
@@ -299,7 +309,7 @@ namespace ArenaNet.SockNet.Common
                 return;
             }
 
-            PooledObject<byte[]> buffer = (PooledObject<byte[]>)result.AsyncState;
+            ReceiveState state = (ReceiveState)result.AsyncState;
 
             SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, (this.stream is SslStream ? "[SSL] " : "") + "Received [{0}] bytes from [{1}].", count, RemoteEndpoint);
 
@@ -307,7 +317,7 @@ namespace ArenaNet.SockNet.Common
             {
                 try
                 {
-                    chunkedBuffer.OfferChunk(buffer, 0, count);
+                    chunkedBuffer.OfferChunk(state.buffer, state.offset, count);
 
                     object obj = chunkedBuffer;
 
@@ -323,11 +333,26 @@ namespace ArenaNet.SockNet.Common
                     {
                         chunkedBuffer.Flush();
 
-                        buffer = bufferPool.Borrow();
+                        if (state.offset + count >= state.count)
+                        {
+                            if (state.buffer.RefCount.Decrement() < 1)
+                            {
+                                state.buffer.Return();
+                            }
 
-                        SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, (this.stream is SslStream ? "[SSL] " : "") + "Reading data from [{0}]...", RemoteEndpoint);
+                            PooledObject<byte[]> buffer = bufferPool.Borrow();
+                            buffer.RefCount.Increment();
 
-                        stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), buffer);
+                            SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, (this.stream is SslStream ? "[SSL] " : "") + "Reading data from [{0}]...", RemoteEndpoint);
+
+                            stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), new ReceiveState() { buffer = buffer, offset = 0, count = buffer.Value.Length });
+                        }
+                        else
+                        {
+                            SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, (this.stream is SslStream ? "[SSL] " : "") + "Reading data from [{0}]...", RemoteEndpoint);
+
+                            stream.BeginRead(state.buffer.Value, state.offset + count, state.count - count, new AsyncCallback(ReceiveCallback), new ReceiveState() { buffer = state.buffer, offset = state.offset + count, count = state.count - count });
+                        }
                     }
                     catch (Exception e)
                     {
