@@ -4,7 +4,7 @@ SockNet
 
 A powerful, yet simple, asynchronous network application framework used for implementing low-latency and high-performance server and client applications.
 
-<b>Note:</b> SockNet depends on the .NET 2.0 Framework and has been tested to work with Unity 3D.
+<b>Note:</b> SockNet depends on the .NET 2.0 Framework and has been tested to work with Unity 3D on all platforms.
 
 Getting Started
 ==========
