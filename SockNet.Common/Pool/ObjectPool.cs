@@ -128,43 +128,33 @@ namespace ArenaNet.SockNet.Common.Pool
                 throw new ArgumentException("PooledObject does not belong to this pool.");
             }
 
-            bool doEnqueue = false;
-
             if (!pooledObject.Pooled)
-            {
-                lock (pooledObject)
-                {
-                    if (!pooledObject.Pooled)
-                    {
-                        doEnqueue = true;
-                    }
-                }
-            }
-
-            if (doEnqueue)
             {
                 lock (pool)
                 {
-                    int currentPercentile = (int)(((float)(availableObjects + 1) / (float)totalPoolSize) * 100f);
-
-                    if (onDestroyObject != null)
+                    if (!pooledObject.Pooled)
                     {
-                        pooledObject.Value = onDestroyObject(pooledObject.Value);
-                    }
+                        int currentPercentile = (int)(((float)(availableObjects + 1) / (float)totalPoolSize) * 100f);
 
-                    if (currentPercentile > trimPercentile || totalPoolSize <= idealMinimumPoolSize)
-                    {
-                        pool.Enqueue(pooledObject);
-                        pooledObject.Pooled = true;
+                        if (onDestroyObject != null)
+                        {
+                            pooledObject.Value = onDestroyObject(pooledObject.Value);
+                        }
 
-                        availableObjects++;
-                    }
-                    else
-                    {
-                        totalPoolSize--;
+                        if (currentPercentile > trimPercentile || totalPoolSize <= idealMinimumPoolSize)
+                        {
+                            pool.Enqueue(pooledObject);
+                            pooledObject.Pooled = true;
 
-                        pooledObject.Pool = null;
-                        pooledObject.Pooled = false;
+                            availableObjects++;
+                        }
+                        else
+                        {
+                            totalPoolSize--;
+
+                            pooledObject.Pool = null;
+                            pooledObject.Pooled = false;
+                        }
                     }
                 }
             }
