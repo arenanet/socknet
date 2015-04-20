@@ -147,6 +147,30 @@ namespace ArenaNet.SockNet.Common.Collections
         }
 
         /// <summary>
+        /// Removes the first item in this list.
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public bool RemoveFirst(out T value)
+        {
+            if (root == null)
+            {
+                value = default(T);
+                return false;
+            }
+
+            IterableLinkedListNode<T> oldRoot = root;
+            value = oldRoot.Value;
+            root = oldRoot.Next;
+            if (oldRoot == tail)
+            {
+                tail = root;
+            }
+
+            return true;
+        }
+
+        /// <summary>
         /// Removes an item with the given value.
         /// </summary>
         /// <param name="value"></param>

@@ -27,7 +27,7 @@ namespace ArenaNet.SockNet.Common.Pool
         /// <summary>
         /// The pool where this object lives.
         /// </summary>
-        public ObjectPool<T> Pool { get; private set; }
+        public ObjectPool<T> Pool { get; internal set; }
 
         /// <summary>
         /// The value of this pooled object.
@@ -83,6 +83,11 @@ namespace ArenaNet.SockNet.Common.Pool
         /// </summary>
         public void Return()
         {
+            if (Pool == null)
+            {
+                throw new InvalidOperationException("This pooled object is not attached to a pool - it may have been evicted.");
+            }
+
             Pool.Return(this);
         }
     }

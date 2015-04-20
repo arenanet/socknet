@@ -72,7 +72,7 @@ namespace ArenaNet.SockNet.Protocols.Http
         {
             BlockingCollection<HttpResponse> responses = new BlockingCollection<HttpResponse>();
 
-            ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(new IPEndPoint(Dns.GetHostEntry("www.guildwars2.com").AddressList[0], 443))
+            ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(new IPEndPoint(Dns.GetHostEntry("www.google.com").AddressList[0], 443))
                 .AddModule(new HttpSockNetChannelModule(HttpSockNetChannelModule.ParsingMode.Client));
             client.Pipe.AddIncomingLast<HttpResponse>((ISockNetChannel channel, ref HttpResponse data) => { responses.Add(data); });
             client.ConnectWithTLS((object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => { return true; })
@@ -81,10 +81,11 @@ namespace ArenaNet.SockNet.Protocols.Http
             HttpRequest request = new HttpRequest(client.BufferPool)
             {
                 Action = "GET",
-                Path = "/en/",
+                Path = "/",
                 Version = "HTTP/1.1"
             };
-            request.Header["Host"] = "www.guildwars2.com";
+            request.Header["Host"] = "www.google.com";
+            request.Header["Connection"] = "Close";
 
             client.Send(request);
 

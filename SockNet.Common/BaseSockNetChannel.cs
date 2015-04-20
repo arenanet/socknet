@@ -492,7 +492,6 @@ namespace ArenaNet.SockNet.Common
             }
             else
             {
-                bufferPool.Return(state.buffer);
                 state.stream.Close();
                 state.promise.CreateFulfiller().Fulfill(this);
             }

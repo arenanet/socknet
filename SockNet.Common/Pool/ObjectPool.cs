@@ -23,6 +23,9 @@ namespace ArenaNet.SockNet.Common.Pool
     /// </summary>
     public class ObjectPool<T>
     {
+        public const int DEFAULT_TRIM_PERCENTILE = 65;
+        public const int DEFAULT_IDEAL_MINIMUM_POOL_SIZE = 10;
+
         public delegate T OnNewObjectDelegate();
         public delegate T OnUpdateObjectDelegate(T obj);
         public delegate T OnDestroyedObjectDelegate(T obj);
@@ -30,19 +33,33 @@ namespace ArenaNet.SockNet.Common.Pool
         /// <summary>
         /// Number of objects in pool
         /// </summary>
-        public int ObjectsInPool { get { return pool.Count; } }
+        public int ObjectsInPool { get { return availableObjects; } }
 
         /// <summary>
         /// Number of total objects
         /// </summary>
         public int TotalNumberOfObjects { get { return totalPoolSize; } }
 
+        private readonly int trimPercentile;
+        private readonly int idealMinimumPoolSize;
+
         private Queue<PooledObject<T>> pool = new Queue<PooledObject<T>>();
+        private int availableObjects = 0;
         private int totalPoolSize = 0;
 
         private OnNewObjectDelegate onNewObject;
         private OnUpdateObjectDelegate onUpdateObject;
         private OnDestroyedObjectDelegate onDestroyObject;
+
+        /// <summary>
+        /// Creates an object pool with a trim percentile. (At which percentile this pool will start trimming.)
+        /// </summary>
+        /// <param name="trimPercentile"></param>
+        public ObjectPool(int trimPercentile = DEFAULT_TRIM_PERCENTILE, int idealMinimumPoolSize = DEFAULT_IDEAL_MINIMUM_POOL_SIZE)
+        {
+            this.trimPercentile = trimPercentile;
+            this.idealMinimumPoolSize = idealMinimumPoolSize;
+        }
 
         /// <summary>
         /// Creates a pool with the given constructors, updators, and destructors.
@@ -67,7 +84,7 @@ namespace ArenaNet.SockNet.Common.Pool
 
             lock (pool)
             {
-                if (pool.Count == 0)
+                if (availableObjects == 0)
                 {
                     pooledObject = new PooledObject<T>(this, onNewObject());
 
@@ -76,12 +93,15 @@ namespace ArenaNet.SockNet.Common.Pool
                 else
                 {
                     pooledObject = pool.Dequeue();
+                    availableObjects--;
 
                     if (onUpdateObject != null)
                     {
                         pooledObject.Value = onUpdateObject(pooledObject.Value);
                     }
                 }
+
+                pooledObject.Pooled = false;
             }
 
             return pooledObject;
@@ -95,7 +115,17 @@ namespace ArenaNet.SockNet.Common.Pool
         {
             if (pooledObject == null)
             {
-                return;
+                throw new ArgumentNullException("PooledObject cannot be null.");
+            }
+
+            if (pooledObject.Pooled)
+            {
+                throw new ArgumentException("PooledObject is already pooled.");
+            }
+
+            if (pooledObject.Pool != this)
+            {
+                throw new ArgumentException("PooledObject does not belong to this pool.");
             }
 
             bool doEnqueue = false;
@@ -107,7 +137,6 @@ namespace ArenaNet.SockNet.Common.Pool
                     if (!pooledObject.Pooled)
                     {
                         doEnqueue = true;
-                        pooledObject.Pooled = true;
                     }
                 }
             }
@@ -116,12 +145,27 @@ namespace ArenaNet.SockNet.Common.Pool
             {
                 lock (pool)
                 {
+                    int currentPercentile = (int)(((float)(availableObjects + 1) / (float)totalPoolSize) * 100f);
+
                     if (onDestroyObject != null)
                     {
                         pooledObject.Value = onDestroyObject(pooledObject.Value);
                     }
 
-                    pool.Enqueue(pooledObject);
+                    if (currentPercentile > trimPercentile || totalPoolSize <= idealMinimumPoolSize)
+                    {
+                        pool.Enqueue(pooledObject);
+                        pooledObject.Pooled = true;
+
+                        availableObjects++;
+                    }
+                    else
+                    {
+                        totalPoolSize--;
+
+                        pooledObject.Pool = null;
+                        pooledObject.Pooled = false;
+                    }
                 }
             }
         }
