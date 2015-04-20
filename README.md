@@ -9,7 +9,7 @@ A powerful, yet simple, asynchronous network application framework used for impl
 Getting Started
 ==========
 
-SockNet contains multiple libraries that enable the developer to write less boilderplate code and more business logic. To see specific examples, please visit the project pages listed bellow.
+SockNet contains multiple libraries that enable the developer to write less boilerplate code and more business logic. To see specific examples, please visit the project pages listed bellow.
 
 [SockNet.Client](https://github.com/arenanet/socknet/tree/master/SockNet.Client) - A networking library that can be used to implement clients. Depends on SockNet.Common.
 <br />
