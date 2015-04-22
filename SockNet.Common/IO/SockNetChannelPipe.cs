@@ -505,6 +505,108 @@ namespace ArenaNet.SockNet.Common.IO
         }
 
         /// <summary>
+        /// Adds the given handler first.
+        /// </summary>
+        /// <param name="handler"></param>
+        /// <returns></returns>
+        public void AddFirst<T>(SockNetChannelHandler handler)
+        {
+            lock (openedHandlers)
+            {
+                openedHandlers.AddFirst(handler.OnOpen);
+            }
+
+            lock (closedHandlers)
+            {
+                closedHandlers.AddFirst(handler.OnClose);
+            }
+
+            if (handler is SockNetChannelIncomingHandler<T>)
+            {
+                lock (incomingHandlers)
+                {
+                    incomingHandlers.AddFirst(new DelegateReference<T>(((SockNetChannelIncomingHandler<T>)handler).OnIncomingData));
+                }
+            }
+
+            if (handler is SockNetChannelOutgoingHandler<T>)
+            {
+                lock (outgoingHandlers)
+                {
+                    incomingHandlers.AddFirst(new DelegateReference<T>(((SockNetChannelOutgoingHandler<T>)handler).OnOutgoingData));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Adds the given handler last.
+        /// </summary>
+        /// <param name="handler"></param>
+        /// <returns></returns>
+        public void AddLast<T>(SockNetChannelHandler handler)
+        {
+            lock (openedHandlers)
+            {
+                openedHandlers.AddLast(handler.OnOpen);
+            }
+
+            lock (closedHandlers)
+            {
+                closedHandlers.AddLast(handler.OnClose);
+            }
+
+            if (handler is SockNetChannelIncomingHandler<T>)
+            {
+                lock (incomingHandlers)
+                {
+                    incomingHandlers.AddLast(new DelegateReference<T>(((SockNetChannelIncomingHandler<T>)handler).OnIncomingData));
+                }
+            }
+
+            if (handler is SockNetChannelOutgoingHandler<T>)
+            {
+                lock (outgoingHandlers)
+                {
+                    incomingHandlers.AddLast(new DelegateReference<T>(((SockNetChannelOutgoingHandler<T>)handler).OnOutgoingData));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Removes this handler from the pipe.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="handler"></param>
+        public void Remove<T>(SockNetChannelHandler handler)
+        {
+            lock (openedHandlers)
+            {
+                openedHandlers.Remove(handler.OnOpen);
+            }
+
+            lock (closedHandlers)
+            {
+                closedHandlers.Remove(handler.OnClose);
+            }
+
+            if (handler is SockNetChannelIncomingHandler<T>)
+            {
+                lock (incomingHandlers)
+                {
+                    incomingHandlers.Remove(new DelegateReference<T>(((SockNetChannelIncomingHandler<T>)handler).OnIncomingData));
+                }
+            }
+
+            if (handler is SockNetChannelOutgoingHandler<T>)
+            {
+                lock (outgoingHandlers)
+                {
+                    incomingHandlers.Remove(new DelegateReference<T>(((SockNetChannelOutgoingHandler<T>)handler).OnOutgoingData));
+                }
+            }
+        }
+
+        /// <summary>
         /// The interface of a reference to a delegate.
         /// </summary>
         private interface IDelegateReference

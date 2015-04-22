@@ -39,6 +39,10 @@
     <Compile Include="IO\ChunkedBuffer.cs" />
     <Compile Include="Collections\IterableLinkedList.cs" />
     <Compile Include="IO\ChunkedBufferStream.cs" />
+    <Compile Include="IO\BaseSockNetChannelHandler.cs" />
+    <Compile Include="IO\SockNetChannelHandler.cs" />
+    <Compile Include="IO\SockNetChannelOutgoingHandler.cs" />
+    <Compile Include="IO\SockNetChannelIncomingHandler.cs" />
     <Compile Include="ISockNetChannel.cs" />
     <Compile Include="ISockNetChannelModule.cs" />
     <Compile Include="Pool\ObjectPool.cs" />
