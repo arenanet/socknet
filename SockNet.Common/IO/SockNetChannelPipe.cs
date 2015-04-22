@@ -19,32 +19,32 @@ using ArenaNet.SockNet.Common.Collections;
 namespace ArenaNet.SockNet.Common.IO
 {
     /// <summary>
-    /// A delegate that is used for notifying when a channel is open.
-    /// </summary>
-    /// <typeparam name="T"></typeparam>
-    /// <param name="channel"></param>
-    public delegate void OnOpenedDelegate(ISockNetChannel channel);
-
-    /// <summary>
-    /// A delegate that is used for notifying when a channel is open.
-    /// </summary>
-    /// <typeparam name="T"></typeparam>
-    /// <param name="channel"></param>
-    public delegate void OnClosedDelegate(ISockNetChannel channel);
-
-    /// <summary>
-    /// A delegate that is used for incoming and outgoing data.
-    /// </summary>
-    /// <typeparam name="T"></typeparam>
-    /// <param name="channel"></param>
-    /// <param name="data"></param>
-    public delegate void OnDataDelegate<T>(ISockNetChannel channel, ref T data);
-
-    /// <summary>
     /// A pipe in SockNet.
     /// </summary>
     public class SockNetChannelPipe
     {
+        /// <summary>
+        /// A delegate that is used for notifying when a channel is open.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="channel"></param>
+        public delegate void OnOpenedDelegate(ISockNetChannel channel);
+
+        /// <summary>
+        /// A delegate that is used for notifying when a channel is open.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="channel"></param>
+        public delegate void OnClosedDelegate(ISockNetChannel channel);
+
+        /// <summary>
+        /// A delegate that is used for incoming and outgoing data.
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="channel"></param>
+        /// <param name="data"></param>
+        public delegate void OnDataDelegate<T>(ISockNetChannel channel, ref T data);
+
         private IterableLinkedList<OnOpenedDelegate> openedHandlers = new IterableLinkedList<OnOpenedDelegate>();
         private IterableLinkedList<OnClosedDelegate> closedHandlers = new IterableLinkedList<OnClosedDelegate>();
 

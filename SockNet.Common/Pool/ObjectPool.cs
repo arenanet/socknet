@@ -23,8 +23,8 @@ namespace ArenaNet.SockNet.Common.Pool
     /// </summary>
     public class ObjectPool<T>
     {
-        public const int DEFAULT_TRIM_PERCENTILE = 65;
-        public const int DEFAULT_IDEAL_MINIMUM_POOL_SIZE = 10;
+        public const int DefaultTrimPercentile = 65;
+        public const int DefaultMinimumPoolSize = 10;
 
         public delegate T OnNewObjectDelegate();
         public delegate T OnUpdateObjectDelegate(T obj);
@@ -41,7 +41,7 @@ namespace ArenaNet.SockNet.Common.Pool
         public int TotalNumberOfObjects { get { return totalPoolSize; } }
 
         private readonly int trimPercentile;
-        private readonly int idealMinimumPoolSize;
+        private readonly int minimumPoolSize;
 
         private Queue<PooledObject<T>> pool = new Queue<PooledObject<T>>();
         private int availableObjects = 0;
@@ -55,10 +55,10 @@ namespace ArenaNet.SockNet.Common.Pool
         /// Creates an object pool with a trim percentile. (At which percentile this pool will start trimming.)
         /// </summary>
         /// <param name="trimPercentile"></param>
-        public ObjectPool(int trimPercentile = DEFAULT_TRIM_PERCENTILE, int idealMinimumPoolSize = DEFAULT_IDEAL_MINIMUM_POOL_SIZE)
+        public ObjectPool(int trimPercentile = DefaultTrimPercentile, int minimumPoolSize = DefaultMinimumPoolSize)
         {
             this.trimPercentile = trimPercentile;
-            this.idealMinimumPoolSize = idealMinimumPoolSize;
+            this.minimumPoolSize = minimumPoolSize;
         }
 
         /// <summary>
@@ -141,7 +141,7 @@ namespace ArenaNet.SockNet.Common.Pool
                             pooledObject.Value = onDestroyObject(pooledObject.Value);
                         }
 
-                        if (currentPercentile > trimPercentile || totalPoolSize <= idealMinimumPoolSize)
+                        if (currentPercentile > trimPercentile || totalPoolSize <= minimumPoolSize)
                         {
                             pool.Enqueue(pooledObject);
                             pooledObject.Pooled = true;

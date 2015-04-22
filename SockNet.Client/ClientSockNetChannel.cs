@@ -26,10 +26,10 @@ namespace ArenaNet.SockNet.Client
     /// </summary>
     public enum ClientSockNetChannelState
     {
-        CONNECTING,
-        CONNECTED,
-        DISCONNECTING,
-        DISCONNECTED
+        Connecting,
+        Connected,
+        Disconnecting,
+        Disconnected
     }
 
     /// <summary>
@@ -56,7 +56,7 @@ namespace ArenaNet.SockNet.Client
             {
                 try
                 {
-                    return ClientSockNetChannelState.CONNECTED.Equals(State) && (!this.Socket.Poll(1, SelectMode.SelectRead) || this.Socket.Available != 0);
+                    return ClientSockNetChannelState.Connected.Equals(State) && (!this.Socket.Poll(1, SelectMode.SelectRead) || this.Socket.Available != 0);
                 }
                 catch
                 {
@@ -86,7 +86,7 @@ namespace ArenaNet.SockNet.Client
         {
             this.connectEndpoint = endpoint;
 
-            this.State = ClientSockNetChannelState.DISCONNECTED;
+            this.State = ClientSockNetChannelState.Disconnected;
         }
 
         /// <summary>
@@ -139,7 +139,7 @@ namespace ArenaNet.SockNet.Client
         {
             Promise<ISockNetChannel> promise = new Promise<ISockNetChannel>();
 
-            if (TryFlaggingAs(ClientSockNetChannelState.CONNECTING, ClientSockNetChannelState.DISCONNECTED))
+            if (TryFlaggingAs(ClientSockNetChannelState.Connecting, ClientSockNetChannelState.Disconnected))
             {
                 SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Connecting to [{0}]...", connectEndpoint);
 
@@ -162,7 +162,7 @@ namespace ArenaNet.SockNet.Client
         /// <param name="result"></param>
         private void ConnectCallback(IAsyncResult result)
         {
-            if (TryFlaggingAs(ClientSockNetChannelState.CONNECTED, ClientSockNetChannelState.CONNECTING))
+            if (TryFlaggingAs(ClientSockNetChannelState.Connected, ClientSockNetChannelState.Connecting))
             {
                 SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Connected to [{0}].", connectEndpoint);
 
@@ -203,7 +203,7 @@ namespace ArenaNet.SockNet.Client
         {
             Promise<ISockNetChannel> promise = new Promise<ISockNetChannel>();
 
-            if (TryFlaggingAs(ClientSockNetChannelState.DISCONNECTING, ClientSockNetChannelState.CONNECTED))
+            if (TryFlaggingAs(ClientSockNetChannelState.Disconnecting, ClientSockNetChannelState.Connected))
             {
                 SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Disconnecting from [{0}]...", RemoteEndpoint);
 
@@ -223,7 +223,7 @@ namespace ArenaNet.SockNet.Client
         /// <param name="result"></param>
         private void DisconnectCallback(IAsyncResult result)
         {
-            if (TryFlaggingAs(ClientSockNetChannelState.DISCONNECTED, ClientSockNetChannelState.DISCONNECTING))
+            if (TryFlaggingAs(ClientSockNetChannelState.Disconnected, ClientSockNetChannelState.Disconnecting))
             {
                 SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Disconnected from [{0}]", RemoteEndpoint);
 

@@ -26,9 +26,9 @@ namespace ArenaNet.SockNet.Server
     /// </summary>
     public enum RemoteSockNetChannelState
     {
-        CONNECTED,
-        DISCONNECTING,
-        DISCONNECTED
+        Connected,
+        Disconnecting,
+        Disconnected
     }
 
     /// <summary>
@@ -52,7 +52,7 @@ namespace ArenaNet.SockNet.Server
             {
                 try
                 {
-                    return RemoteSockNetChannelState.CONNECTED.Equals(State) && (!this.Socket.Poll(1, SelectMode.SelectRead) || this.Socket.Available != 0);
+                    return RemoteSockNetChannelState.Connected.Equals(State) && (!this.Socket.Poll(1, SelectMode.SelectRead) || this.Socket.Available != 0);
                 }
                 catch
                 {
@@ -73,7 +73,7 @@ namespace ArenaNet.SockNet.Server
 
             this.Pipe = parent.Pipe.Clone(this);
 
-            this.State = RemoteSockNetChannelState.DISCONNECTED;
+            this.State = RemoteSockNetChannelState.Disconnected;
 
             if (parent.IsSsl)
             {
@@ -97,7 +97,7 @@ namespace ArenaNet.SockNet.Server
 
             Pipe.HandleOpened();
 
-            State = RemoteSockNetChannelState.CONNECTED;
+            State = RemoteSockNetChannelState.Connected;
         }
 
         /// <summary>
@@ -131,7 +131,7 @@ namespace ArenaNet.SockNet.Server
         {
             Promise<ISockNetChannel> promise = new Promise<ISockNetChannel>();
 
-            if (TryFlaggingAs(RemoteSockNetChannelState.DISCONNECTING, RemoteSockNetChannelState.CONNECTED))
+            if (TryFlaggingAs(RemoteSockNetChannelState.Disconnecting, RemoteSockNetChannelState.Connected))
             {
                 SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Disconnecting from [{0}]...", RemoteEndpoint);
 
@@ -151,7 +151,7 @@ namespace ArenaNet.SockNet.Server
         /// <param name="result"></param>
         private void DisconnectCallback(IAsyncResult result)
         {
-            if (TryFlaggingAs(RemoteSockNetChannelState.DISCONNECTED, RemoteSockNetChannelState.DISCONNECTING))
+            if (TryFlaggingAs(RemoteSockNetChannelState.Disconnected, RemoteSockNetChannelState.Disconnecting))
             {
                 SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Disconnected from [{0}]", RemoteEndpoint);
 

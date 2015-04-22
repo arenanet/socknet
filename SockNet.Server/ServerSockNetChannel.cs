@@ -30,10 +30,10 @@ namespace ArenaNet.SockNet.Server
     /// </summary>
     public enum ServerSockNetChannelState
     {
-        BINDING,
-        BOUND,
-        CLOSING,
-        CLOSED
+        Binding,
+        Bound,
+        Closing,
+        Closed
     }
 
     /// <summary>
@@ -50,7 +50,7 @@ namespace ArenaNet.SockNet.Server
         /// <summary>
         /// Returns true if this channel is active.
         /// </summary>
-        public override bool IsActive { get { return ServerSockNetChannelState.BOUND.Equals(State); } }
+        public override bool IsActive { get { return ServerSockNetChannelState.Bound.Equals(State); } }
 
         private IPEndPoint bindEndpoint = null;
         private int backlog;
@@ -79,7 +79,7 @@ namespace ArenaNet.SockNet.Server
             this.bindEndpoint = bindEndpoint;
             this.backlog = backlog;
 
-            this.State = ServerSockNetChannelState.CLOSED;
+            this.State = ServerSockNetChannelState.Closed;
         }
 
         /// <summary>
@@ -132,7 +132,7 @@ namespace ArenaNet.SockNet.Server
         {
             Promise<ISockNetChannel> promise = new Promise<ISockNetChannel>();
 
-            if (TryFlaggingAs(ServerSockNetChannelState.BINDING, ServerSockNetChannelState.CLOSED))
+            if (TryFlaggingAs(ServerSockNetChannelState.Binding, ServerSockNetChannelState.Closed))
             {
                 SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Binding to [{0}]...", bindEndpoint);
 
@@ -147,7 +147,7 @@ namespace ArenaNet.SockNet.Server
 
                 Socket.BeginAccept(new AsyncCallback(AcceptCallback), Socket);
 
-                this.State = ServerSockNetChannelState.BOUND;
+                this.State = ServerSockNetChannelState.Bound;
 
                 promise.CreateFulfiller().Fulfill(this);
             }
@@ -199,13 +199,13 @@ namespace ArenaNet.SockNet.Server
         /// <returns></returns>
         public override Promise<ISockNetChannel> Close()
         {
-            if (TryFlaggingAs(ServerSockNetChannelState.CLOSING, ServerSockNetChannelState.BOUND))
+            if (TryFlaggingAs(ServerSockNetChannelState.Closing, ServerSockNetChannelState.Bound))
             {
                 SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Unbinding from [{0}]...", LocalEndpoint);
 
                 Socket.Close();
 
-                this.State = ServerSockNetChannelState.CLOSED;
+                this.State = ServerSockNetChannelState.Closed;
 
                 SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Not bound to [{0}].", bindEndpoint);
             }

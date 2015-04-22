@@ -28,7 +28,8 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
     {
         private static readonly byte[] HeaderNewLine = Encoding.ASCII.GetBytes("\r\n");
         private static readonly string WebSocketAcceptHeader = "Sec-WebSocket-Accept";
-        private const string MAGIC = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+
+        private const string Magic = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
         private string path;
         private string hostname;
