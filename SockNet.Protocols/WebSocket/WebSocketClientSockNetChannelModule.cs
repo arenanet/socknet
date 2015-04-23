@@ -26,8 +26,9 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
     /// </summary>
     public class WebSocketClientSockNetChannelModule : ISockNetChannelModule
     {
+        public static readonly string WebSocketAcceptHeader = "Sec-WebSocket-Accept";
+
         private static readonly byte[] HeaderNewLine = Encoding.ASCII.GetBytes("\r\n");
-        private static readonly string WebSocketAcceptHeader = "Sec-WebSocket-Accept";
 
         private const string Magic = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
@@ -35,9 +36,12 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         private string hostname;
         private OnWebSocketEstablishedDelegate onWebSocketEstablished;
         private string secKey;
-        private string expectedAccept;
+
+        public string ExpectedAccept { private set; get; }
 
         private HttpSockNetChannelModule httpModule = new HttpSockNetChannelModule(HttpSockNetChannelModule.ParsingMode.Client);
+
+        private WebSocketFrame continuationFrame = null;
 
         public WebSocketClientSockNetChannelModule(string path, string hostname, OnWebSocketEstablishedDelegate onWebSocketEstablished)
         {
@@ -46,7 +50,8 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
             this.onWebSocketEstablished = onWebSocketEstablished;
 
             this.secKey = Convert.ToBase64String(Encoding.ASCII.GetBytes(Guid.NewGuid().ToString().Substring(0, 16)));
-            this.expectedAccept = Convert.ToBase64String(SHA1.Create().ComputeHash(Encoding.ASCII.GetBytes(this.secKey + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")));
+
+            this.ExpectedAccept = Convert.ToBase64String(SHA1.Create().ComputeHash(Encoding.ASCII.GetBytes(this.secKey + Magic)));
         }
 
         /// <summary>
@@ -104,7 +109,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         /// <param name="data"></param>
         private void HandleHandshake(ISockNetChannel channel, ref HttpResponse data)
         {
-            if (expectedAccept.Equals(data.Header[WebSocketAcceptHeader]))
+            if (ExpectedAccept.Equals(data.Header[WebSocketAcceptHeader]))
             {
                 SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Established Web-Socket connection.");
                 channel.Pipe.RemoveIncoming<HttpResponse>(HandleHandshake);
@@ -141,11 +146,30 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
             try
             {
-                data = WebSocketFrame.ParseFrame(stream.Stream);
+                WebSocketFrame frame = WebSocketFrame.ParseFrame(stream.Stream);
+
+                if (frame.IsFinished)
+                {
+                    if (continuationFrame != null)
+                    {
+                        UpdateContinuation(frame);
+
+                        data = continuationFrame;
+                        continuationFrame = null;
+                    }
+                    else
+                    {
+                        data = frame;
+                    }
+                }
+                else
+                {
+                    UpdateContinuation(frame);
+                }
 
                 if (SockNetLogger.DebugEnabled)
                 {
-                    SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Received WebSocket message. Size: {0}, Type: {1}", ((WebSocketFrame)data).Data.Length, Enum.GetName(typeof(WebSocketFrame.OperationCode), ((WebSocketFrame)data).Operation));
+                    SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Received WebSocket message. Size: {0}, Type: {1}", frame.Data.Length, Enum.GetName(typeof(WebSocketFrame.OperationCode), frame.Operation));
                 }
             }
             catch (EndOfStreamException)
@@ -161,6 +185,34 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
             catch (Exception e)
             {
                 SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Unable to parse web-socket request", e);
+            }
+        }
+
+        /// <summary>
+        /// Updates the local continuation.
+        /// </summary>
+        /// <param name="frame"></param>
+        private void UpdateContinuation(WebSocketFrame frame)
+        {
+            if (continuationFrame == null)
+            {
+                continuationFrame = frame;  // set initial frame
+            }
+            else
+            {
+                byte[] frameData = new byte[continuationFrame.Data.Length + frame.Data.Length];
+                Buffer.BlockCopy(continuationFrame.Data, 0, frameData, 0, continuationFrame.Data.Length);
+                Buffer.BlockCopy(frame.Data, 0, frameData, continuationFrame.Data.Length, frame.Data.Length);
+
+                switch (continuationFrame.Operation)
+                {
+                    case WebSocketFrame.OperationCode.BinaryFrame:
+                        continuationFrame = WebSocketFrame.CreateBinaryFrame(frameData, false, false);
+                        break;
+                    case WebSocketFrame.OperationCode.TextFrame:
+                        continuationFrame = WebSocketFrame.CreateTextFrame(frameData, false, false);
+                        break;
+                }
             }
         }
 

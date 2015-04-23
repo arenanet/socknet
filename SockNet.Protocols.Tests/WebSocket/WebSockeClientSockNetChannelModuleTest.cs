@@ -19,7 +19,10 @@ using System.Security.Cryptography.X509Certificates;
 using System.Collections.Concurrent;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using ArenaNet.SockNet.Common;
+using ArenaNet.SockNet.Common.IO;
+using ArenaNet.SockNet.Common.Pool;
 using ArenaNet.SockNet.Client;
+using ArenaNet.SockNet.Protocols.Http;
 
 namespace ArenaNet.SockNet.Protocols.WebSocket
 {
@@ -27,6 +30,133 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
     public class WebSockeClientSockNetChannelModuleTest
     {
         private const int DEFAULT_ASYNC_TIMEOUT = 5000;
+
+        public class DummySockNetChannel : ISockNetChannel
+        {
+            public SockNetChannelPipe Pipe
+            {
+                get;
+                set;
+            }
+
+            public ObjectPool<byte[]> BufferPool
+            {
+                get;
+                set;
+            }
+
+            public IPEndPoint RemoteEndpoint
+            {
+                get;
+                set;
+            }
+
+            public IPEndPoint LocalEndpoint
+            {
+                get;
+                set;
+            }
+
+            public ISockNetChannel AddModule(ISockNetChannelModule module)
+            {
+                module.Install(this);
+
+                return this;
+            }
+
+            public ISockNetChannel RemoveModule(ISockNetChannelModule module)
+            {
+                module.Uninstall(this);
+
+                return this;
+            }
+
+            public bool IsActive
+            {
+                get;
+                set;
+            }
+
+            public Enum State
+            {
+                get;
+                set;
+            }
+
+            public void Connect()
+            {
+                Pipe.HandleOpened();
+            }
+
+            public void Disconnect()
+            {
+                Pipe.HandleClosed();
+            }
+
+            public void Receive(ref object data)
+            {
+                Pipe.HandleIncomingData(ref data);
+            }
+
+            public Promise<ISockNetChannel> Send(object data)
+            {
+                Pipe.HandleOutgoingData(ref data);
+
+                return new Promise<ISockNetChannel>(this);
+            }
+
+            public Promise<ISockNetChannel> Close()
+            {
+                return new Promise<ISockNetChannel>(this);
+            }
+        }
+
+        [TestMethod]
+        public void TestContinuation()
+        {
+            DummySockNetChannel channel = new DummySockNetChannel()
+            {
+                State = null,
+                IsActive = true,
+                BufferPool = SockNetChannelGlobals.GlobalBufferPool
+            };
+            channel.Pipe = new SockNetChannelPipe(channel);
+
+            WebSocketClientSockNetChannelModule module = new WebSocketClientSockNetChannelModule("/test", "test", null);
+            channel.AddModule(module);
+            channel.Connect();
+
+            HttpResponse handshakeResponse = new HttpResponse(channel.BufferPool) { Code = "200", Reason = "OK", Version = "HTTP/1.1" };
+            handshakeResponse.Header[WebSocketClientSockNetChannelModule.WebSocketAcceptHeader] = module.ExpectedAccept;
+            object receiveResponse = handshakeResponse;
+            channel.Receive(ref receiveResponse);
+
+            WebSocketFrame continuation1 = WebSocketFrame.CreateTextFrame("This ", false, false, false);
+            receiveResponse = ToBuffer(continuation1);
+            channel.Receive(ref receiveResponse);
+
+            Assert.IsTrue(receiveResponse is ChunkedBuffer);
+
+            WebSocketFrame continuation2 = WebSocketFrame.CreateTextFrame("is ", false, true, false);
+            receiveResponse = ToBuffer(continuation2);
+            channel.Receive(ref receiveResponse);
+
+            Assert.IsTrue(receiveResponse is ChunkedBuffer);
+
+            WebSocketFrame continuation3 = WebSocketFrame.CreateTextFrame("awesome!", false, true, true);
+            receiveResponse = ToBuffer(continuation3);
+            channel.Receive(ref receiveResponse);
+
+            Assert.IsTrue(receiveResponse is WebSocketFrame);
+            Assert.AreEqual("This is awesome!", ((WebSocketFrame)receiveResponse).DataAsString);
+        }
+
+        public ChunkedBuffer ToBuffer(WebSocketFrame frame)
+        {
+            ChunkedBuffer buffer = new ChunkedBuffer(SockNetChannelGlobals.GlobalBufferPool);
+            frame.Write(buffer.Stream, true);
+            return buffer;
+        }
 
         [TestMethod]
         public void TestEchoWithMask()

@@ -204,7 +204,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         /// <param name="text"></param>
         /// <param name="mask"></param>
         /// <returns></returns>
-        public static WebSocketFrame CreateTextFrame(string text, bool mask = true)
+        public static WebSocketFrame CreateTextFrame(string text, bool mask = true, bool continuation = false, bool isFinished = true)
         {
             byte[] maskData = null;
 
@@ -221,13 +221,46 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
             return new WebSocketFrame()
             {
-                IsFinished = true,
+                IsFinished = isFinished,
                 Reserved1 = false,
                 Reserved2 = false,
                 Reserved3 = false,
-                Operation = OperationCode.TextFrame,
+                Operation = continuation ? OperationCode.Continuation : OperationCode.TextFrame,
                 Mask = maskData,
                 Data = UTF8.GetBytes(text)
+            };
+        }
+
+        /// <summary>
+        /// Creates a TEXT WebSocketFrame.
+        /// </summary>
+        /// <param name="rawText"></param>
+        /// <param name="mask"></param>
+        /// <returns></returns>
+        public static WebSocketFrame CreateTextFrame(byte[] rawText, bool mask = true, bool continuation = false, bool isFinished = true)
+        {
+            byte[] maskData = null;
+
+            if (mask)
+            {
+                maskData = new byte[4]
+                {
+                  (byte) WebSocketFrame.GlobalRandom.Next(byte.MaxValue),
+                  (byte) WebSocketFrame.GlobalRandom.Next(byte.MaxValue),
+                  (byte) WebSocketFrame.GlobalRandom.Next(byte.MaxValue),
+                  (byte) WebSocketFrame.GlobalRandom.Next(byte.MaxValue)
+                };
+            }
+
+            return new WebSocketFrame()
+            {
+                IsFinished = isFinished,
+                Reserved1 = false,
+                Reserved2 = false,
+                Reserved3 = false,
+                Operation = continuation ? OperationCode.Continuation : OperationCode.TextFrame,
+                Mask = maskData,
+                Data = rawText
             };
         }
 
@@ -237,7 +270,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         /// <param name="data"></param>
         /// <param name="mask"></param>
         /// <returns></returns>
-        public static WebSocketFrame CreateBinaryFrame(byte[] data, bool mask = true)
+        public static WebSocketFrame CreateBinaryFrame(byte[] data, bool mask = true, bool continuation = false)
         {
             byte[] maskData = null;
 
@@ -258,7 +291,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
                 Reserved1 = false,
                 Reserved2 = false,
                 Reserved3 = false,
-                Operation = OperationCode.BinaryFrame,
+                Operation = continuation ? OperationCode.Continuation : OperationCode.BinaryFrame,
                 Mask = maskData,
                 Data = data
             };
