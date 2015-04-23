@@ -142,6 +142,16 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
             try
             {
                 data = WebSocketFrame.ParseFrame(stream.Stream);
+
+                if (SockNetLogger.DebugEnabled)
+                {
+                    SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Received WebSocket message. Size: {0}, Type: {1}", ((WebSocketFrame)data).Data.Length, Enum.GetName(typeof(WebSocketFrame.OperationCode), ((WebSocketFrame)data).Operation));
+                }
+            }
+            catch (EndOfStreamException)
+            {
+                // websocket frame isn't done
+                stream.ReadPosition = startingPosition;
             }
             catch (ArgumentOutOfRangeException)
             {
@@ -150,10 +160,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
             }
             catch (Exception e)
             {
-                // otherwise we can't recover
-                SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, "Unexpected error: {0}",  e.Message);
-
-                channel.Close();
+                SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Unable to parse web-socket request", e);
             }
         }
 

@@ -312,7 +312,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         /// <summary>
         /// WebSocket operation codes.
         /// </summary>
-        public enum OperationCode
+        public enum OperationCode : byte
         {
             Continuation = 0,
             TextFrame = 1,
