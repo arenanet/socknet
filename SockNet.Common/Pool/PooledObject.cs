@@ -39,10 +39,23 @@ namespace ArenaNet.SockNet.Common.Pool
         /// </summary>
         public class RefCountValue
         {
-            private int value;
+            private int value = 0;
             public int Value
             {
-                get { return value; }
+                get 
+                {
+                    lock (this)
+                    {
+                        return value;
+                    }
+                }
+                internal set 
+                {
+                    lock (this)
+                    {
+                        this.value = value;
+                    }
+                }
             }
 
             public int Increment()

@@ -351,7 +351,7 @@ namespace ArenaNet.SockNet.Common
 
                         if (state.offset + count >= state.count)
                         {
-                            if (state.buffer.RefCount.Decrement() < 1 && !state.buffer.Pooled)
+                            if (state.buffer.RefCount.Decrement() < 1)
                             {
                                 state.buffer.Return();
                             }

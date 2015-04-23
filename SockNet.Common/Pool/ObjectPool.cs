@@ -102,6 +102,7 @@ namespace ArenaNet.SockNet.Common.Pool
                 }
 
                 pooledObject.Pooled = false;
+                pooledObject.RefCount.Value = 0;
             }
 
             return pooledObject;

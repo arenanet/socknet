@@ -110,7 +110,7 @@ namespace ArenaNet.SockNet.Common.IO
                         break;
                     }
 
-                    if (currentChunk.pooledBytes.RefCount.Decrement() < 1 && !currentChunk.pooledBytes.Pooled)
+                    if (currentChunk.pooledBytes.RefCount.Decrement() < 1)
                     {
                         currentChunk.pooledBytes.Return();
                     }
@@ -232,6 +232,7 @@ namespace ArenaNet.SockNet.Common.IO
                 for (int i = offset; i < count; )
                 {
                     PooledObject<byte[]> pooledBytes = pool.Borrow();
+                    pooledBytes.RefCount.Increment();
                     int bytesToCopy = Math.Min(pooledBytes.Value.Length, count - i);
 
                     Buffer.BlockCopy(buffer, i, pooledBytes.Value, 0, bytesToCopy);
