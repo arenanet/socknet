@@ -44,8 +44,8 @@ namespace ArenaNet.SockNet.Common.Pool
         private readonly int minimumPoolSize;
 
         private Queue<PooledObject<T>> pool = new Queue<PooledObject<T>>();
-        private int availableObjects = 0;
-        private int totalPoolSize = 0;
+        internal int availableObjects = 0;
+        internal int totalPoolSize = 0;
 
         private OnNewObjectDelegate onNewObject;
         private OnUpdateObjectDelegate onUpdateObject;
@@ -151,9 +151,7 @@ namespace ArenaNet.SockNet.Common.Pool
                         }
                         else
                         {
-                            totalPoolSize--;
-
-                            pooledObject.Pool = null;
+                            pooledObject.Dispose();
                             pooledObject.Pooled = false;
                         }
                     }

@@ -22,7 +22,7 @@ namespace ArenaNet.SockNet.Common.Pool
     /// A pooled object.
     /// </summary>
     /// <typeparam name="T">the type of the object</typeparam>
-    public class PooledObject<T>
+    public class PooledObject<T> : IDisposable
     {
         /// <summary>
         /// The pool where this object lives.
@@ -110,6 +110,18 @@ namespace ArenaNet.SockNet.Common.Pool
             }
 
             Pool.Return(this);
+        }
+
+        /// <summary>
+        /// Disposes this pooled object and will not be usable again.
+        /// </summary>
+        public void Dispose()
+        {
+            if (Pool != null)
+            {
+                Pool.totalPoolSize--;
+                Pool = null;
+            }
         }
     }
 }
