@@ -110,7 +110,7 @@ namespace ArenaNet.SockNet.Common.IO
                         break;
                     }
 
-                    if (currentChunk.pooledBytes.RefCount.Decrement() < 1)
+                    if (currentChunk.pooledBytes.RefCount.Decrement() < 1 && !currentChunk.pooledBytes.Pooled)
                     {
                         currentChunk.pooledBytes.Return();
                     }
@@ -128,7 +128,7 @@ namespace ArenaNet.SockNet.Common.IO
         /// <returns></returns>
         public int Read()
         {
-            byte[] buffer = new byte[0];
+            byte[] buffer = new byte[1];
 
             if (Read(buffer, 0, 1) == 1)
             {

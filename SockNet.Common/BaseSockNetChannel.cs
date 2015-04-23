@@ -367,7 +367,7 @@ namespace ArenaNet.SockNet.Common
                         {
                             SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, (this.stream is SslStream ? "[SSL] " : "") + "Reading data from [{0}]...", RemoteEndpoint);
 
-                            stream.BeginRead(state.buffer.Value, state.offset + count, state.count - count, new AsyncCallback(ReceiveCallback), new ReceiveState() { buffer = state.buffer, offset = state.offset + count, count = state.count - count });
+                            stream.BeginRead(state.buffer.Value, state.offset + count, state.count - (state.offset + count), new AsyncCallback(ReceiveCallback), new ReceiveState() { buffer = state.buffer, offset = state.offset + count, count = state.count });
                         }
                     }
                     catch (Exception e)

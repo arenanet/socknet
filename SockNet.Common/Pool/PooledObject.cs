@@ -47,12 +47,20 @@ namespace ArenaNet.SockNet.Common.Pool
 
             public int Increment()
             {
-                return Interlocked.Increment(ref value);
+                lock (this)
+                {
+                    value++;
+                    return value;
+                }
             }
 
             public int Decrement()
             {
-                return Interlocked.Decrement(ref value);
+                lock (this)
+                {
+                    value--;
+                    return value;
+                }
             }
         }
         public RefCountValue RefCount

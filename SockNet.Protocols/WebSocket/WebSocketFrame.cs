@@ -306,6 +306,11 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
             frame.Data = binaryReader.ReadBytes(length);
 
+            if (frame.Data.Length != length)
+            {
+                throw new EndOfStreamException();
+            }
+
             return frame;
         }
 
