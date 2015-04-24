@@ -139,8 +139,10 @@ namespace ArenaNet.SockNet.Protocols.Http
                         {
                             values = new List<string>(value);
                         }
-
-                        values.AddRange(value);
+                        else
+                        {
+                            values.AddRange(value);
+                        }
                     }
                 }
             }
