@@ -79,15 +79,9 @@ namespace ArenaNet.SockNet.Protocols.Http
                     }
                     else
                     {
-                        List<string> values;
-
-                        if (!parent.headers.TryGetValue(name, out values))
-                        {
-                            values = new List<string>();
-                            parent.headers[name] = values;
-                        }
-
+                        List<string> values = new List<string>();
                         values.Add(value);
+                        parent.headers[name] = values;
                     }
                 }
             }
