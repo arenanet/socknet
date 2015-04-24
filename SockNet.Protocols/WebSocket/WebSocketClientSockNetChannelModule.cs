@@ -169,7 +169,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
                 if (SockNetLogger.DebugEnabled)
                 {
-                    SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Received WebSocket message. Size: {0}, Type: {1}", frame.Data.Length, Enum.GetName(typeof(WebSocketFrame.OperationCode), frame.Operation));
+                    SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Received WebSocket message. Size: {0}, Type: {1}, IsFinished: {2}", frame.Data.Length, Enum.GetName(typeof(WebSocketFrame.OperationCode), frame.Operation), frame.IsFinished);
                 }
             }
             catch (EndOfStreamException)

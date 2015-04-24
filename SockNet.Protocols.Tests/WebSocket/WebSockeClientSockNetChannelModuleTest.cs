@@ -151,6 +151,47 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
             Assert.AreEqual("This is awesome!", ((WebSocketFrame)receiveResponse).DataAsString);
         }
 
+        [TestMethod]
+        public void TestLargeMessage()
+        {
+            DummySockNetChannel channel = new DummySockNetChannel()
+            {
+                State = null,
+                IsActive = true,
+                BufferPool = SockNetChannelGlobals.GlobalBufferPool
+            };
+            channel.Pipe = new SockNetChannelPipe(channel);
+
+            WebSocketClientSockNetChannelModule module = new WebSocketClientSockNetChannelModule("/test", "test", null);
+            channel.AddModule(module);
+            channel.Connect();
+
+            HttpResponse handshakeResponse = new HttpResponse(channel.BufferPool) { Code = "200", Reason = "OK", Version = "HTTP/1.1" };
+            handshakeResponse.Header[WebSocketClientSockNetChannelModule.WebSocketAcceptHeader] = module.ExpectedAccept;
+            object receiveResponse = handshakeResponse;
+            channel.Receive(ref receiveResponse);
+
+            Random random = new Random();
+
+            // send a 100 100,000 byte messages
+            for (int n = 0; n < 100; n++)
+            {
+                byte[] data = new byte[random.Next(50000, 150000)];
+                random.NextBytes(data);
+
+                WebSocketFrame frame = WebSocketFrame.CreateBinaryFrame(data, false);
+                receiveResponse = ToBuffer(frame);
+                channel.Receive(ref receiveResponse);
+
+                Assert.IsTrue(receiveResponse is WebSocketFrame);
+                Assert.AreEqual(data.Length, ((WebSocketFrame)receiveResponse).Data.Length);
+                for (int i = 0; i < data.Length; i++)
+                {
+                    Assert.AreEqual(data[i], ((WebSocketFrame)receiveResponse).Data[i]);
+                }
+            }
+        }
+
         public ChunkedBuffer ToBuffer(WebSocketFrame frame)
         {
             ChunkedBuffer buffer = new ChunkedBuffer(SockNetChannelGlobals.GlobalBufferPool);
