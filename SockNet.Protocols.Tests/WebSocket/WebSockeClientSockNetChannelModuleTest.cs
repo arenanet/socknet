@@ -171,9 +171,8 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
             object receiveResponse = handshakeResponse;
             channel.Receive(ref receiveResponse);
 
-            Random random = new Random();
+            Random random = new Random(this.GetHashCode() ^ (int)DateTime.Now.Subtract(new DateTime(2000, 1, 1)).TotalMilliseconds);
 
-            // send a 100 100,000 byte messages
             for (int n = 0; n < 100; n++)
             {
                 byte[] data = new byte[random.Next(50000, 150000)];
