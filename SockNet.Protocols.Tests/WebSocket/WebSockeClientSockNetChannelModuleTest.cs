@@ -102,6 +102,11 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
             {
                 Pipe.HandleOutgoingData(ref data);
 
+                if (data is ChunkedBuffer)
+                {
+                    ((ChunkedBuffer)data).Close();
+                }
+
                 return new Promise<ISockNetChannel>(this);
             }
 
@@ -132,23 +137,31 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
             channel.Receive(ref receiveResponse);
 
             WebSocketFrame continuation1 = WebSocketFrame.CreateTextFrame("This ", false, false, false);
-            receiveResponse = ToBuffer(continuation1);
+            ChunkedBuffer buffer = ToBuffer(continuation1);
+            receiveResponse = buffer;
             channel.Receive(ref receiveResponse);
+            buffer.Close();
 
             Assert.IsTrue(receiveResponse is ChunkedBuffer);
 
             WebSocketFrame continuation2 = WebSocketFrame.CreateTextFrame("is ", false, true, false);
-            receiveResponse = ToBuffer(continuation2);
+            buffer = ToBuffer(continuation2);
+            receiveResponse = buffer;
             channel.Receive(ref receiveResponse);
+            buffer.Close();
 
             Assert.IsTrue(receiveResponse is ChunkedBuffer);
 
             WebSocketFrame continuation3 = WebSocketFrame.CreateTextFrame("awesome!", false, true, true);
-            receiveResponse = ToBuffer(continuation3);
+            buffer = ToBuffer(continuation3);
+            receiveResponse = buffer;
             channel.Receive(ref receiveResponse);
+            buffer.Close();
 
             Assert.IsTrue(receiveResponse is WebSocketFrame);
             Assert.AreEqual("This is awesome!", ((WebSocketFrame)receiveResponse).DataAsString);
+
+            Console.WriteLine("Pool stats: " + SockNetChannelGlobals.GlobalBufferPool.ObjectsInPool + "/" + SockNetChannelGlobals.GlobalBufferPool.TotalNumberOfObjects);
         }
 
         [TestMethod]
@@ -166,7 +179,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
             channel.AddModule(module);
             channel.Connect();
 
-            HttpResponse handshakeResponse = new HttpResponse(channel.BufferPool) { Code = "200", Reason = "OK", Version = "HTTP/1.1" };
+            HttpResponse handshakeResponse = new HttpResponse(null) { Code = "200", Reason = "OK", Version = "HTTP/1.1" };
             handshakeResponse.Header[WebSocketClientSockNetChannelModule.WebSocketAcceptHeader] = module.ExpectedAccept;
             object receiveResponse = handshakeResponse;
             channel.Receive(ref receiveResponse);
@@ -179,7 +192,8 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
                 random.NextBytes(data);
 
                 WebSocketFrame frame = WebSocketFrame.CreateBinaryFrame(data, false);
-                receiveResponse = ToBuffer(frame);
+                ChunkedBuffer buffer = ToBuffer(frame);
+                receiveResponse = buffer;
                 channel.Receive(ref receiveResponse);
 
                 Assert.IsTrue(receiveResponse is WebSocketFrame);
@@ -188,7 +202,10 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
                 {
                     Assert.AreEqual(data[i], ((WebSocketFrame)receiveResponse).Data[i]);
                 }
+                buffer.Close();
             }
+
+            Console.WriteLine("Pool stats: " + SockNetChannelGlobals.GlobalBufferPool.ObjectsInPool + "/" + SockNetChannelGlobals.GlobalBufferPool.TotalNumberOfObjects);
         }
 
         public ChunkedBuffer ToBuffer(WebSocketFrame frame)

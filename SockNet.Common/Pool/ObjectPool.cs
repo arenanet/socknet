@@ -52,26 +52,19 @@ namespace ArenaNet.SockNet.Common.Pool
         private OnDestroyedObjectDelegate onDestroyObject;
 
         /// <summary>
-        /// Creates an object pool with a trim percentile. (At which percentile this pool will start trimming.)
-        /// </summary>
-        /// <param name="trimPercentile"></param>
-        public ObjectPool(int trimPercentile = DefaultTrimPercentile, int minimumPoolSize = DefaultMinimumPoolSize)
-        {
-            this.trimPercentile = trimPercentile;
-            this.minimumPoolSize = minimumPoolSize;
-        }
-
-        /// <summary>
         /// Creates a pool with the given constructors, updators, and destructors.
         /// </summary>
         /// <param name="onNewObject"></param>
         /// <param name="onUpdateObject"></param>
         /// <param name="onDestroyObject"></param>
-        public ObjectPool(OnNewObjectDelegate onNewObject, OnUpdateObjectDelegate onUpdateObject = null, OnDestroyedObjectDelegate onDestroyObject = null)
+        public ObjectPool(OnNewObjectDelegate onNewObject, OnUpdateObjectDelegate onUpdateObject = null, OnDestroyedObjectDelegate onDestroyObject = null,
+            int trimPercentile = DefaultTrimPercentile, int minimumPoolSize = DefaultMinimumPoolSize)
         {
             this.onNewObject = onNewObject;
             this.onUpdateObject = onUpdateObject;
             this.onDestroyObject = onDestroyObject;
+            this.trimPercentile = trimPercentile;
+            this.minimumPoolSize = minimumPoolSize;
         }
 
         /// <summary>
