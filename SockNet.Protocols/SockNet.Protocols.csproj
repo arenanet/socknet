@@ -30,9 +30,14 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Ionic.Zlib.CF">
+      <HintPath>lib\Ionic.Zlib.CF.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Gds\GdsFrame.cs" />
+    <Compile Include="Gds\GdsSockNetChannelModule.cs" />
     <Compile Include="Http\HttpSockNetChannelModule.cs" />
     <Compile Include="Http\HttpPayload.cs" />
     <Compile Include="Http\HttpResponse.cs" />

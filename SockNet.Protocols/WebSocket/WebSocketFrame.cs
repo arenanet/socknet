@@ -56,7 +56,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         /// <summary>
         /// The operation of this frame.
         /// </summary>
-        public WebSocketFrame.OperationCode Operation { get; private set; }
+        public WebSocketFrame.WebSocketFrameOperation Operation { get; private set; }
 
         /// <summary>
         /// The raw data of this frame.
@@ -96,6 +96,9 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
             WebSocketFrame.UTF8 = new UTF8Encoding(false);
         }
 
+        /// <summary>
+        /// Creates a websocket frame.
+        /// </summary>
         private WebSocketFrame()
         {
         }
@@ -225,7 +228,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
                 Reserved1 = false,
                 Reserved2 = false,
                 Reserved3 = false,
-                Operation = continuation ? OperationCode.Continuation : OperationCode.TextFrame,
+                Operation = continuation ? WebSocketFrameOperation.Continuation : WebSocketFrameOperation.TextFrame,
                 Mask = maskData,
                 Data = UTF8.GetBytes(text)
             };
@@ -258,7 +261,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
                 Reserved1 = false,
                 Reserved2 = false,
                 Reserved3 = false,
-                Operation = continuation ? OperationCode.Continuation : OperationCode.TextFrame,
+                Operation = continuation ? WebSocketFrameOperation.Continuation : WebSocketFrameOperation.TextFrame,
                 Mask = maskData,
                 Data = rawText
             };
@@ -291,7 +294,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
                 Reserved1 = false,
                 Reserved2 = false,
                 Reserved3 = false,
-                Operation = continuation ? OperationCode.Continuation : OperationCode.BinaryFrame,
+                Operation = continuation ? WebSocketFrameOperation.Continuation : WebSocketFrameOperation.BinaryFrame,
                 Mask = maskData,
                 Data = data
             };
@@ -308,11 +311,16 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
             BinaryReader binaryReader = new BinaryReader(stream, (Encoding)WebSocketFrame.UTF8);
 
             byte finRsvAndOp = binaryReader.ReadByte();
+            if (!Enum.IsDefined(typeof(WebSocketFrame.WebSocketFrameOperation), (byte)((int)finRsvAndOp & 15)))
+            {
+                throw new ArgumentException("Invalid operation: " + ((int)finRsvAndOp & 15));
+            }
+            
             frame.IsFinished = ((int)finRsvAndOp & 128) != 0;
             frame.Reserved1 = ((int)finRsvAndOp & 64) != 0;
             frame.Reserved2 = ((int)finRsvAndOp & 32) != 0;
             frame.Reserved3 = ((int)finRsvAndOp & 16) != 0;
-            frame.Operation = (WebSocketFrame.OperationCode)((int)finRsvAndOp & 15);
+            frame.Operation = (WebSocketFrame.WebSocketFrameOperation)(byte)((int)finRsvAndOp & 15);
 
             byte maskAndLength = binaryReader.ReadByte();
             bool isMasked = (maskAndLength & 128) != 0;
@@ -350,7 +358,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         /// <summary>
         /// WebSocket operation codes.
         /// </summary>
-        public enum OperationCode : byte
+        public enum WebSocketFrameOperation : byte
         {
             Continuation = 0,
             TextFrame = 1,

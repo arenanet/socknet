@@ -60,28 +60,34 @@ namespace ArenaNet.SockNet.Protocols.Http
             {
                 get
                 {
-                    List<string> values;
+                    lock (parent.headers)
+                    {
+                        List<string> values;
 
-                    if (parent.headers.TryGetValue(name, out values) && values.Count > 0)
-                    {
-                        return values[0];
-                    }
-                    else
-                    {
-                        return null;
+                        if (parent.headers.TryGetValue(name, out values) && values.Count > 0)
+                        {
+                            return values[0];
+                        }
+                        else
+                        {
+                            return null;
+                        }
                     }
                 }
                 set
                 {
-                    if (value == null)
+                    lock (parent.headers)
                     {
-                        parent.headers.Remove(name);
-                    }
-                    else
-                    {
-                        List<string> values = new List<string>();
-                        values.Add(value);
-                        parent.headers[name] = values;
+                        if (value == null)
+                        {
+                            parent.headers.Remove(name);
+                        }
+                        else
+                        {
+                            List<string> values = new List<string>();
+                            values.Add(value);
+                            parent.headers[name] = values;
+                        }
                     }
                 }
             }
@@ -108,34 +114,40 @@ namespace ArenaNet.SockNet.Protocols.Http
             {
                 get
                 {
-                    List<string> values;
+                    lock (parent.headers)
+                    {
+                        List<string> values;
 
-                    if (parent.headers.TryGetValue(name, out values) && values.Count > 0)
-                    {
-                        return values.ToArray();
-                    }
-                    else
-                    {
-                        return new string[0];
+                        if (parent.headers.TryGetValue(name, out values) && values.Count > 0)
+                        {
+                            return values.ToArray();
+                        }
+                        else
+                        {
+                            return new string[0];
+                        }
                     }
                 }
                 set
                 {
-                    if (value == null)
+                    lock (parent.headers)
                     {
-                        parent.headers.Remove(name);
-                    }
-                    else
-                    {
-                        List<string> values;
-
-                        if (!parent.headers.TryGetValue(name, out values))
+                        if (value == null)
                         {
-                            values = new List<string>(value);
+                            parent.headers.Remove(name);
                         }
                         else
                         {
-                            values.AddRange(value);
+                            List<string> values;
+
+                            if (!parent.headers.TryGetValue(name, out values))
+                            {
+                                values = new List<string>(value);
+                            }
+                            else
+                            {
+                                values.AddRange(value);
+                            }
                         }
                     }
                 }

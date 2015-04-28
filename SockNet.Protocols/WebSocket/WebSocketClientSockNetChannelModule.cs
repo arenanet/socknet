@@ -169,7 +169,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
                 if (SockNetLogger.DebugEnabled)
                 {
-                    SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Received WebSocket message. Size: {0}, Type: {1}, IsFinished: {2}", frame.Data.Length, Enum.GetName(typeof(WebSocketFrame.OperationCode), frame.Operation), frame.IsFinished);
+                    SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Received WebSocket message. Size: {0}, Type: {1}, IsFinished: {2}", frame.Data.Length, Enum.GetName(typeof(WebSocketFrame.WebSocketFrameOperation), frame.Operation), frame.IsFinished);
                 }
             }
             catch (EndOfStreamException)
@@ -206,10 +206,10 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
                 switch (continuationFrame.Operation)
                 {
-                    case WebSocketFrame.OperationCode.BinaryFrame:
+                    case WebSocketFrame.WebSocketFrameOperation.BinaryFrame:
                         continuationFrame = WebSocketFrame.CreateBinaryFrame(frameData, false, false);
                         break;
-                    case WebSocketFrame.OperationCode.TextFrame:
+                    case WebSocketFrame.WebSocketFrameOperation.TextFrame:
                         continuationFrame = WebSocketFrame.CreateTextFrame(frameData, false, false);
                         break;
                 }

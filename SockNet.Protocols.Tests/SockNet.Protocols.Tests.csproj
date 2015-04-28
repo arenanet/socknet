@@ -50,6 +50,7 @@
     </Otherwise>
   </Choose>
   <ItemGroup>
+    <Compile Include="Gds\GdsFrameTest.cs" />
     <Compile Include="Http\HttpResponseTest.cs" />
     <Compile Include="Http\HttpRequestTest.cs" />
     <Compile Include="Http\HttpSockNetChannelModuleTest.cs" />
@@ -76,6 +77,7 @@
   <ItemGroup>
     <None Include="SockNet.Protocols.Tests.licenseheader" />
   </ItemGroup>
+  <ItemGroup />
   <Choose>
     <When Condition="'$(VisualStudioVersion)' == '10.0' And '$(IsCodedUITest)' == 'True'">
       <ItemGroup>
