@@ -159,20 +159,20 @@ namespace ArenaNet.SockNet.Protocols.Gds
         private static readonly UTF8Encoding HeaderEncoding = new UTF8Encoding(false);
 
         // Masks and Shifts
-        private static uint StreamIdMask = Convert.ToUInt32("00000000111111111111111111111111", 2);
-        private static int StreamIdShift = 0;
+        private static readonly uint StreamIdMask = Convert.ToUInt32("00000000111111111111111111111111", 2);
+        private static readonly int StreamIdShift = 0;
 
-        private static uint TypeMask = Convert.ToUInt32("00001111000000000000000000000000", 2);
-        private static int TypeShift = 24;
+        private static readonly uint TypeMask = Convert.ToUInt32("00001111000000000000000000000000", 2);
+        private static readonly int TypeShift = 24;
 
-        private static uint IsCompleteMask = Convert.ToUInt32("10000000000000000000000000000000", 2);
-        private static int IsCompleteShift = 31;
+        private static readonly uint IsCompleteMask = Convert.ToUInt32("10000000000000000000000000000000", 2);
+        private static readonly int IsCompleteShift = 31;
 
-        private static uint HeadersIsCompressedMask = Convert.ToUInt32("1000000000000000", 2);
-        private static int HeadersIsCompressedShift = 15;
+        private static readonly uint HeadersIsCompressedMask = Convert.ToUInt32("1000000000000000", 2);
+        private static readonly int HeadersIsCompressedShift = 15;
 
-        private static uint HeadersLengthMask = Convert.ToUInt32("0111111111111111", 2);
-        private static int HeadersLengthShift = 0;
+        private static readonly uint HeadersLengthMask = Convert.ToUInt32("0111111111111111", 2);
+        private static readonly int HeadersLengthShift = 0;
         
         /// <summary>
         /// Whether or not this frame is complete.
