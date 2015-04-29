@@ -451,20 +451,6 @@ namespace ArenaNet.SockNet.Common
                 else if (obj is ChunkedBuffer)
                 {
                     ChunkedBuffer sendableStream = ((ChunkedBuffer)obj);
-                    byte[] rawSendableData = ReadToEnd(sendableStream.Stream);
-
-                    if (streamWriteSemaphore.WaitOne(10000))
-                    {
-                        stream.BeginWrite(rawSendableData, 0, rawSendableData.Length, new AsyncCallback(SendCallback), new SendState() { buffer = rawSendableData, promise = promise });
-                    }
-                    else
-                    {
-                        throw new ThreadStateException("Unable to obtain lock to write message.");
-                    }
-                }
-                else if (obj is Stream)
-                {
-                    Stream sendableStream = ((Stream)obj);
                     byte[] rawSendableData = ReadToEnd(sendableStream);
 
                     if (streamWriteSemaphore.WaitOne(10000))
@@ -489,60 +475,13 @@ namespace ArenaNet.SockNet.Common
         /// </summary>
         /// <param name="stream"></param>
         /// <returns></returns>
-        private byte[] ReadToEnd(Stream stream)
+        private byte[] ReadToEnd(ChunkedBuffer chunkedBuffer)
         {
-            long originalPosition = 0;
+            byte[] response = new byte[chunkedBuffer.WritePosition - chunkedBuffer.ReadPosition];
 
-            if (stream.CanSeek)
-            {
-                originalPosition = stream.Position;
-                stream.Position = 0;
-            }
+            chunkedBuffer.Read(response, 0, response.Length);
 
-            PooledObject<byte[]> readBufferPooledObject = bufferPool.Borrow();
-
-            try
-            {
-                byte[] readBuffer = readBufferPooledObject.Value;
-
-                int totalBytesRead = 0;
-                int bytesRead;
-
-                while ((bytesRead = stream.Read(readBuffer, totalBytesRead, readBuffer.Length - totalBytesRead)) > 0)
-                {
-                    totalBytesRead += bytesRead;
-
-                    if (totalBytesRead == readBuffer.Length)
-                    {
-                        int nextByte = stream.ReadByte();
-                        if (nextByte != -1)
-                        {
-                            byte[] temp = new byte[readBuffer.Length * 2];
-                            Buffer.BlockCopy(readBuffer, 0, temp, 0, readBuffer.Length);
-                            Buffer.SetByte(temp, totalBytesRead, (byte)nextByte);
-                            readBuffer = temp;
-                            totalBytesRead++;
-                        }
-                    }
-                }
-
-                byte[] buffer = readBuffer;
-                if (readBuffer.Length != totalBytesRead)
-                {
-                    buffer = new byte[totalBytesRead];
-                    Buffer.BlockCopy(readBuffer, 0, buffer, 0, totalBytesRead);
-                }
-                return buffer;
-            }
-            finally
-            {
-                if (stream.CanSeek)
-                {
-                    stream.Position = originalPosition;
-                }
-
-                readBufferPooledObject.Return();
-            }
+            return response;
         }
 
         /// <summary>
