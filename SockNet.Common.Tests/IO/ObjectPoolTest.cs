@@ -20,6 +20,28 @@ namespace ArenaNet.SockNet.Common.Pool
     public class ObjectPoolTest
     {
         [TestMethod]
+        public void TestGarbageCollectedPooledObject()
+        {
+            ObjectPool<string> pool = new ObjectPool<string>(() => { return "hello"; });
+
+            {
+                PooledObject<string> pooledObject = pool.Borrow();
+
+                Assert.AreEqual("hello", pooledObject.Value);
+                Assert.AreEqual(0, pool.ObjectsInPool);
+                Assert.AreEqual(1, pool.TotalNumberOfObjects);
+
+                pooledObject = null;
+            }
+
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+
+            Assert.AreEqual(0, pool.ObjectsInPool);
+            Assert.AreEqual(0, pool.TotalNumberOfObjects);
+        }
+
+        [TestMethod]
         public void TestBorrow()
         {
             ObjectPool<string> pool = new ObjectPool<string>(() => { return "hello"; });

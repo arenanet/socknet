@@ -113,6 +113,14 @@ namespace ArenaNet.SockNet.Common.Pool
         }
 
         /// <summary>
+        /// Finalizer.
+        /// </summary>
+        ~PooledObject()
+        {
+            Dispose();
+        }
+
+        /// <summary>
         /// Disposes this pooled object and will not be usable again.
         /// </summary>
         public void Dispose()
