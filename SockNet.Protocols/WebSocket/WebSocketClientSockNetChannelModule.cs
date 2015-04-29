@@ -32,6 +32,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
         private const string Magic = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
+        private bool combineContinuations;
         private string path;
         private string hostname;
         private OnWebSocketEstablishedDelegate onWebSocketEstablished;
@@ -43,11 +44,12 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
         private WebSocketFrame continuationFrame = null;
 
-        public WebSocketClientSockNetChannelModule(string path, string hostname, OnWebSocketEstablishedDelegate onWebSocketEstablished)
+        public WebSocketClientSockNetChannelModule(string path, string hostname, OnWebSocketEstablishedDelegate onWebSocketEstablished, bool combineContinuations = true)
         {
             this.path = path;
             this.hostname = hostname;
             this.onWebSocketEstablished = onWebSocketEstablished;
+            this.combineContinuations = combineContinuations;
 
             this.secKey = Convert.ToBase64String(Encoding.ASCII.GetBytes(Guid.NewGuid().ToString().Substring(0, 16)));
 
@@ -148,7 +150,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
             {
                 WebSocketFrame frame = WebSocketFrame.ParseFrame(stream.Stream);
 
-                if (frame.IsFinished)
+                if (frame.IsFinished || !combineContinuations)
                 {
                     if (continuationFrame != null)
                     {

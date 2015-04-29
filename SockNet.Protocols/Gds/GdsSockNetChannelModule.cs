@@ -23,16 +23,29 @@ namespace ArenaNet.SockNet.Protocols.Gds
     /// <summary>
     /// A module that can be applied to a ISockNetChannel to enable Gds support.
     /// </summary>
-    public class GdsSockNetChannelModule
+    public class GdsSockNetChannelModule : ISockNetChannelModule
     {
+        private bool combineChunks;
+
+        private Dictionary<uint, GdsFrame> streamChunks = new Dictionary<uint, GdsFrame>();
+
+        /// <summary>
+        /// Creates a new Gds module.
+        /// </summary>
+        /// <param name="combineChunks"></param>
+        public GdsSockNetChannelModule(bool combineChunks = true)
+        {
+            this.combineChunks = combineChunks;
+        }
+
         /// <summary>
         /// Installs the Gds module.
         /// </summary>
         /// <param name="channel"></param>
         public void Install(ISockNetChannel channel)
         {
-            channel.Pipe.RemoveIncoming<object>(HandleIncoming);
-            channel.Pipe.RemoveOutgoing<object>(HandleOutgoing);
+            channel.Pipe.AddIncomingFirst<object>(HandleIncoming);
+            channel.Pipe.AddOutgoingLast<object>(HandleOutgoing);
         }
 
         /// <summary>
@@ -64,6 +77,37 @@ namespace ArenaNet.SockNet.Protocols.Gds
             {
                 GdsFrame frame = GdsFrame.ParseFrame(stream.Stream);
 
+                if (frame.IsComplete || !combineChunks)
+                {
+                    GdsFrame chunkedFrame = null;
+
+                    if (streamChunks.TryGetValue(frame.StreamId, out chunkedFrame))
+                    {
+                        chunkedFrame = UpdateChunk(chunkedFrame, frame);
+
+                        obj = chunkedFrame;
+
+                        streamChunks.Remove(frame.StreamId);
+                    }
+                    else
+                    {
+                        obj = frame;
+                    }
+                }
+                else
+                {
+                    GdsFrame chunkedFrame = null;
+
+                    if (streamChunks.TryGetValue(frame.StreamId, out chunkedFrame))
+                    {
+                        streamChunks[frame.StreamId] = UpdateChunk(chunkedFrame, frame);
+                    }
+                    else
+                    {
+                        streamChunks[frame.StreamId] = frame;
+                    }
+                }
+
                 if (SockNetLogger.DebugEnabled)
                 {
                     SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Received Gds message. Body Size: {0}, Type: {1}, IsComplete: {2}", frame.Body.Length, Enum.GetName(typeof(GdsFrame.GdsFrameType), frame.Type), frame.IsComplete);
@@ -82,6 +126,63 @@ namespace ArenaNet.SockNet.Protocols.Gds
             catch (Exception e)
             {
                 SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Unable to parse Gds message", e);
+            }
+        }
+
+        /// <summary>
+        /// Updates the given chunked frame with a new frame.
+        /// </summary>
+        /// <param name="frame"></param>
+        private static GdsFrame UpdateChunk(GdsFrame chunkedFrame, GdsFrame frame)
+        {
+            if (chunkedFrame == null)
+            {
+                return chunkedFrame;  // set initial frame
+            }
+            else
+            {
+                if (frame.Type == GdsFrame.GdsFrameType.Ping || frame.Type == GdsFrame.GdsFrameType.Pong || frame.Type == GdsFrame.GdsFrameType.Close)
+                {
+                    return chunkedFrame;
+                }
+
+                GdsFrame.GdsFrameType type = chunkedFrame.Type;
+
+                byte[] body = null;
+
+                if (frame.Type == GdsFrame.GdsFrameType.BodyOnly || frame.Type == GdsFrame.GdsFrameType.Full)
+                {
+                    if (type == GdsFrame.GdsFrameType.HeadersOnly)
+                    {
+                        type = GdsFrame.GdsFrameType.Full;
+                    }
+
+                    body = new byte[chunkedFrame.Body.Length + frame.Body.Length];
+                    Buffer.BlockCopy(chunkedFrame.Body, 0, body, 0, chunkedFrame.Body.Length);
+                    Buffer.BlockCopy(frame.Body, 0, body, chunkedFrame.Body.Length, frame.Body.Length);
+                }
+
+                Dictionary<string, byte[]> headers = null;
+
+                if (frame.Type == GdsFrame.GdsFrameType.HeadersOnly || frame.Type == GdsFrame.GdsFrameType.Full)
+                {
+                    if (type == GdsFrame.GdsFrameType.BodyOnly)
+                    {
+                        type = GdsFrame.GdsFrameType.Full;
+                    }
+
+                    headers = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
+                    foreach (string name in chunkedFrame.Headers.Names)
+                    {
+                        headers[name] = chunkedFrame.Headers[name];
+                    }
+                    foreach (string name in frame.Headers.Names)
+                    {
+                        headers[name] = frame.Headers[name];
+                    }
+                }
+
+                return GdsFrame.NewContentFrame(frame.StreamId, headers, false, body, frame.IsComplete);
             }
         }
 

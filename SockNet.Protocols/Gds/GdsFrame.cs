@@ -15,6 +15,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.IO;
+using System.Text;
 using Ionic.Zlib;
 
 namespace ArenaNet.SockNet.Protocols.Gds
@@ -128,7 +129,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
     /// The length of the value field. The value is an unsigned short integer.
     ///
     /// 5) Name
-    /// The name of the header.
+    /// The name of the header. This is a case insensitive UTF-8 encoded string.
     ///
     /// 6) Value
     /// The value of the header.
@@ -154,6 +155,9 @@ namespace ArenaNet.SockNet.Protocols.Gds
     /// </summary>
     public class GdsFrame
     {
+        // Encoding
+        private static readonly UTF8Encoding HeaderEncoding = new UTF8Encoding(false);
+
         // Masks and Shifts
         private static uint StreamIdMask = Convert.ToUInt32("00000000111111111111111111111111", 2);
         private static int StreamIdShift = 0;
@@ -197,7 +201,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
         /// <summary>
         /// Internal headers.
         /// </summary>
-        internal Dictionary<byte[], byte[]> headers = new Dictionary<byte[], byte[]>(new ByteArrayComparer());
+        internal Dictionary<string, byte[]> headers = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// External header view and manipulator that deals with headers.
@@ -211,14 +215,16 @@ namespace ArenaNet.SockNet.Protocols.Gds
                 this.parent = parent;
             }
 
-            public void Remove(byte[] name)
+            public void Remove(string name)
             {
                 this[name] = null;
             }
 
+            public ICollection<string> Names { get { return parent.headers.Keys; } }
+
             public int Count { get { return parent.headers.Count; } }
 
-            public byte[] this[byte[] name]
+            public byte[] this[string name]
             {
                 get
                 {
@@ -332,11 +338,13 @@ namespace ArenaNet.SockNet.Protocols.Gds
         {
             BinaryWriter headerWriter = new BinaryWriter(stream);
 
-            foreach (KeyValuePair<byte[], byte[]> kvp in headers)
+            foreach (KeyValuePair<string, byte[]> kvp in headers)
             {
-                headerWriter.Write(((ushort)IPAddress.HostToNetworkOrder((short)kvp.Key.Length)));
+                byte[] rawKey = HeaderEncoding.GetBytes(kvp.Key);
+
+                headerWriter.Write(((ushort)IPAddress.HostToNetworkOrder((short)rawKey.Length)));
                 headerWriter.Write(((ushort)IPAddress.HostToNetworkOrder((short)kvp.Value.Length)));
-                headerWriter.Write(kvp.Key);
+                headerWriter.Write(rawKey);
                 headerWriter.Write(kvp.Value);
             }
 
@@ -437,7 +445,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
                     throw new EndOfStreamException();
                 }
 
-                frame.headers[key] = value;
+                frame.headers[HeaderEncoding.GetString(key)] = value;
             }
         }
 
@@ -450,7 +458,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
         /// <param name="body"></param>
         /// <param name="isComplete"></param>
         /// <returns></returns>
-        public static GdsFrame NewContentFrame(uint streamId, Dictionary<byte[], byte[]> headers = null, bool areHeadersCompressed = false, byte[] body = null, bool isComplete = true)
+        public static GdsFrame NewContentFrame(uint streamId, Dictionary<string, byte[]> headers = null, bool areHeadersCompressed = false, byte[] body = null, bool isComplete = true)
         {
             GdsFrameType type = GdsFrameType.Full;
 
@@ -473,7 +481,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
 
             if (headers != null)
             {
-                foreach (KeyValuePair<byte[], byte[]> kvp in headers)
+                foreach (KeyValuePair<string, byte[]> kvp in headers)
                 {
                     frame.headers[kvp.Key] = kvp.Value;
                 }

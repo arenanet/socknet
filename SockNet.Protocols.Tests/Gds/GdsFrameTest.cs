@@ -26,6 +26,45 @@ namespace ArenaNet.SockNet.Protocols.Gds
     public class GdsFrameTest
     {
         [TestMethod]
+        public void TestCompression()
+        {
+            Random rand = new Random(this.GetHashCode() ^ DateTime.Now.Millisecond);
+
+            uint streamId = (uint)rand.Next(0, (int)(Math.Pow(2, 24) - 1));
+
+            // deflate works great on text - it is horrible with random byte arrays
+            string header1Key = "Some key";
+            byte[] header1Value = Encoding.UTF8.GetBytes("Well here is a great value for some key. We're really great at making keys and value.");
+
+            string header2Key = "Another key";
+            byte[] header2Value = Encoding.UTF8.GetBytes("Yet another great value for another key. This is just getting absurd.");
+
+            GdsFrame frame = GdsFrame.NewContentFrame(streamId, new Dictionary<string, byte[]>() 
+                { 
+                    { header1Key, header1Value }, 
+                    { header2Key, header2Value } 
+                },
+                true, null, true);
+            
+            Assert.AreEqual(true, frame.IsComplete);
+            Assert.AreEqual(GdsFrame.GdsFrameType.HeadersOnly, frame.Type);
+            Assert.AreEqual(streamId, frame.StreamId);
+            Assert.AreEqual(2, frame.Headers.Count);
+
+            MemoryStream stream = new MemoryStream();
+            frame.Write(stream);
+
+            int uncompressedSize = (4           // frame definition
+                + 2         // header definition
+                + (4 * 2)   // header sizes for two headers
+                + header1Key.Length + header1Value.Length + header2Key.Length + header2Value.Length);
+
+            Console.WriteLine("Compressed: " + stream.Position + ", Uncompressed: " + uncompressedSize);
+
+            Assert.IsTrue(stream.Position < uncompressedSize);
+        }
+
+        [TestMethod]
         public void TestPing()
         {
             Random rand = new Random(this.GetHashCode() ^ DateTime.Now.Millisecond);
@@ -113,17 +152,15 @@ namespace ArenaNet.SockNet.Protocols.Gds
 
             uint streamId = (uint)rand.Next(0, (int)(Math.Pow(2, 24) - 1));
 
-            byte[] header1Key = new byte[rand.Next(32, 1024)];
-            rand.NextBytes(header1Key);
+            string header1Key = "the first key";
             byte[] header1Value = new byte[rand.Next(32, 1024 * 64)];
             rand.NextBytes(header1Value);
-            
-            byte[] header2Key = new byte[rand.Next(32, 1024)];
-            rand.NextBytes(header2Key);
+
+            string header2Key = "the second key";
             byte[] header2Value = new byte[rand.Next(32, 1024 * 64)];
             rand.NextBytes(header2Value);
 
-            GdsFrame frame = GdsFrame.NewContentFrame(streamId, new Dictionary<byte[], byte[]>() 
+            GdsFrame frame = GdsFrame.NewContentFrame(streamId, new Dictionary<string, byte[]>() 
                 { 
                     { header1Key, header1Value }, 
                     { header2Key, header2Value } 
@@ -165,17 +202,15 @@ namespace ArenaNet.SockNet.Protocols.Gds
 
             uint streamId = (uint)rand.Next(0, (int)(Math.Pow(2, 24) - 1));
 
-            byte[] header1Key = new byte[rand.Next(32, 1024)];
-            rand.NextBytes(header1Key);
+            string header1Key = "the first key";
             byte[] header1Value = new byte[rand.Next(32, 1024 * 64)];
             rand.NextBytes(header1Value);
 
-            byte[] header2Key = new byte[rand.Next(32, 1024)];
-            rand.NextBytes(header2Key);
+            string header2Key = "the second key";
             byte[] header2Value = new byte[rand.Next(32, 1024 * 64)];
             rand.NextBytes(header2Value);
 
-            GdsFrame frame = GdsFrame.NewContentFrame(streamId, new Dictionary<byte[], byte[]>() 
+            GdsFrame frame = GdsFrame.NewContentFrame(streamId, new Dictionary<string, byte[]>() 
                 { 
                     { header1Key, header1Value }, 
                     { header2Key, header2Value } 
@@ -250,20 +285,18 @@ namespace ArenaNet.SockNet.Protocols.Gds
 
             uint streamId = (uint)rand.Next(0, (int)(Math.Pow(2, 24) - 1));
 
-            byte[] header1Key = new byte[rand.Next(32, 1024)];
-            rand.NextBytes(header1Key);
+            string header1Key = "the first key";
             byte[] header1Value = new byte[rand.Next(32, 1024 * 64)];
             rand.NextBytes(header1Value);
 
-            byte[] header2Key = new byte[rand.Next(32, 1024)];
-            rand.NextBytes(header2Key);
+            string header2Key = "the second key";
             byte[] header2Value = new byte[rand.Next(32, 1024 * 64)];
             rand.NextBytes(header2Value);
 
             byte[] body = new byte[rand.Next(1024, 1024 * 64)];
             rand.NextBytes(body);
 
-            GdsFrame frame = GdsFrame.NewContentFrame(streamId, new Dictionary<byte[], byte[]>() 
+            GdsFrame frame = GdsFrame.NewContentFrame(streamId, new Dictionary<string, byte[]>() 
                 { 
                     { header1Key, header1Value }, 
                     { header2Key, header2Value } 
@@ -305,20 +338,18 @@ namespace ArenaNet.SockNet.Protocols.Gds
 
             uint streamId = (uint)rand.Next(0, (int)(Math.Pow(2, 24) - 1));
 
-            byte[] header1Key = new byte[rand.Next(32, 1024)];
-            rand.NextBytes(header1Key);
+            string header1Key = "the first key";
             byte[] header1Value = new byte[rand.Next(32, 1024 * 64)];
             rand.NextBytes(header1Value);
 
-            byte[] header2Key = new byte[rand.Next(32, 1024)];
-            rand.NextBytes(header2Key);
+            string header2Key = "the second key";
             byte[] header2Value = new byte[rand.Next(32, 1024 * 64)];
             rand.NextBytes(header2Value);
 
             byte[] body = new byte[rand.Next(1024, 1024 * 64)];
             rand.NextBytes(body);
 
-            GdsFrame frame = GdsFrame.NewContentFrame(streamId, new Dictionary<byte[], byte[]>() 
+            GdsFrame frame = GdsFrame.NewContentFrame(streamId, new Dictionary<string, byte[]>() 
                 { 
                     { header1Key, header1Value }, 
                     { header2Key, header2Value } 
