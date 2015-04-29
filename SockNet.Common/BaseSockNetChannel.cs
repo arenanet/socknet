@@ -548,54 +548,6 @@ namespace ArenaNet.SockNet.Common
         /// <summary>
         /// A state class used between streamed sends.
         /// </summary>
-        private class StreamSendState
-        {
-            public Stream stream;
-            public PooledObject<byte[]> buffer;
-            public Promise<ISockNetChannel> promise;
-        }
-
-        /// <summary>
-        /// A callback when streaming a send.
-        /// </summary>
-        /// <param name="result"></param>
-        private void StreamSendCallback(IAsyncResult result)
-        {
-            StreamSendState state = ((StreamSendState)result.AsyncState);
-
-            int bytesSending = state.stream.EndRead(result);
-
-            SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, (IsConnectionEncrypted ? "[SSL] " : "") + "Sending [{0}] bytes to [{1}]...", bytesSending, RemoteEndpoint);
-
-            if (streamWriteSemaphore.WaitOne(10000))
-            {
-                stream.BeginWrite(state.buffer.Value, 0, bytesSending, new AsyncCallback(SendCallback), new SendState() { buffer = state.buffer });
-            }
-            else
-            {
-                throw new ThreadStateException("Unable to obtain lock to write message.");
-            }
-
-            if (state.stream.Position < state.stream.Length)
-            {
-                state.buffer = bufferPool.Borrow();
-
-                state.stream.BeginRead(state.buffer.Value,
-                    0,
-                    (int)Math.Min(state.buffer.Value.Length, state.stream.Length - state.stream.Position),
-                    StreamSendCallback,
-                    state);
-            }
-            else
-            {
-                state.stream.Close();
-                state.promise.CreateFulfiller().Fulfill(this);
-            }
-        }
-
-        /// <summary>
-        /// A state class used between streamed sends.
-        /// </summary>
         private class SendState
         {
             public object buffer;

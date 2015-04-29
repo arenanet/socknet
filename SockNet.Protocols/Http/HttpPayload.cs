@@ -408,7 +408,7 @@ namespace ArenaNet.SockNet.Protocols.Http
                         return false;
                 }
             } 
-            catch (Exception e)
+            catch (Exception)
             {
                 stream.Position = startingPosition;
 
