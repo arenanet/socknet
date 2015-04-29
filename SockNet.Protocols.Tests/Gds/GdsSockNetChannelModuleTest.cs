@@ -69,6 +69,11 @@ namespace ArenaNet.SockNet.Protocols.Gds
                 return this;
             }
 
+            public bool HasModule(ISockNetChannelModule module)
+            {
+                return false;
+            }
+
             public bool IsActive
             {
                 get;

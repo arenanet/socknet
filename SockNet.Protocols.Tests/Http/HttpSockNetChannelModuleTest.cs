@@ -159,7 +159,7 @@ namespace ArenaNet.SockNet.Protocols.Http
             {
                 Assert.IsNotNull(server.Bind().WaitForValue(TimeSpan.FromSeconds(5)));
 
-                server.Pipe.AddIncomingFirst<HttpRequest>((ISockNetChannel channel, ref HttpRequest data) =>
+                server.Pipe.AddIncomingLast<HttpRequest>((ISockNetChannel channel, ref HttpRequest data) =>
                 {
                     HttpResponse response = new HttpResponse(channel.BufferPool)
                     {

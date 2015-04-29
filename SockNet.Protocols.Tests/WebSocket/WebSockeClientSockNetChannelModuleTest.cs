@@ -18,6 +18,7 @@ using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
 using System.Collections.Concurrent;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using ArenaNet.SockNet.Server;
 using ArenaNet.SockNet.Common;
 using ArenaNet.SockNet.Common.IO;
 using ArenaNet.SockNet.Common.Pool;
@@ -30,6 +31,60 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
     public class WebSockeClientSockNetChannelModuleTest
     {
         private const int DEFAULT_ASYNC_TIMEOUT = 5000;
+
+        public class WebSocketEchoServer
+        {
+            private ServerSockNetChannel server;
+
+            public IPEndPoint Endpoint { get { return new IPEndPoint(GetLocalIpAddress(), server == null ? -1 : server.LocalEndpoint.Port); } }
+
+            public void Start()
+            {
+                server = SockNetServer.Create(GetLocalIpAddress(), 0);
+
+                try
+                {
+                    server.AddModule(new WebSocketServerSockNetChannelModule("/", "localhost"));
+                    server.Bind().WaitForValue(TimeSpan.FromSeconds(5));
+
+                    Assert.IsTrue(server.IsActive);
+
+                    server.Pipe.AddIncomingFirst<WebSocketFrame>((ISockNetChannel channel, ref WebSocketFrame data) =>
+                    {
+                        channel.Send(data);
+                    });
+                }
+                catch (Exception)
+                {
+                    Stop();
+                }
+            }
+
+            public void Stop()
+            {
+                if (server != null)
+                {
+                    server.Close();
+                    server = null;
+                }
+            }
+
+            private static IPAddress GetLocalIpAddress()
+            {
+                IPAddress response = null;
+
+                foreach (IPAddress address in Dns.GetHostAddresses(Dns.GetHostName()))
+                {
+                    if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                    {
+                        response = address;
+                        break;
+                    }
+                }
+
+                return response;
+            }
+        }
 
         public class DummySockNetChannel : ISockNetChannel
         {
@@ -69,6 +124,11 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
                 module.Uninstall(this);
 
                 return this;
+            }
+
+            public bool HasModule(ISockNetChannelModule module)
+            {
+                return false;
             }
 
             public bool IsActive
@@ -132,7 +192,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
             channel.Connect();
 
             HttpResponse handshakeResponse = new HttpResponse(channel.BufferPool) { Code = "200", Reason = "OK", Version = "HTTP/1.1" };
-            handshakeResponse.Header[WebSocketClientSockNetChannelModule.WebSocketAcceptHeader] = module.ExpectedAccept;
+            handshakeResponse.Header[WebSocketUtil.WebSocketAcceptHeader] = module.ExpectedAccept;
             object receiveResponse = handshakeResponse;
             channel.Receive(ref receiveResponse);
 
@@ -180,7 +240,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
             channel.Connect();
 
             HttpResponse handshakeResponse = new HttpResponse(null) { Code = "200", Reason = "OK", Version = "HTTP/1.1" };
-            handshakeResponse.Header[WebSocketClientSockNetChannelModule.WebSocketAcceptHeader] = module.ExpectedAccept;
+            handshakeResponse.Header[WebSocketUtil.WebSocketAcceptHeader] = module.ExpectedAccept;
             object receiveResponse = handshakeResponse;
             channel.Receive(ref receiveResponse);
 
@@ -218,32 +278,44 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         [TestMethod]
         public void TestEchoWithMask()
         {
-            BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
+            WebSocketEchoServer server = new WebSocketEchoServer();
 
-            ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(new IPEndPoint(Dns.GetHostEntry("echo.websocket.org").AddressList[0], 80))
-                .AddModule(new WebSocketClientSockNetChannelModule("/", "echo.websocket.org", (ISockNetChannel sockNetClient) => { blockingCollection.Add(true); }));
+            try
+            {
+                server.Start();
 
-            client.Connect().WaitForValue(TimeSpan.FromSeconds(5));
+                BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
 
-            object currentObject;
+                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint)
+                    .AddModule(new WebSocketClientSockNetChannelModule("/", "localhost", (ISockNetChannel sockNetClient) => { blockingCollection.Add(true); }));
 
-            Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
-            Assert.IsTrue((bool)currentObject);
+                client.Connect().WaitForValue(TimeSpan.FromSeconds(5));
 
-            client.Pipe.AddIncomingLast<WebSocketFrame>((ISockNetChannel sockNetClient, ref WebSocketFrame data) => { blockingCollection.Add(data); });
+                object currentObject;
 
-            client.Send(WebSocketFrame.CreateTextFrame("some test", true));
+                Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
+                Assert.IsTrue((bool)currentObject);
 
-            Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
-            Assert.IsTrue(currentObject is WebSocketFrame);
+                client.Pipe.AddIncomingLast<WebSocketFrame>((ISockNetChannel sockNetClient, ref WebSocketFrame data) => { blockingCollection.Add(data); });
 
-            Assert.AreEqual("some test", ((WebSocketFrame)currentObject).DataAsString);
+                client.Send(WebSocketFrame.CreateTextFrame("some test", true));
 
-            Console.WriteLine("Got response: \n" + ((WebSocketFrame)currentObject).DataAsString);
+                Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
+                Assert.IsTrue(currentObject is WebSocketFrame);
 
-            client.Disconnect().WaitForValue(TimeSpan.FromSeconds(5));
+                Assert.AreEqual("some test", ((WebSocketFrame)currentObject).DataAsString);
+
+                Console.WriteLine("Got response: \n" + ((WebSocketFrame)currentObject).DataAsString);
+
+                client.Disconnect().WaitForValue(TimeSpan.FromSeconds(5));
+            }
+            finally
+            {
+                server.Stop();
+            }
         }
 
+        [Ignore] // generating X509 certs in c# is hard...
         [TestMethod]
         public void TestEchoWithMaskWithSsl()
         {
@@ -277,30 +349,41 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         [TestMethod]
         public void TestEchoWithoutMask()
         {
-            BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
+            WebSocketEchoServer server = new WebSocketEchoServer();
 
-            ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(new IPEndPoint(Dns.GetHostEntry("echo.websocket.org").AddressList[0], 80))
-                .AddModule(new WebSocketClientSockNetChannelModule("/", "echo.websocket.org", (ISockNetChannel sockNetClient) => { blockingCollection.Add(true); }));
+            try
+            {
+                server.Start();
 
-            client.Connect().WaitForValue(TimeSpan.FromSeconds(5));
+                BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
 
-            object currentObject;
+                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint)
+                    .AddModule(new WebSocketClientSockNetChannelModule("/", "localhost", (ISockNetChannel sockNetClient) => { blockingCollection.Add(true); }));
 
-            Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
-            Assert.IsTrue((bool)currentObject);
+                client.Connect().WaitForValue(TimeSpan.FromSeconds(5));
 
-            client.Pipe.AddIncomingLast<WebSocketFrame>((ISockNetChannel sockNetClient, ref WebSocketFrame data) => { blockingCollection.Add(data); });
+                object currentObject;
 
-            client.Send(WebSocketFrame.CreateTextFrame("some test", true));
+                Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
+                Assert.IsTrue((bool)currentObject);
 
-            Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
-            Assert.IsTrue(currentObject is WebSocketFrame);
+                client.Pipe.AddIncomingLast<WebSocketFrame>((ISockNetChannel sockNetClient, ref WebSocketFrame data) => { blockingCollection.Add(data); });
 
-            Assert.AreEqual("some test", ((WebSocketFrame)currentObject).DataAsString);
+                client.Send(WebSocketFrame.CreateTextFrame("some test", true));
 
-            Console.WriteLine("Got response: \n" + ((WebSocketFrame)currentObject).DataAsString);
+                Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
+                Assert.IsTrue(currentObject is WebSocketFrame);
 
-            client.Disconnect().WaitForValue(TimeSpan.FromSeconds(5));
+                Assert.AreEqual("some test", ((WebSocketFrame)currentObject).DataAsString);
+
+                Console.WriteLine("Got response: \n" + ((WebSocketFrame)currentObject).DataAsString);
+
+                client.Disconnect().WaitForValue(TimeSpan.FromSeconds(5));
+            }
+            finally
+            {
+                server.Stop();
+            }
         }
     }
 }

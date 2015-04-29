@@ -70,6 +70,13 @@ namespace ArenaNet.SockNet.Common
         ISockNetChannel RemoveModule(ISockNetChannelModule module);
 
         /// <summary>
+        /// Returns true if the module is active in this channel;
+        /// </summary>
+        /// <param name="module"></param>
+        /// <returns></returns>
+        bool HasModule(ISockNetChannelModule module);
+        
+        /// <summary>
         /// Returns true if this channel is active.
         /// </summary>
         bool IsActive { get; }

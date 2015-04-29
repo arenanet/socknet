@@ -75,7 +75,7 @@ namespace ArenaNet.SockNet.Common.IO
             {
                 foreach (OnOpenedDelegate del in openedHandlers)
                 {
-                    newPipe.openedHandlers.AddFirst(del);
+                    newPipe.openedHandlers.AddLast(del);
                 }
             }
 
@@ -83,7 +83,7 @@ namespace ArenaNet.SockNet.Common.IO
             {
                 foreach (OnClosedDelegate del in closedHandlers)
                 {
-                    newPipe.closedHandlers.AddFirst(del);
+                    newPipe.closedHandlers.AddLast(del);
                 }
             }
 
@@ -91,7 +91,7 @@ namespace ArenaNet.SockNet.Common.IO
             {
                 foreach (IDelegateReference del in incomingHandlers)
                 {
-                    newPipe.incomingHandlers.AddFirst(del);
+                    newPipe.incomingHandlers.AddLast(del);
                 }
             }
 
@@ -99,7 +99,7 @@ namespace ArenaNet.SockNet.Common.IO
             {
                 foreach (IDelegateReference del in outgoingHandlers)
                 {
-                    newPipe.outgoingHandlers.AddFirst(del);
+                    newPipe.outgoingHandlers.AddLast(del);
                 }
             }
 
@@ -124,7 +124,7 @@ namespace ArenaNet.SockNet.Common.IO
                     }
                     catch (Exception e)
                     {
-                        SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Pipe invokation failed on: " + delegateRef.Target + "." + delegateRef.Method, e);
+                        SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, parent, "Pipe opened invokation failed on: " + delegateRef.Target + "." + delegateRef.Method, e);
                     }
                 }
             }
@@ -148,7 +148,7 @@ namespace ArenaNet.SockNet.Common.IO
                     }
                     catch (Exception e)
                     {
-                        SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Pipe invokation failed on: " + delegateRef.Target + "." + delegateRef.Method, e);
+                        SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, parent, "Pipe closed invokation failed on: " + delegateRef.Target + "." + delegateRef.Method, e);
                     }
                 }
             }
@@ -179,7 +179,7 @@ namespace ArenaNet.SockNet.Common.IO
                     }
                     catch (Exception e)
                     {
-                        SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Pipe invokation failed on: " + delegateRef.Delegate.Target + "." + delegateRef.Delegate.Method, e);
+                        SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, parent, "Pipe outgoing invokation failed on: " + delegateRef.Delegate.Target + "." + delegateRef.Delegate.Method, e);
                     }
                 }
             }
@@ -210,7 +210,7 @@ namespace ArenaNet.SockNet.Common.IO
                     }
                     catch (Exception e)
                     {
-                        SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Pipe invokation failed on: " + delegateRef.Delegate.Target + "." + delegateRef.Delegate.Method, e);
+                        SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, parent, "Pipe incoming invokation failed on: " + delegateRef.Delegate.Target + "." + delegateRef.Delegate.Method, e);
                     }
                 }
             }

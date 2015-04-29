@@ -42,8 +42,10 @@
     <Compile Include="Http\HttpPayload.cs" />
     <Compile Include="Http\HttpResponse.cs" />
     <Compile Include="Http\HttpRequest.cs" />
+    <Compile Include="WebSocket\WebSocketServerSockNetChannelModule.cs" />
     <Compile Include="WebSocket\WebSocketFrame.cs" />
     <Compile Include="WebSocket\WebSocketClientSockNetChannelModule.cs" />
+    <Compile Include="WebSocket\WebSocketUtil.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\SockNet.Common\SockNet.Common.csproj">

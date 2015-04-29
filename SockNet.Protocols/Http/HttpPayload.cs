@@ -412,7 +412,7 @@ namespace ArenaNet.SockNet.Protocols.Http
             {
                 stream.Position = startingPosition;
 
-                throw e;
+                return false;
             }
         }
 

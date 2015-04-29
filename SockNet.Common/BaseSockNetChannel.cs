@@ -172,6 +172,19 @@ namespace ArenaNet.SockNet.Common
         }
 
         /// <summary>
+        /// Returns true if the module is active in this channel;
+        /// </summary>
+        /// <param name="module"></param>
+        /// <returns></returns>
+        public bool HasModule(ISockNetChannelModule module)
+        {
+            lock (modules)
+            {
+                return modules.ContainsKey(module);
+            }
+        }
+
+        /// <summary>
         /// Flag this channel as connecting.
         /// </summary>
         /// <returns></returns>

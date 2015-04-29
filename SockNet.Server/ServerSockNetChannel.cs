@@ -185,7 +185,7 @@ namespace ArenaNet.SockNet.Server
 
             if (remoteSocket != null)
             {
-                RemoteSockNetChannel channel = new RemoteSockNetChannel(this, remoteSocket, BufferPool);
+                RemoteSockNetChannel channel = new RemoteSockNetChannel(this, remoteSocket, BufferPool, modules.Keys);
                 lock (remoteChannels)
                 {
                     remoteChannels[channel.RemoteEndpoint] = channel;

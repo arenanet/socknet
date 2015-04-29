@@ -13,7 +13,6 @@
  */
 using System;
 using System.IO;
-using System.Security.Cryptography;
 using System.Text;
 using ArenaNet.SockNet.Common;
 using ArenaNet.SockNet.Common.IO;
@@ -26,11 +25,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
     /// </summary>
     public class WebSocketClientSockNetChannelModule : ISockNetChannelModule
     {
-        public static readonly string WebSocketAcceptHeader = "Sec-WebSocket-Accept";
-
         private static readonly byte[] HeaderNewLine = Encoding.ASCII.GetBytes("\r\n");
-
-        private const string Magic = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
         private bool combineContinuations;
         private string path;
@@ -51,9 +46,9 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
             this.onWebSocketEstablished = onWebSocketEstablished;
             this.combineContinuations = combineContinuations;
 
-            this.secKey = Convert.ToBase64String(Encoding.ASCII.GetBytes(Guid.NewGuid().ToString().Substring(0, 16)));
+            this.secKey = WebSocketUtil.GenerateSecurityKey();
 
-            this.ExpectedAccept = Convert.ToBase64String(SHA1.Create().ComputeHash(Encoding.ASCII.GetBytes(this.secKey + Magic)));
+            this.ExpectedAccept = WebSocketUtil.GenerateAccept(secKey);
         }
 
         /// <summary>
@@ -76,7 +71,11 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
             channel.Pipe.RemoveIncoming<object>(HandleIncomingFrames);
             channel.Pipe.RemoveOutgoing<object>(HandleOutgoingFrames);
             channel.Pipe.RemoveOpened(OnConnected);
-            channel.RemoveModule(httpModule);
+
+            if (channel.HasModule(httpModule))
+            {
+                channel.RemoveModule(httpModule);
+            }
         }
 
         /// <summary>
@@ -111,7 +110,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         /// <param name="data"></param>
         private void HandleHandshake(ISockNetChannel channel, ref HttpResponse data)
         {
-            if (ExpectedAccept.Equals(data.Header[WebSocketAcceptHeader]))
+            if (ExpectedAccept.Equals(data.Header[WebSocketUtil.WebSocketAcceptHeader]))
             {
                 SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Established Web-Socket connection.");
                 channel.Pipe.RemoveIncoming<HttpResponse>(HandleHandshake);
@@ -187,6 +186,8 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
             catch (Exception e)
             {
                 SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Unable to parse web-socket request", e);
+
+                channel.Close();
             }
         }
 

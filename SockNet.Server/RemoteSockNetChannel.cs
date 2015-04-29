@@ -15,6 +15,7 @@ using System;
 using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
+using System.Collections.Generic;
 using System.Threading;
 using ArenaNet.SockNet.Common;
 using ArenaNet.SockNet.Common.Pool;
@@ -66,12 +67,17 @@ namespace ArenaNet.SockNet.Server
         /// </summary>
         /// <param name="socket"></param>
         /// <param name="bufferPool"></param>
-        internal RemoteSockNetChannel(ServerSockNetChannel parent, Socket socket, ObjectPool<byte[]> bufferPool)
+        internal RemoteSockNetChannel(ServerSockNetChannel parent, Socket socket, ObjectPool<byte[]> bufferPool, ICollection<ISockNetChannelModule> modules)
             : base(socket, bufferPool)
         {
             this.parent = parent;
 
             this.Pipe = parent.Pipe.Clone(this);
+
+            foreach (ISockNetChannelModule module in modules)
+            {
+                this.modules[module] = true;
+            }
 
             this.State = RemoteSockNetChannelState.Disconnected;
 
