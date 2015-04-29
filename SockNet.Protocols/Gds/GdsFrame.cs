@@ -201,69 +201,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
         /// <summary>
         /// Internal headers.
         /// </summary>
-        internal Dictionary<string, byte[]> headers = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
-
-        /// <summary>
-        /// External header view and manipulator that deals with headers.
-        /// </summary>
-        public class HeaderView
-        {
-            private GdsFrame parent;
-
-            internal HeaderView(GdsFrame parent)
-            {
-                this.parent = parent;
-            }
-
-            public void Remove(string name)
-            {
-                this[name] = null;
-            }
-
-            public ICollection<string> Names { get { return parent.headers.Keys; } }
-
-            public int Count { get { return parent.headers.Count; } }
-
-            public byte[] this[string name]
-            {
-                get
-                {
-                    lock (parent.headers)
-                    {
-                        byte[] value;
-
-                        if (parent.headers.TryGetValue(name, out value))
-                        {
-                            return value;
-                        }
-                        else
-                        {
-                            return null;
-                        }
-                    }
-                }
-                set
-                {
-                    lock (parent.headers)
-                    {
-                        if (value == null)
-                        {
-                            parent.headers.Remove(name);
-                        }
-                        else
-                        {
-                            parent.headers[name] = value;
-                        }
-                    }
-                }
-            }
-        }
-
-        internal readonly HeaderView _headerView;
-        /// <summary>
-        /// View and manipulation of headers.
-        /// </summary>
-        public HeaderView Headers { get { return _headerView; } }
+        public Dictionary<string, byte[]> Headers { private set; get; }
 
         /// <summary>
         /// Whether the headers are compressed.
@@ -280,7 +218,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
         /// </summary>
         private GdsFrame()
         {
-            _headerView = new HeaderView(this);
+            Headers = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -303,7 +241,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
             {
                 ushort headerDefinition = 0;
                 headerDefinition |= (ushort)((ushort)(AreHeadersCompressed ? 1 : 0) << HeadersIsCompressedShift);
-                headerDefinition |= (ushort)((ushort)(headers.Count) << HeadersLengthShift);
+                headerDefinition |= (ushort)((ushort)(Headers.Count) << HeadersLengthShift);
 
                 writer.Write((ushort)IPAddress.HostToNetworkOrder((short)(headerDefinition)));
 
@@ -338,7 +276,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
         {
             BinaryWriter headerWriter = new BinaryWriter(stream);
 
-            foreach (KeyValuePair<string, byte[]> kvp in headers)
+            foreach (KeyValuePair<string, byte[]> kvp in Headers)
             {
                 byte[] rawKey = HeaderEncoding.GetBytes(kvp.Key);
 
@@ -445,7 +383,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
                     throw new EndOfStreamException();
                 }
 
-                frame.headers[HeaderEncoding.GetString(key)] = value;
+                frame.Headers[HeaderEncoding.GetString(key)] = value;
             }
         }
 
@@ -483,7 +421,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
             {
                 foreach (KeyValuePair<string, byte[]> kvp in headers)
                 {
-                    frame.headers[kvp.Key] = kvp.Value;
+                    frame.Headers[kvp.Key] = kvp.Value;
                 }
             }
             

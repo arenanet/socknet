@@ -172,13 +172,13 @@ namespace ArenaNet.SockNet.Protocols.Gds
                     }
 
                     headers = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
-                    foreach (string name in chunkedFrame.Headers.Names)
+                    foreach (KeyValuePair<string, byte[]> kvp in chunkedFrame.Headers)
                     {
-                        headers[name] = chunkedFrame.Headers[name];
+                        headers[kvp.Key] = kvp.Value;
                     }
-                    foreach (string name in frame.Headers.Names)
+                    foreach (KeyValuePair<string, byte[]> kvp in frame.Headers)
                     {
-                        headers[name] = frame.Headers[name];
+                        headers[kvp.Key] = kvp.Value;
                     }
                 }
 
