@@ -36,6 +36,11 @@ namespace ArenaNet.SockNet.Common
     public interface ISockNetChannel
     {
         /// <summary>
+        /// A globally unique channel identifier.
+        /// </summary>
+        string Id { get ; }
+
+        /// <summary>
         /// The SockNetPipe.
         /// </summary>
         SockNetChannelPipe Pipe { get; }

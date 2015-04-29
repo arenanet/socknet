@@ -55,7 +55,7 @@ namespace ArenaNet.SockNet.Server
         private IPEndPoint bindEndpoint = null;
         private int backlog;
 
-        private Dictionary<IPEndPoint, RemoteSockNetChannel> remoteChannels = new Dictionary<IPEndPoint, RemoteSockNetChannel>();
+        private Dictionary<string, RemoteSockNetChannel> remoteChannels = new Dictionary<string, RemoteSockNetChannel>();
 
         /// <summary>
         /// Creates a socknet client that can connect to the given address and port using a receive buffer size.
@@ -188,7 +188,7 @@ namespace ArenaNet.SockNet.Server
                 RemoteSockNetChannel channel = new RemoteSockNetChannel(this, remoteSocket, BufferPool, modules.Keys);
                 lock (remoteChannels)
                 {
-                    remoteChannels[channel.RemoteEndpoint] = channel;
+                    remoteChannels[channel.Id] = channel;
                 }
             }
         }

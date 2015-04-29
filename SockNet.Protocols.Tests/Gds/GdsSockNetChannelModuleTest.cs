@@ -31,6 +31,8 @@ namespace ArenaNet.SockNet.Protocols.Gds
     {
         public class DummySockNetChannel : ISockNetChannel
         {
+            public string Id { get { return "1";  } }
+
             public SockNetChannelPipe Pipe
             {
                 get;
