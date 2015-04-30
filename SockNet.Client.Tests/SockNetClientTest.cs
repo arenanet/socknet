@@ -57,7 +57,7 @@ namespace ArenaNet.SockNet.Client
         {
             BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
 
-            ClientSockNetChannel client = SockNetClient.Create(new IPEndPoint(Dns.GetHostEntry("www.guildwars2.com").AddressList[0], 80), SockNetChannelProtocol.Tcp, false, 32);
+            ClientSockNetChannel client = SockNetClient.Create(new IPEndPoint(Dns.GetHostEntry("www.guildwars2.com").AddressList[0], 80), false, 32);
 
             client.Connect().WaitForValue(TimeSpan.FromSeconds(5));
 

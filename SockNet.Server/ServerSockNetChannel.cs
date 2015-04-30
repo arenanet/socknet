@@ -63,8 +63,8 @@ namespace ArenaNet.SockNet.Server
         /// <param name="bindAddress"></param>
         /// <param name="bindPort"></param>
         /// <param name="bufferSize"></param>
-        public ServerSockNetChannel(IPAddress bindAddress, int bindPort, ObjectPool<byte[]> bufferPool, SockNetChannelProtocol protocol = SockNetChannelProtocol.Tcp, int backlog = DefaultBacklog)
-            : this(new IPEndPoint(bindAddress, bindPort), bufferPool, protocol, backlog)
+        public ServerSockNetChannel(IPAddress bindAddress, int bindPort, ObjectPool<byte[]> bufferPool, int backlog = DefaultBacklog)
+            : this(new IPEndPoint(bindAddress, bindPort), bufferPool, backlog)
         {
         }
 
@@ -73,11 +73,8 @@ namespace ArenaNet.SockNet.Server
         /// </summary>
         /// <param name="endpoint"></param>
         /// <param name="bufferSize"></param>
-        public ServerSockNetChannel(IPEndPoint bindEndpoint, ObjectPool<byte[]> bufferPool, SockNetChannelProtocol protocol = SockNetChannelProtocol.Tcp, int backlog = DefaultBacklog)
-            : base(new Socket(AddressFamily.InterNetwork, 
-                protocol == SockNetChannelProtocol.Tcp ? SocketType.Stream : SocketType.Dgram,
-                protocol == SockNetChannelProtocol.Tcp ? ProtocolType.Tcp : ProtocolType.Udp), 
-            bufferPool)
+        public ServerSockNetChannel(IPEndPoint bindEndpoint, ObjectPool<byte[]> bufferPool, int backlog = DefaultBacklog)
+            : base(new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp), bufferPool)
         {
             this.bindEndpoint = bindEndpoint;
             this.backlog = backlog;

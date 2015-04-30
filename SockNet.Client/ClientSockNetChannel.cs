@@ -82,9 +82,7 @@ namespace ArenaNet.SockNet.Client
         /// <param name="endpoint"></param>
         /// <param name="bufferPool"></param>
         public ClientSockNetChannel(IPEndPoint endpoint, ObjectPool<byte[]> bufferPool, SockNetChannelProtocol protocol = SockNetChannelProtocol.Tcp) :
-            base(new Socket(AddressFamily.InterNetwork, 
-                protocol == SockNetChannelProtocol.Tcp ? SocketType.Stream : SocketType.Dgram, 
-                protocol == SockNetChannelProtocol.Tcp ? ProtocolType.Tcp : ProtocolType.Udp), bufferPool)
+            base(new Socket(AddressFamily.InterNetwork, SocketType.Stream,  ProtocolType.Tcp), bufferPool)
         {
             this.connectEndpoint = endpoint;
 

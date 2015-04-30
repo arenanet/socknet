@@ -29,15 +29,15 @@ namespace ArenaNet.SockNet.Client
     /// </summary>
     public static class SockNetClient
     {
-        public static ClientSockNetChannel Create(IPAddress address, int port, SockNetChannelProtocol protocol = SockNetChannelProtocol.Tcp, bool noDelay = false, short ttl = 32)
+        public static ClientSockNetChannel Create(IPAddress address, int port, bool noDelay = false, short ttl = 32)
         {
-            return Create(new IPEndPoint(address, port), protocol, noDelay, ttl);
+            return Create(new IPEndPoint(address, port), noDelay, ttl);
         }
 
-        public static ClientSockNetChannel Create(IPEndPoint endpoint, SockNetChannelProtocol protocol = SockNetChannelProtocol.Tcp, bool noDelay = false, short ttl = 32)
+        public static ClientSockNetChannel Create(IPEndPoint endpoint, bool noDelay = false, short ttl = 32)
         {
             // TODO client track channels
-            return new ClientSockNetChannel(endpoint, SockNetChannelGlobals.GlobalBufferPool, protocol).WithNoDelay(noDelay).WithTtl(ttl);
+            return new ClientSockNetChannel(endpoint, SockNetChannelGlobals.GlobalBufferPool).WithNoDelay(noDelay).WithTtl(ttl);
         }
     }
 }
