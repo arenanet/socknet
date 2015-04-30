@@ -582,52 +582,6 @@ namespace ArenaNet.SockNet.Common
         }
 
         /// <summary>
-        /// A state class used between streamed sends.
-        /// </summary>
-        private class SendState
-        {
-            public object buffer;
-            public Promise<ISockNetChannel> promise;
-        }
-
-        /// <summary>
-        /// A callback that gets invoked after a successful send.
-        /// </summary>
-        /// <param name="result"></param>
-        private void SendCallback(IAsyncResult result)
-        {
-            SendState state = ((SendState)result.AsyncState);
-
-            SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, (result.AsyncState is SslStream ? "[SSL] " : "") + "Sent data to [{0}].", RemoteEndpoint);
-
-            if (state.buffer is PooledObject<byte[]>)
-            {
-                ((PooledObject<byte[]>)state.buffer).Return();
-            }
-
-            try
-            {
-                stream.EndWrite(result);
-
-                streamWriteSemaphore.Release();
-
-                if (state.promise != null)
-                {
-                    state.promise.CreateFulfiller().Fulfill(this);
-                }
-            }
-            catch (Exception e)
-            {
-                streamWriteSemaphore.Release();
-
-                if (state.promise != null)
-                {
-                    state.promise.CreateFulfiller().Fulfill(e);
-                }
-            }
-        }
-
-        /// <summary>
         /// Closes this channel.
         /// </summary>
         /// <returns></returns>
