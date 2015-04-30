@@ -58,7 +58,6 @@ namespace ArenaNet.SockNet.Protocols.Http
 
                     server.Pipe.AddIncomingLast<HttpRequest>((ISockNetChannel channel, ref HttpRequest data) =>
                     {
-                        Console.WriteLine("ZZZ");
                         HttpResponse response = new HttpResponse(channel.BufferPool)
                         {
                             Version = data.Version,
