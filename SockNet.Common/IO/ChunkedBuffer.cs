@@ -293,7 +293,7 @@ namespace ArenaNet.SockNet.Common.IO
                 rootChunk = rootChunk.next;
             }
 
-            stream.BeginWrite(currentChunk.pooledBytes.Value, currentChunk.offset, currentChunk.count, new AsyncCallback(OnDrawinChunksToStreamWriteComplete),
+            stream.BeginWrite(currentChunk.pooledBytes.Value, currentChunk.offset, currentChunk.count, new AsyncCallback(OnDrainChunksToStreamWriteComplete),
                 new DrainChunksState()
                 {
                     currentChunk = currentChunk,
@@ -306,13 +306,13 @@ namespace ArenaNet.SockNet.Common.IO
         /// The async response to writing out this stream.
         /// </summary>
         /// <param name="result"></param>
-        private void OnDrawinChunksToStreamWriteComplete(IAsyncResult result)
+        private void OnDrainChunksToStreamWriteComplete(IAsyncResult result)
         {
             DrainChunksState state = (DrainChunksState)result.AsyncState;
 
             state.stream.EndWrite(result);
 
-            if (state.currentChunk.pooledBytes.RefCount.Decrement() < 1)
+            if (state.currentChunk.pooledBytes.Pool != null && state.currentChunk.pooledBytes.RefCount.Decrement() < 1)
             {
                 state.currentChunk.pooledBytes.Return();
             }
