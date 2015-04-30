@@ -51,6 +51,8 @@ namespace ArenaNet.SockNet.Protocols.Http
                 this.parent = parent;
             }
 
+            public ICollection<string> Names { get { return parent.headers.Keys; } }
+
             public void Remove(string name)
             {
                 this[name] = null;
@@ -109,6 +111,8 @@ namespace ArenaNet.SockNet.Protocols.Http
             {
                 this[name] = null;
             }
+
+            public ICollection<string> Names { get { return parent.headers.Keys; } }
 
             public string[] this[string name]
             {
@@ -172,14 +176,14 @@ namespace ArenaNet.SockNet.Protocols.Http
         public bool IsChunked { private set; get; }
 
         /// <summary>
-        /// Returns the raw stream of the body.
+        /// Returns or sets the raw stream of the body.
         /// </summary>
-        public ChunkedBuffer Body { private set; get; }
+        public ChunkedBuffer Body { set; get; }
 
         /// <summary>
         /// Sets the number bytes read or to write.
         /// </summary>
-        public int BodySize { set; get; }
+        public int BodySize { get { return (int)Body.AvailableBytesToRead; } }
 
         /// <summary>
         /// Creates a HTTP payload.
@@ -366,10 +370,6 @@ namespace ArenaNet.SockNet.Protocols.Http
                                     Body.ReadPosition = 0;
                                     stream.Position = bodyStartPosition;
                                 }
-                                else
-                                {
-                                    BodySize += actuallyRead;
-                                }
 
                                 return false;
                             }
@@ -389,14 +389,12 @@ namespace ArenaNet.SockNet.Protocols.Http
                             }
                             else
                             {
-                                BodySize = bodySize;
-
                                 return true;
                             }
                         }
                         else if (isClosed)
                         {
-                            BodySize = Copy(stream, Body.Stream, int.MaxValue);
+                            Copy(stream, Body.Stream, int.MaxValue);
 
                             return true;
                         }

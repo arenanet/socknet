@@ -28,83 +28,169 @@ namespace ArenaNet.SockNet.Protocols.Http
     [TestClass]
     public class HttpSockNetChannelModuleTest
     {
+        public class HttpEchoServer
+        {
+            private ServerSockNetChannel server;
+
+            public IPEndPoint Endpoint { get { return new IPEndPoint(GetLocalIpAddress(), server == null ? -1 : server.LocalEndpoint.Port); } }
+
+            public void Start(bool isTls = false)
+            {
+                server = SockNetServer.Create(GetLocalIpAddress(), 0);
+
+                try
+                {
+                    server.AddModule(new HttpSockNetChannelModule(HttpSockNetChannelModule.ParsingMode.Server));
+
+                    if (isTls)
+                    {
+                        byte[] rawCert = CertificateUtil.CreateSelfSignCertificatePfx("CN=\"test\"; C=\"USA\"", DateTime.Today.AddDays(-10), DateTime.Today.AddDays(+10));
+
+                        server.BindWithTLS(new X509Certificate2(rawCert),
+                            (object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => { return true; }).WaitForValue(TimeSpan.FromSeconds(5));
+                    }
+                    else
+                    {
+                        server.Bind().WaitForValue(TimeSpan.FromSeconds(5));
+                    }
+
+                    Assert.IsTrue(server.IsActive);
+
+                    server.Pipe.AddIncomingLast<HttpRequest>((ISockNetChannel channel, ref HttpRequest data) =>
+                    {
+                        Console.WriteLine("ZZZ");
+                        HttpResponse response = new HttpResponse(channel.BufferPool)
+                        {
+                            Version = data.Version,
+                            Code = "200",
+                            Reason = "OK"
+                        };
+
+                        foreach (string headerName in data.Headers.Names)
+                        {
+                            response.Headers[headerName] = data.Headers[headerName];
+                        }
+
+                        response.Body = data.Body;
+
+                        channel.Send(response);
+                    });
+                }
+                catch (Exception)
+                {
+                    Stop();
+                }
+            }
+
+            public void Stop()
+            {
+                if (server != null)
+                {
+                    server.Close();
+                    server = null;
+                }
+            }
+        }
+
         [TestMethod]
         public void TestSimpleGet()
         {
-            BlockingCollection<HttpResponse> responses = new BlockingCollection<HttpResponse>();
+            HttpEchoServer server = new HttpEchoServer();
 
-            ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(new IPEndPoint(Dns.GetHostEntry("www.guildwars2.com").AddressList[0], 80))
-                .AddModule(new HttpSockNetChannelModule(HttpSockNetChannelModule.ParsingMode.Client));
-            client.Pipe.AddIncomingLast<HttpResponse>((ISockNetChannel channel, ref HttpResponse data) => { responses.Add(data); });
-            client.Connect().WaitForValue(TimeSpan.FromSeconds(5));
-
-            HttpRequest request = new HttpRequest(client.BufferPool)
+            try
             {
-                Action = "GET",
-                Path = "/en/",
-                Version = "HTTP/1.1"
-            };
-            request.Header["Host"] = "www.guildwars2.com";
+                server.Start();
 
-            client.Send(request);
+                BlockingCollection<HttpResponse> responses = new BlockingCollection<HttpResponse>();
 
-            HttpResponse response = null;
-            responses.TryTake(out response, 5000);
+                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint)
+                    .AddModule(new HttpSockNetChannelModule(HttpSockNetChannelModule.ParsingMode.Client));
+                client.Pipe.AddIncomingLast<HttpResponse>((ISockNetChannel channel, ref HttpResponse data) => { responses.Add(data); });
+                client.Connect().WaitForValue(TimeSpan.FromSeconds(5));
 
-            Assert.IsNotNull(response);
+                HttpRequest request = new HttpRequest(client.BufferPool)
+                {
+                    Action = "GET",
+                    Path = "/en/",
+                    Version = "HTTP/1.1"
+                };
+                request.Header["Host"] = "localhost";
 
-            Assert.IsNotNull(response.Version);
-            Assert.IsNotNull(response.Code);
-            Assert.IsNotNull(response.Reason);
+                client.Send(request);
 
-            MemoryStream stream = new MemoryStream();
-            response.Write(stream, false);
-            stream.Position = 0;
-            
-            using (StreamReader reader = new StreamReader(stream))
+                HttpResponse response = null;
+                responses.TryTake(out response, 5000);
+
+                Assert.IsNotNull(response);
+
+                Assert.IsNotNull(response.Version);
+                Assert.IsNotNull(response.Code);
+                Assert.IsNotNull(response.Reason);
+
+                MemoryStream stream = new MemoryStream();
+                response.Write(stream, false);
+                stream.Position = 0;
+
+                using (StreamReader reader = new StreamReader(stream))
+                {
+                    Console.WriteLine("Got response: " + reader.ReadToEnd());
+                }
+            }
+            finally
             {
-                Console.WriteLine("Got response: " + reader.ReadToEnd());
+                server.Stop();
             }
         }
 
         [TestMethod]
         public void TestSimpleGetHttps()
         {
-            BlockingCollection<HttpResponse> responses = new BlockingCollection<HttpResponse>();
+            HttpEchoServer server = new HttpEchoServer();
 
-            ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(new IPEndPoint(Dns.GetHostEntry("www.google.com").AddressList[0], 443))
-                .AddModule(new HttpSockNetChannelModule(HttpSockNetChannelModule.ParsingMode.Client));
-            client.Pipe.AddIncomingLast<HttpResponse>((ISockNetChannel channel, ref HttpResponse data) => { responses.Add(data); });
-            client.ConnectWithTLS((object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => { return true; })
-                .WaitForValue(TimeSpan.FromSeconds(5));
-
-            HttpRequest request = new HttpRequest(client.BufferPool)
+            try
             {
-                Action = "GET",
-                Path = "/",
-                Version = "HTTP/1.1"
-            };
-            request.Header["Host"] = "www.google.com";
-            request.Header["Connection"] = "Close";
+                server.Start(true);
 
-            client.Send(request);
+                BlockingCollection<HttpResponse> responses = new BlockingCollection<HttpResponse>();
 
-            HttpResponse response = null;
-            responses.TryTake(out response, 5000);
+                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint)
+                    .AddModule(new HttpSockNetChannelModule(HttpSockNetChannelModule.ParsingMode.Client));
+                client.Pipe.AddIncomingLast<HttpResponse>((ISockNetChannel channel, ref HttpResponse data) => { responses.Add(data); });
+                client.ConnectWithTLS((object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => { return true; })
+                    .WaitForValue(TimeSpan.FromSeconds(5));
 
-            Assert.IsNotNull(response);
+                HttpRequest request = new HttpRequest(client.BufferPool)
+                {
+                    Action = "GET",
+                    Path = "/",
+                    Version = "HTTP/1.1"
+                };
+                request.Header["Host"] = "localhost";
+                request.Header["Connection"] = "Close";
 
-            Assert.IsNotNull(response.Version);
-            Assert.IsNotNull(response.Code);
-            Assert.IsNotNull(response.Reason);
+                client.Send(request);
 
-            MemoryStream stream = new MemoryStream();
-            response.Write(stream, false);
-            stream.Position = 0;
+                HttpResponse response = null;
+                responses.TryTake(out response, 5000);
 
-            using (StreamReader reader = new StreamReader(stream))
+                Assert.IsNotNull(response);
+
+                Assert.IsNotNull(response.Version);
+                Assert.IsNotNull(response.Code);
+                Assert.IsNotNull(response.Reason);
+
+                MemoryStream stream = new MemoryStream();
+                response.Write(stream, false);
+                stream.Position = 0;
+
+                using (StreamReader reader = new StreamReader(stream))
+                {
+                    Console.WriteLine("Got response: " + reader.ReadToEnd());
+                }
+            }
+            finally
             {
-                Console.WriteLine("Got response: " + reader.ReadToEnd());
+                server.Stop();
             }
         }
 
@@ -169,7 +255,6 @@ namespace ArenaNet.SockNet.Protocols.Http
                     };
                     response.Header["Content-Length"] = "" + data.BodySize;
                     Copy(data.Body.Stream, response.Body.Stream, data.BodySize);
-                    response.BodySize = data.BodySize;
 
                     Promise<ISockNetChannel> sendPromise = channel.Send(response);
                     if (("http/1.0".Equals(data.Version) && !"keep-alive".Equals(data.Header["connection"], StringComparison.CurrentCultureIgnoreCase)) ||

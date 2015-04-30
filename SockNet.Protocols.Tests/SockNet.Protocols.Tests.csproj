@@ -50,6 +50,7 @@
     </Otherwise>
   </Choose>
   <ItemGroup>
+    <Compile Include="CertificateUtil.cs" />
     <Compile Include="Gds\GdsFrameTest.cs" />
     <Compile Include="Gds\GdsSockNetChannelModuleTest.cs" />
     <Compile Include="Http\HttpResponseTest.cs" />
