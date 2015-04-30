@@ -190,6 +190,11 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
             {
                 return new Promise<ISockNetChannel>(this);
             }
+
+            public SockNetChannelProtocol Protocol
+            {
+                get { return SockNetChannelProtocol.Tcp; }
+            }
         }
 
         [TestMethod]

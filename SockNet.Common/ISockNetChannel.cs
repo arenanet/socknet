@@ -31,6 +31,15 @@ namespace ArenaNet.SockNet.Common
     }
 
     /// <summary>
+    /// The protocol.
+    /// </summary>
+    public enum SockNetChannelProtocol
+    {
+        Tcp,
+        Udp
+    }
+
+    /// <summary>
     /// A SockNet channel.
     /// </summary>
     public interface ISockNetChannel
@@ -38,7 +47,12 @@ namespace ArenaNet.SockNet.Common
         /// <summary>
         /// A globally unique channel identifier.
         /// </summary>
-        string Id { get ; }
+        string Id { get; }
+
+        /// <summary>
+        /// The protocol of this channel.
+        /// </summary>
+        SockNetChannelProtocol Protocol { get; }
 
         /// <summary>
         /// The SockNetPipe.

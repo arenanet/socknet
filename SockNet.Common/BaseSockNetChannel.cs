@@ -123,6 +123,12 @@ namespace ArenaNet.SockNet.Common
         {
             get { return _id; }
         }
+
+        public SockNetChannelProtocol Protocol
+        {
+            get;
+            private set;
+        }
         
         /// <summary>
         /// Gets the current state of the client.
@@ -141,6 +147,15 @@ namespace ArenaNet.SockNet.Common
         protected BaseSockNetChannel(Socket socket, ObjectPool<byte[]> bufferPool)
         {
             this.Socket = socket;
+
+            if (socket.ProtocolType == ProtocolType.Tcp)
+            {
+                Protocol = SockNetChannelProtocol.Tcp;
+            }
+            else if (socket.ProtocolType == ProtocolType.Udp)
+            {
+                Protocol = SockNetChannelProtocol.Udp;
+            }
 
             this.Pipe = new SockNetChannelPipe(this);
             

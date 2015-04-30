@@ -25,15 +25,15 @@ namespace ArenaNet.SockNet.Server
     /// </summary>
     public static class SockNetServer
     {
-        public static ServerSockNetChannel Create(IPAddress bindAddress, int bindPort, int backlog = ServerSockNetChannel.DefaultBacklog)
+        public static ServerSockNetChannel Create(IPAddress bindAddress, int bindPort, SockNetChannelProtocol protocol = SockNetChannelProtocol.Tcp, int backlog = ServerSockNetChannel.DefaultBacklog)
         {
-            return Create(new IPEndPoint(bindAddress, bindPort), backlog);
+            return Create(new IPEndPoint(bindAddress, bindPort), protocol, backlog);
         }
 
-        public static ServerSockNetChannel Create(IPEndPoint bindEndpoint, int backlog = ServerSockNetChannel.DefaultBacklog)
+        public static ServerSockNetChannel Create(IPEndPoint bindEndpoint, SockNetChannelProtocol protocol = SockNetChannelProtocol.Tcp, int backlog = ServerSockNetChannel.DefaultBacklog)
         {
             // TODO possibly track?
-            return new ServerSockNetChannel(bindEndpoint, SockNetChannelGlobals.GlobalBufferPool, backlog);
+            return new ServerSockNetChannel(bindEndpoint, SockNetChannelGlobals.GlobalBufferPool, protocol, backlog);
         }
     }
 }

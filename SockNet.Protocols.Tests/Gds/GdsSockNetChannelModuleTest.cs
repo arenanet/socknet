@@ -119,6 +119,11 @@ namespace ArenaNet.SockNet.Protocols.Gds
             {
                 return new Promise<ISockNetChannel>(this);
             }
+
+            public SockNetChannelProtocol Protocol
+            {
+                get { return SockNetChannelProtocol.Tcp; }
+            }
         }
 
         [TestMethod]
