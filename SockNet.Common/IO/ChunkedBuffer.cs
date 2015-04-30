@@ -12,6 +12,7 @@
  * permissions and limitations under the License.
  */
 using System;
+using System.IO;
 using System.Collections.Generic;
 using ArenaNet.SockNet.Common.Pool;
 
@@ -190,13 +191,42 @@ namespace ArenaNet.SockNet.Common.IO
         }
 
         /// <summary>
+        /// Offers the following raw buffer.
+        /// </summary>
+        /// <param name="data"></param>
+        public ChunkedBuffer OfferRaw(byte[] data, int offset, int count)
+        {
+            if (data == null)
+            {
+                throw new ArgumentNullException("'data' cannot be null");
+            }
+
+            MemoryChunk chunk = new MemoryChunk()
+            {
+                pooledBytes = new PooledObject<byte[]>(null, data),
+                offset = offset,
+                count = count,
+                next = null
+            };
+
+            AppendChunk(chunk);
+
+            return this;
+        }
+
+        /// <summary>
         /// Affers a pooled memory chunk to this stream.
         /// </summary>
         /// <param name="pooledBytes"></param>
         /// <param name="offset"></param>
         /// <param name="count"></param>
-        public void OfferChunk(PooledObject<byte[]> pooledBytes, int offset, int count)
+        public ChunkedBuffer OfferChunk(PooledObject<byte[]> pooledBytes, int offset, int count)
         {
+            if (pooledBytes == null)
+            {
+                throw new ArgumentNullException("'data' cannot be null");
+            }
+
             if (pooledBytes.Pool != pool)
             {
                 throw new Exception("The given pooled object does not beong to ths pool that is assigned to this stream.");
@@ -212,6 +242,82 @@ namespace ArenaNet.SockNet.Common.IO
             pooledBytes.RefCount.Increment();
 
             AppendChunk(chunk);
+
+            return this;
+        }
+
+        /// <summary>
+        /// The state during drains.
+        /// </summary>
+        private class DrainChunksState
+        {
+            public MemoryChunk currentChunk;
+            public Stream stream;
+            public Promise<ChunkedBuffer> promise;
+        }
+
+        /// <summary>
+        /// Drains this ChunkedBuffer to the given stream.
+        /// </summary>
+        /// <param name="stream"></param>
+        /// <returns></returns>
+        public Promise<ChunkedBuffer> DrainChunksToStream(Stream stream)
+        {
+            Promise<ChunkedBuffer> promise = new Promise<ChunkedBuffer>();
+
+            DrainChunksToStream(stream, promise);
+
+            return promise;
+        }
+
+        /// <summary>
+        /// Drains chunks to the given stream and notifies the given promise when it's done.
+        /// </summary>
+        /// <param name="stream"></param>
+        /// <param name="promise"></param>
+        private void DrainChunksToStream(Stream stream, Promise<ChunkedBuffer> promise)
+        {
+            MemoryChunk currentChunk = null;
+
+            lock (this)
+            {
+                currentChunk = rootChunk;
+
+                if (currentChunk == null)
+                {
+                    promise.CreateFulfiller().Fulfill(this);
+
+                    return;
+                }
+
+                rootChunk = rootChunk.next;
+            }
+
+            stream.BeginWrite(currentChunk.pooledBytes.Value, currentChunk.offset, currentChunk.count, new AsyncCallback(OnDrawinChunksToStreamWriteComplete),
+                new DrainChunksState()
+                {
+                    currentChunk = currentChunk,
+                    stream = stream,
+                    promise = promise
+                });
+        }
+
+        /// <summary>
+        /// The async response to writing out this stream.
+        /// </summary>
+        /// <param name="result"></param>
+        private void OnDrawinChunksToStreamWriteComplete(IAsyncResult result)
+        {
+            DrainChunksState state = (DrainChunksState)result.AsyncState;
+
+            state.stream.EndWrite(result);
+
+            if (state.currentChunk.pooledBytes.RefCount.Decrement() < 1)
+            {
+                state.currentChunk.pooledBytes.Return();
+            }
+
+            DrainChunksToStream(state.stream, state.promise);
         }
 
         /// <summary>

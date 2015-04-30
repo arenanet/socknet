@@ -94,6 +94,15 @@ namespace ArenaNet.SockNet.Common
         }
 
         /// <summary>
+        /// State that can travel with this promise.
+        /// </summary>
+        public object State
+        {
+            set;
+            get;
+        }
+
+        /// <summary>
         /// Creates a promise.
         /// </summary>
         public Promise() : this(default(T))

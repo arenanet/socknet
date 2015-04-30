@@ -63,6 +63,25 @@ namespace ArenaNet.SockNet.Common
         public SockNetChannelPipe Pipe { get; protected set; }
 
         /// <summary>
+        /// The state that the send queue deals with.
+        /// </summary>
+        private class SendQueueState
+        {
+            public ChunkedBuffer buffer;
+            public Promise<ISockNetChannel> promise;
+        }
+
+        /// <summary>
+        /// The buffers that are queued for sends on this channel.
+        /// </summary>
+        private Queue<SendQueueState> sendQueue = new Queue<SendQueueState>();
+
+        /// <summary>
+        /// Whether the send queue is currently being processed.
+        /// </summary>
+        private bool isProcessingSendQueue = false;
+
+        /// <summary>
         /// Returns true if this client is connected and the connection is encrypted.
         /// </summary>
         public bool IsConnectionEncrypted
@@ -436,31 +455,18 @@ namespace ArenaNet.SockNet.Common
                 if (obj is byte[])
                 {
                     byte[] rawSendableData = (byte[])obj;
-
+                    
                     SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, (IsConnectionEncrypted ? "[SSL] " : "") + "Sending [{0}] bytes to [{1}]...", rawSendableData.Length, RemoteEndpoint);
 
-                    if (streamWriteSemaphore.WaitOne(10000))
-                    {
-                        stream.BeginWrite(rawSendableData, 0, rawSendableData.Length, new AsyncCallback(SendCallback), new SendState() { buffer = rawSendableData, promise = promise });
-                    }
-                    else
-                    {
-                        throw new ThreadStateException("Unable to obtain lock to write message.");
-                    }
+                    EnqueueToSendQueueAndNotify(new ChunkedBuffer(bufferPool).OfferRaw(rawSendableData, 0, rawSendableData.Length), promise);
                 }
                 else if (obj is ChunkedBuffer)
                 {
                     ChunkedBuffer sendableStream = ((ChunkedBuffer)obj);
-                    byte[] rawSendableData = ReadToEnd(sendableStream);
 
-                    if (streamWriteSemaphore.WaitOne(10000))
-                    {
-                        stream.BeginWrite(rawSendableData, 0, rawSendableData.Length, new AsyncCallback(SendCallback), new SendState() { buffer = rawSendableData, promise = promise });
-                    }
-                    else
-                    {
-                        throw new ThreadStateException("Unable to obtain lock to write message.");
-                    }
+                    SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, (IsConnectionEncrypted ? "[SSL] " : "") + "Sending [{0}] bytes to [{1}]...", sendableStream.AvailableBytesToRead, RemoteEndpoint);
+                    
+                    EnqueueToSendQueueAndNotify(sendableStream, promise);
                 }
                 else
                 {
@@ -468,6 +474,97 @@ namespace ArenaNet.SockNet.Common
                 }
             }
             return promise;
+        }
+
+        /// <summary>
+        /// Queues the given buffer to the send queue and notifies it.
+        /// </summary>
+        /// <param name="buffer"></param>
+        private void EnqueueToSendQueueAndNotify(ChunkedBuffer buffer, Promise<ISockNetChannel> promise)
+        {
+            lock (sendQueue)
+            {
+                sendQueue.Enqueue(new SendQueueState()
+                {
+                    buffer = buffer,
+                    promise = promise
+                });
+            }
+
+            NotifySendQueue();
+        }
+
+        /// <summary>
+        /// Notifies the send queue to process more data.
+        /// </summary>
+        private void NotifySendQueue()
+        {
+            lock (sendQueue)
+            {
+                if (isProcessingSendQueue)
+                {
+                    return;
+                }
+
+                if (sendQueue.Count > 0)
+                {
+                    try
+                    {
+                        SendQueueState nextState = sendQueue.Dequeue();
+
+                        isProcessingSendQueue = true;
+
+                        Promise<ChunkedBuffer> promise = nextState.buffer.DrainChunksToStream(stream);
+                        promise.State = nextState;
+                        promise.OnFulfilled = QueueWriteCallback;
+                    }
+                    catch (Exception e)
+                    {
+                        SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Send data to the socket stream", e);
+
+                        isProcessingSendQueue = false;
+                    }
+                }
+                else
+                {
+                    isProcessingSendQueue = false;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Callback for the queued write.
+        /// </summary>
+        /// <param name="value"></param>
+        /// <param name="error"></param>
+        /// <param name="promise"></param>
+        private void QueueWriteCallback(ChunkedBuffer buffer, Exception error, Promise<ChunkedBuffer> promise)
+        {
+            SendQueueState state = (SendQueueState)promise.State;
+
+            try
+            {
+                SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, (stream is SslStream ? "[SSL] " : "") + "Sent data to [{0}].", RemoteEndpoint);
+
+                isProcessingSendQueue = false;
+
+                buffer.Close();
+            }
+            catch (Exception e)
+            {
+                SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Unable to close the given buffer", e);
+            }
+            finally
+            {
+                try
+                {
+                    state.promise.CreateFulfiller().Fulfill(this);
+                }
+                finally
+                {
+                    NotifySendQueue();
+                }
+            }
         }
 
         /// <summary>

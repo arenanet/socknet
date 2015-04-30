@@ -22,7 +22,28 @@ namespace ArenaNet.SockNet.Common.IO
     [TestClass]
     public class ChunkedBufferTest
     {
-        private readonly byte[] TestData = Encoding.UTF8.GetBytes("why, what a wonderful test this is!");
+        private static readonly string TestDataString = "why, what a wonderful test this is!";
+        private static readonly byte[] TestData = Encoding.UTF8.GetBytes(TestDataString);
+
+        [TestMethod]
+        public void TestDrainToStream()
+        {
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[10]; });
+            ChunkedBuffer buffer = new ChunkedBuffer(pool);
+
+            buffer.Write(TestData, 0, TestData.Length);
+
+            MemoryStream stream = new MemoryStream();
+
+            buffer.DrainChunksToStream(stream).WaitForValue(TimeSpan.FromSeconds(5));
+
+            stream.Position = 0;
+
+            using (StreamReader reader = new StreamReader(stream))
+            {
+                Assert.AreEqual(TestDataString, reader.ReadToEnd());
+            }
+        }
 
         [TestMethod]
         public void TestWrite()
