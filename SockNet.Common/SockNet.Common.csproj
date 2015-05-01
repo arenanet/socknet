@@ -33,6 +33,7 @@
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Collections\ConcurrentHashMap.cs" />
     <Compile Include="IO\ChunkedBuffer.cs" />
     <Compile Include="Collections\IterableLinkedList.cs" />
     <Compile Include="IO\ChunkedBufferStream.cs" />

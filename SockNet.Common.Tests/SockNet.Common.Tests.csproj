@@ -50,6 +50,7 @@
     </Otherwise>
   </Choose>
   <ItemGroup>
+    <Compile Include="Collections\ConcurrentHashMapTest.cs" />
     <Compile Include="IO\ObjectPoolTest.cs" />
     <Compile Include="IO\ChunkedBufferTest.cs" />
   </ItemGroup>
