@@ -15,6 +15,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using ArenaNet.SockNet.Common;
+using ArenaNet.SockNet.Common.Collections;
 using ArenaNet.SockNet.Common.IO;
 
 namespace ArenaNet.SockNet.Protocols.Http
@@ -40,7 +41,7 @@ namespace ArenaNet.SockNet.Protocols.Http
             this.Mode = mode;
         }
 
-        private HttpPayload currentIncoming = null;
+        private ConcurrentHashMap<string, HttpPayload> incomingPayloads = new ConcurrentHashMap<string,HttpPayload>(null, 1024, 128);
 
         /// <summary>
         /// Installs the HTTP module.
@@ -59,6 +60,8 @@ namespace ArenaNet.SockNet.Protocols.Http
                     channel.Pipe.AddOutgoingLast<object>(HandleOutgoingResponse);
                     break;
             }
+
+            channel.Pipe.AddClosedFirst(OnClosed);
         }
 
         /// <summary>
@@ -78,6 +81,18 @@ namespace ArenaNet.SockNet.Protocols.Http
                     channel.Pipe.RemoveOutgoing<object>(HandleOutgoingResponse);
                     break;
             }
+
+            OnClosed(channel);
+            channel.Pipe.RemoveClosed(OnClosed);
+        }
+
+        /// <summary>
+        /// Invoked when the channel closes.
+        /// </summary>
+        /// <param name="channel"></param>
+        public void OnClosed(ISockNetChannel channel)
+        {
+            incomingPayloads.Remove(channel.Id);
         }
 
         /// <summary>
@@ -94,9 +109,12 @@ namespace ArenaNet.SockNet.Protocols.Http
 
             ChunkedBuffer data = (ChunkedBuffer)obj;
 
-            if (currentIncoming == null)
+            HttpPayload currentIncoming = null;
+
+            if (incomingPayloads.TryGetValue(channel.Id, out currentIncoming))
             {
                 currentIncoming = new HttpRequest(channel.BufferPool);
+                incomingPayloads[channel.Id] = currentIncoming;
             }
 
             if (currentIncoming.Parse(data.Stream, channel.IsActive))
@@ -120,9 +138,12 @@ namespace ArenaNet.SockNet.Protocols.Http
 
             ChunkedBuffer data = (ChunkedBuffer)obj;
 
-            if (currentIncoming == null)
+            HttpPayload currentIncoming = null;
+
+            if (incomingPayloads.TryGetValue(channel.Id, out currentIncoming))
             {
-                currentIncoming = new HttpResponse(channel.BufferPool);
+                currentIncoming = new HttpRequest(channel.BufferPool);
+                incomingPayloads[channel.Id] = currentIncoming;
             }
 
             if (currentIncoming.Parse(data.Stream, channel.IsActive))

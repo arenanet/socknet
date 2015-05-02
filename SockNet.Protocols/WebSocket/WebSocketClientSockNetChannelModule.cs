@@ -16,6 +16,7 @@ using System.IO;
 using System.Text;
 using ArenaNet.SockNet.Common;
 using ArenaNet.SockNet.Common.IO;
+using ArenaNet.SockNet.Common.Collections;
 using ArenaNet.SockNet.Protocols.Http;
 
 namespace ArenaNet.SockNet.Protocols.WebSocket
@@ -37,7 +38,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
         private HttpSockNetChannelModule httpModule = new HttpSockNetChannelModule(HttpSockNetChannelModule.ParsingMode.Client);
 
-        private WebSocketFrame continuationFrame = null;
+        private ConcurrentHashMap<string, WebSocketFrame> continuationFrames = new ConcurrentHashMap<string, WebSocketFrame>(null, 1024, 128);
 
         public WebSocketClientSockNetChannelModule(string path, string hostname, OnWebSocketEstablishedDelegate onWebSocketEstablished, bool combineContinuations = true)
         {
@@ -149,23 +150,29 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
             {
                 WebSocketFrame frame = WebSocketFrame.ParseFrame(stream.Stream);
 
-                if (frame.IsFinished || !combineContinuations)
+                if (combineContinuations)
                 {
-                    if (continuationFrame != null)
+                    WebSocketFrame continuationFrame = null;
+
+                    continuationFrames.TryGetValue(channel.Id, out continuationFrame);
+
+                    if (frame.IsFinished)
                     {
-                        UpdateContinuation(frame);
+                        UpdateContinuation(ref continuationFrame, frame);
 
                         data = continuationFrame;
-                        continuationFrame = null;
+                        continuationFrames.Remove(channel.Id);
                     }
                     else
                     {
-                        data = frame;
+                        UpdateContinuation(ref continuationFrame, frame);
+
+                        continuationFrames[channel.Id] = continuationFrame;
                     }
                 }
                 else
                 {
-                    UpdateContinuation(frame);
+                    data = frame;
                 }
 
                 if (SockNetLogger.DebugEnabled)
@@ -195,7 +202,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         /// Updates the local continuation.
         /// </summary>
         /// <param name="frame"></param>
-        private void UpdateContinuation(WebSocketFrame frame)
+        private void UpdateContinuation(ref WebSocketFrame continuationFrame, WebSocketFrame frame)
         {
             if (continuationFrame == null)
             {

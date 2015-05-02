@@ -14,14 +14,14 @@ namespace ArenaNet.SockNet.Common.Collections
         {
             TestDictionaryWithSingleThread(new Dictionary<string, string>(), 10000);
             TestDictionaryWithSingleThread(new ConcurrentDictionary<string, string>(), 10000);
-            TestDictionaryWithSingleThread(new ConcurrentHashMap<string, string>(1024, 128), 10000);
+            TestDictionaryWithSingleThread(new ConcurrentHashMap<string, string>(StringComparer.Ordinal, 1024, 128), 10000);
         }
 
         [TestMethod]
         public void TestMultiThreaded()
         {
             TestDictionaryWithMultipleThreads(new ConcurrentDictionary<string, string>(), 10000);
-            TestDictionaryWithMultipleThreads(new ConcurrentHashMap<string, string>(1024, 128), 10000);
+            TestDictionaryWithMultipleThreads(new ConcurrentHashMap<string, string>(StringComparer.Ordinal, 1024, 128), 10000);
         }
 
         private static void TestDictionaryWithSingleThread(IDictionary<string, string> dictionary, int size)
