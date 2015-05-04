@@ -294,7 +294,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         }
 
         [TestMethod]
-        public void TestLargeMessages()
+        public void TestLargeMessagesInParallel()
         {
             Random random = new Random(this.GetHashCode() ^ DateTime.Now.Millisecond);
 
