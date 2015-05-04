@@ -111,7 +111,7 @@ namespace ArenaNet.SockNet.Protocols.Http
 
             HttpPayload currentIncoming = null;
 
-            if (incomingPayloads.TryGetValue(channel.Id, out currentIncoming))
+            if (!incomingPayloads.TryGetValue(channel.Id, out currentIncoming))
             {
                 currentIncoming = new HttpRequest(channel.BufferPool);
                 incomingPayloads[channel.Id] = currentIncoming;
@@ -119,6 +119,11 @@ namespace ArenaNet.SockNet.Protocols.Http
 
             if (currentIncoming.Parse(data.Stream, channel.IsActive))
             {
+                if (SockNetLogger.DebugEnabled)
+                {
+                    SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Received HTTP Request: Command Line: [{0}], Body Size [{1}]", currentIncoming.CommandLine, currentIncoming.BodySize);
+                }
+
                 obj = currentIncoming;
                 currentIncoming = null;
             }
@@ -140,14 +145,19 @@ namespace ArenaNet.SockNet.Protocols.Http
 
             HttpPayload currentIncoming = null;
 
-            if (incomingPayloads.TryGetValue(channel.Id, out currentIncoming))
+            if (!incomingPayloads.TryGetValue(channel.Id, out currentIncoming))
             {
-                currentIncoming = new HttpRequest(channel.BufferPool);
+                currentIncoming = new HttpResponse(channel.BufferPool);
                 incomingPayloads[channel.Id] = currentIncoming;
             }
 
             if (currentIncoming.Parse(data.Stream, channel.IsActive))
             {
+                if (SockNetLogger.DebugEnabled)
+                {
+                    SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Received HTTP Response: Command Line: [{0}], Body Size [{1}]", currentIncoming.CommandLine, currentIncoming.BodySize);
+                }
+
                 obj = currentIncoming;
                 currentIncoming = null;
             }
@@ -166,6 +176,11 @@ namespace ArenaNet.SockNet.Protocols.Http
             }
 
             HttpRequest data = (HttpRequest)obj;
+
+            if (SockNetLogger.DebugEnabled)
+            {
+                SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Sending HTTP Request: Command Line: [{0}], Body Size [{1}]", data.CommandLine, data.BodySize);
+            }
 
             ChunkedBuffer buffer = new ChunkedBuffer(channel.BufferPool);
 
@@ -187,6 +202,11 @@ namespace ArenaNet.SockNet.Protocols.Http
             }
 
             HttpResponse data = (HttpResponse)obj;
+
+            if (SockNetLogger.DebugEnabled)
+            {
+                SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Sending HTTP Response: Command Line: [{0}], Body Size [{1}]", data.CommandLine, data.BodySize);
+            }
 
             ChunkedBuffer buffer = new ChunkedBuffer(channel.BufferPool);
 
