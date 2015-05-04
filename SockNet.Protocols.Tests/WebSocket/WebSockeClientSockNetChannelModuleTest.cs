@@ -318,7 +318,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
                 client.Pipe.AddIncomingLast<WebSocketFrame>((ISockNetChannel sockNetClient, ref WebSocketFrame data) => { blockingCollection.Add(data); });
 
-                byte[][] expectedResults = new byte[100][];
+                byte[][] expectedResults = new byte[20][];
 
                 for (int i = 0; i < 20; i++)
                 {
@@ -334,7 +334,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
                     Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
                     Assert.IsTrue(currentObject is WebSocketFrame);
 
-                    AreEqual(expectedResults[i], ((WebSocketFrame)currentObject).Data);
+                    AreArraysEqual(expectedResults[i], ((WebSocketFrame)currentObject).Data);
                 }
 
                 client.Disconnect().WaitForValue(TimeSpan.FromSeconds(5));
@@ -345,8 +345,62 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
             }
         }
 
-        public static void AreEqual(byte[] l, byte[] r)
+        [TestMethod]
+        public void TestSmallMessagesInParallel()
         {
+            Random random = new Random(this.GetHashCode() ^ DateTime.Now.Millisecond);
+
+            WebSocketEchoServer server = new WebSocketEchoServer();
+
+            try
+            {
+                server.Start();
+
+                BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
+
+                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint)
+                    .AddModule(new WebSocketClientSockNetChannelModule("/", "localhost", (ISockNetChannel sockNetClient) => { blockingCollection.Add(true); }));
+
+                client.Connect().WaitForValue(TimeSpan.FromSeconds(5));
+
+                object currentObject;
+
+                Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
+                Assert.IsTrue((bool)currentObject);
+
+                client.Pipe.AddIncomingLast<WebSocketFrame>((ISockNetChannel sockNetClient, ref WebSocketFrame data) => { blockingCollection.Add(data); });
+
+                byte[][] expectedResults = new byte[100][];
+
+                for (int i = 0; i < 100; i++)
+                {
+                    byte[] messageData = new byte[random.Next(50, 150)];
+                    expectedResults[i] = messageData;
+                    random.NextBytes(messageData);
+
+                    client.Send(WebSocketFrame.CreateBinaryFrame(messageData));
+                }
+
+                for (int i = 0; i < 100; i++)
+                {
+                    Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
+                    Assert.IsTrue(currentObject is WebSocketFrame);
+
+                    AreArraysEqual(expectedResults[i], ((WebSocketFrame)currentObject).Data);
+                }
+
+                client.Disconnect().WaitForValue(TimeSpan.FromSeconds(5));
+            }
+            finally
+            {
+                server.Stop();
+            }
+        }
+
+        public static void AreArraysEqual<T>(T[] l, T[] r)
+        {
+            Assert.IsNotNull(l);
+            Assert.IsNotNull(r);
             Assert.AreEqual(l.Length, r.Length);
 
             for (int i = 0; i < l.Length; i++)
