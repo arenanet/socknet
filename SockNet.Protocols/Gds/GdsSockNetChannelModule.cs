@@ -16,6 +16,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.IO;
 using ArenaNet.SockNet.Common;
+using ArenaNet.SockNet.Common.Collections;
 using ArenaNet.SockNet.Common.IO;
 
 namespace ArenaNet.SockNet.Protocols.Gds
@@ -27,7 +28,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
     {
         private bool combineChunks;
 
-        private Dictionary<uint, GdsFrame> streamChunks = new Dictionary<uint, GdsFrame>();
+        private ConcurrentHashMap<string, GdsFrame> streamChunks = new ConcurrentHashMap<string, GdsFrame>();
 
         /// <summary>
         /// Creates a new Gds module.
@@ -77,35 +78,29 @@ namespace ArenaNet.SockNet.Protocols.Gds
             {
                 GdsFrame frame = GdsFrame.ParseFrame(stream.Stream);
 
-                if (frame.IsComplete || !combineChunks)
+                if (combineChunks)
                 {
                     GdsFrame chunkedFrame = null;
 
-                    if (streamChunks.TryGetValue(frame.StreamId, out chunkedFrame))
+                    streamChunks.TryGetValue(channel.Id + "." + frame.StreamId, out chunkedFrame);
+
+                    if (frame.IsComplete)
                     {
-                        chunkedFrame = UpdateChunk(chunkedFrame, frame);
+                        UpdateChunk(ref chunkedFrame, frame);
 
                         obj = chunkedFrame;
-
-                        streamChunks.Remove(frame.StreamId);
+                        streamChunks.Remove(channel.Id + "." + frame.StreamId);
                     }
                     else
                     {
-                        obj = frame;
+                        UpdateChunk(ref chunkedFrame, frame);
+
+                        streamChunks[channel.Id + "." + frame.StreamId] = chunkedFrame;
                     }
                 }
                 else
                 {
-                    GdsFrame chunkedFrame = null;
-
-                    if (streamChunks.TryGetValue(frame.StreamId, out chunkedFrame))
-                    {
-                        streamChunks[frame.StreamId] = UpdateChunk(chunkedFrame, frame);
-                    }
-                    else
-                    {
-                        streamChunks[frame.StreamId] = frame;
-                    }
+                    obj = frame;
                 }
 
                 if (SockNetLogger.DebugEnabled)
@@ -133,17 +128,17 @@ namespace ArenaNet.SockNet.Protocols.Gds
         /// Updates the given chunked frame with a new frame.
         /// </summary>
         /// <param name="frame"></param>
-        private static GdsFrame UpdateChunk(GdsFrame chunkedFrame, GdsFrame frame)
+        private static void UpdateChunk(ref GdsFrame chunkedFrame, GdsFrame frame)
         {
             if (chunkedFrame == null)
             {
-                return chunkedFrame;  // set initial frame
+                chunkedFrame = frame;  // set initial frame
             }
             else
             {
                 if (frame.Type == GdsFrame.GdsFrameType.Ping || frame.Type == GdsFrame.GdsFrameType.Pong || frame.Type == GdsFrame.GdsFrameType.Close)
                 {
-                    return chunkedFrame;
+                    chunkedFrame = frame;
                 }
 
                 GdsFrame.GdsFrameType type = chunkedFrame.Type;
@@ -182,7 +177,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
                     }
                 }
 
-                return GdsFrame.NewContentFrame(frame.StreamId, headers, false, body, frame.IsComplete);
+                chunkedFrame = GdsFrame.NewContentFrame(frame.StreamId, headers, false, body, frame.IsComplete);
             }
         }
 

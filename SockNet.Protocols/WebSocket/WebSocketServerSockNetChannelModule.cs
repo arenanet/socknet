@@ -15,6 +15,7 @@ using System;
 using System.IO;
 using System.Text;
 using ArenaNet.SockNet.Common;
+using ArenaNet.SockNet.Common.Collections;
 using ArenaNet.SockNet.Common.IO;
 using ArenaNet.SockNet.Protocols.Http;
 
@@ -27,14 +28,18 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
     {
         private static readonly byte[] HeaderNewLine = Encoding.ASCII.GetBytes("\r\n");
 
+        private bool combineContinuations;
         private string path;
         private string hostname;
         private HttpSockNetChannelModule httpModule = new HttpSockNetChannelModule(HttpSockNetChannelModule.ParsingMode.Server);
 
-        public WebSocketServerSockNetChannelModule(string path, string hostname)
+        private ConcurrentHashMap<string, WebSocketFrame> continuationFrames = new ConcurrentHashMap<string, WebSocketFrame>(null, 1024, 128);
+
+        public WebSocketServerSockNetChannelModule(string path, string hostname, bool combineContinuations = true)
         {
             this.path = path;
             this.hostname = hostname;
+            this.combineContinuations = combineContinuations;
         }
 
         /// <summary>
@@ -121,7 +126,30 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
             {
                 WebSocketFrame frame = WebSocketFrame.ParseFrame(stream.Stream);
 
-                data = frame;
+                if (combineContinuations)
+                {
+                    WebSocketFrame continuationFrame = null;
+
+                    continuationFrames.TryGetValue(channel.Id, out continuationFrame);
+
+                    if (frame.IsFinished)
+                    {
+                        UpdateContinuation(ref continuationFrame, frame);
+
+                        data = continuationFrame;
+                        continuationFrames.Remove(channel.Id);
+                    }
+                    else
+                    {
+                        UpdateContinuation(ref continuationFrame, frame);
+
+                        continuationFrames[channel.Id] = continuationFrame;
+                    }
+                }
+                else
+                {
+                    data = frame;
+                }
 
                 if (SockNetLogger.DebugEnabled)
                 {
@@ -143,6 +171,33 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
                 SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Unable to parse web-socket request", e);
 
                 channel.Close();
+            }
+        }
+
+        /// Updates the local continuation.
+        /// </summary>
+        /// <param name="frame"></param>
+        private void UpdateContinuation(ref WebSocketFrame continuationFrame, WebSocketFrame frame)
+        {
+            if (continuationFrame == null)
+            {
+                continuationFrame = frame;  // set initial frame
+            }
+            else
+            {
+                byte[] frameData = new byte[continuationFrame.Data.Length + frame.Data.Length];
+                Buffer.BlockCopy(continuationFrame.Data, 0, frameData, 0, continuationFrame.Data.Length);
+                Buffer.BlockCopy(frame.Data, 0, frameData, continuationFrame.Data.Length, frame.Data.Length);
+
+                switch (continuationFrame.Operation)
+                {
+                    case WebSocketFrame.WebSocketFrameOperation.BinaryFrame:
+                        continuationFrame = WebSocketFrame.CreateBinaryFrame(frameData, false, false);
+                        break;
+                    case WebSocketFrame.WebSocketFrameOperation.TextFrame:
+                        continuationFrame = WebSocketFrame.CreateTextFrame(frameData, false, false);
+                        break;
+                }
             }
         }
 
