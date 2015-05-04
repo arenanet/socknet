@@ -320,7 +320,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
                 byte[][] expectedResults = new byte[100][];
 
-                for (int i = 0; i < 100; i++)
+                for (int i = 0; i < 20; i++)
                 {
                     byte[] messageData = new byte[random.Next(75000, 125000)];
                     expectedResults[i] = messageData;
@@ -329,7 +329,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
                     client.Send(WebSocketFrame.CreateBinaryFrame(messageData));
                 }
 
-                for (int i = 0; i < 100; i++)
+                for (int i = 0; i < 20; i++)
                 {
                     Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
                     Assert.IsTrue(currentObject is WebSocketFrame);
