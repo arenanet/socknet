@@ -68,18 +68,18 @@ namespace ArenaNet.SockNet.Common.Collections
         }
 
         /// <summary>
-        /// Create a concurrent hashmap that stripes access to the undelying buckets in the lookup table.
+        /// Create a concurrent hashmap that stripes access to the undelying buckets.
         /// </summary>
-        /// <param name="lookupTableSize"></param>
-        /// <param name="lockCount"></param>
-        public ConcurrentHashMap(IEqualityComparer<K> comparer = null, uint lookupTableSize = 128, uint lockCount = 16)
+        /// <param name="numberOfBuckets"></param>
+        /// <param name="numberOfStripes"></param>
+        public ConcurrentHashMap(IEqualityComparer<K> comparer = null, uint numberOfBuckets = 128, uint numberOfStripes = 16)
         {
-            if (!IsPowerOfTwo(lookupTableSize))
+            if (!IsPowerOfTwo(numberOfBuckets))
             {
                 throw new ArgumentException("'lookupTableSize' needs to be a power of two.");
             }
 
-            if (!IsPowerOfTwo(lockCount))
+            if (!IsPowerOfTwo(numberOfStripes))
             {
                 throw new ArgumentException("''lockCount' needs to be a power of two.");
             }
@@ -93,8 +93,8 @@ namespace ArenaNet.SockNet.Common.Collections
                 this.comparer = comparer;
             }
 
-            this.buckets = new Node[lookupTableSize];
-            this.locks = new object[lockCount];
+            this.buckets = new Node[numberOfBuckets];
+            this.locks = new object[numberOfStripes];
             for (int i = 0; i < locks.Length; i++)
             {
                 locks[i] = new object();
