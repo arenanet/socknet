@@ -17,11 +17,15 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Net;
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
+using System.Collections.Concurrent;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using ArenaNet.SockNet.Common;
 using ArenaNet.SockNet.Common.IO;
 using ArenaNet.SockNet.Common.Pool;
 using ArenaNet.SockNet.Client;
+using ArenaNet.SockNet.Server;
 using ArenaNet.SockNet.Protocols.Http;
 
 namespace ArenaNet.SockNet.Protocols.Gds
@@ -29,6 +33,71 @@ namespace ArenaNet.SockNet.Protocols.Gds
     [TestClass]
     public class GdsSockNetChannelModuleTest
     {
+        public class GdsEchoServer
+        {
+            private ServerSockNetChannel server;
+
+            public IPEndPoint Endpoint { get { return new IPEndPoint(GetLocalIpAddress(), server == null ? -1 : server.LocalEndpoint.Port); } }
+
+            public void Start(bool isTls = false)
+            {
+                server = SockNetServer.Create(GetLocalIpAddress(), 0);
+
+                try
+                {
+                    server.AddModule(new GdsSockNetChannelModule(true));
+
+                    if (isTls)
+                    {
+                        byte[] rawCert = CertificateUtil.CreateSelfSignCertificatePfx("CN=\"test\"; C=\"USA\"", DateTime.Today.AddDays(-10), DateTime.Today.AddDays(+10));
+
+                        server.BindWithTLS(new X509Certificate2(rawCert),
+                            (object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => { return true; }).WaitForValue(TimeSpan.FromSeconds(5));
+                    }
+                    else
+                    {
+                        server.Bind().WaitForValue(TimeSpan.FromSeconds(5));
+                    }
+
+                    Assert.IsTrue(server.IsActive);
+
+                    server.Pipe.AddIncomingLast<GdsFrame>((ISockNetChannel channel, ref GdsFrame data) =>
+                    {
+                        channel.Send(data);
+                    });
+                }
+                catch (Exception)
+                {
+                    Stop();
+                }
+            }
+
+            public void Stop()
+            {
+                if (server != null)
+                {
+                    server.Close();
+                    server = null;
+                }
+            }
+
+            private static IPAddress GetLocalIpAddress()
+            {
+                IPAddress response = null;
+
+                foreach (IPAddress address in Dns.GetHostAddresses(Dns.GetHostName()))
+                {
+                    if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                    {
+                        response = address;
+                        break;
+                    }
+                }
+
+                return response;
+            }
+        }
+
         public class DummySockNetChannel : ISockNetChannel
         {
             public string Id { get { return "1";  } }
@@ -123,6 +192,81 @@ namespace ArenaNet.SockNet.Protocols.Gds
             public SockNetChannelProtocol Protocol
             {
                 get { return SockNetChannelProtocol.Tcp; }
+            }
+        }
+
+        [TestMethod]
+        public void TestSimpleContent()
+        {
+            GdsEchoServer server = new GdsEchoServer();
+
+            try
+            {
+                server.Start();
+
+                BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
+
+                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint)
+                    .AddModule(new GdsSockNetChannelModule(true));
+
+                client.Connect().WaitForValue(TimeSpan.FromSeconds(5));
+
+                object currentObject;
+
+                client.Pipe.AddIncomingLast<GdsFrame>((ISockNetChannel sockNetClient, ref GdsFrame data) => { blockingCollection.Add(data); });
+
+                client.Send(GdsFrame.NewContentFrame(1, null, false, Encoding.UTF8.GetBytes("some test"), true));
+
+                Assert.IsTrue(blockingCollection.TryTake(out currentObject, 5000));
+                Assert.IsTrue(currentObject is GdsFrame);
+
+                Assert.AreEqual("some test", Encoding.UTF8.GetString(((GdsFrame)currentObject).Body));
+
+                Console.WriteLine("Got response: \n" + ((GdsFrame)currentObject).Body);
+
+                client.Disconnect().WaitForValue(TimeSpan.FromSeconds(5));
+            }
+            finally
+            {
+                server.Stop();
+            }
+        }
+
+        [TestMethod]
+        public void TestSimpleSslContent()
+        {
+            GdsEchoServer server = new GdsEchoServer();
+
+            try
+            {
+                server.Start(true);
+
+                BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
+
+                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint)
+                    .AddModule(new GdsSockNetChannelModule(true));
+
+                client.ConnectWithTLS((object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => { return true; })
+                    .WaitForValue(TimeSpan.FromSeconds(5));
+
+                object currentObject;
+
+                client.Pipe.AddIncomingLast<GdsFrame>((ISockNetChannel sockNetClient, ref GdsFrame data) => { blockingCollection.Add(data); });
+
+                client.Send(GdsFrame.NewContentFrame(1, null, false, Encoding.UTF8.GetBytes("some test"), true));
+
+                Assert.IsTrue(blockingCollection.TryTake(out currentObject, 5000));
+                Assert.IsTrue(currentObject is GdsFrame);
+
+                Assert.AreEqual("some test", Encoding.UTF8.GetString(((GdsFrame)currentObject).Body));
+
+                Console.WriteLine("Got response: \n" + ((GdsFrame)currentObject).Body);
+
+                client.Disconnect().WaitForValue(TimeSpan.FromSeconds(5));
+            }
+            finally
+            {
+                server.Stop();
             }
         }
 
