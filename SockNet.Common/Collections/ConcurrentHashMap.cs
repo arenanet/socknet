@@ -18,7 +18,7 @@ using System.Threading;
 namespace ArenaNet.SockNet.Common.Collections
 {
     /// <summary>
-    /// A concurrent hashmap. It uses splicing to lock buckets.
+    /// A concurrent hashmap. It uses striping to lock buckets.
     /// </summary>
     /// <typeparam name="K">the key type</typeparam>
     /// <typeparam name="V">the value type</typeparam>
@@ -196,17 +196,7 @@ namespace ArenaNet.SockNet.Common.Collections
         /// <param name="item"></param>
         public void Add(KeyValuePair<K, V> item)
         {
-            Add(item.Key, item.Value);
-        }
-
-        /// <summary>
-        /// Adds a key and a value to this hash map.
-        /// </summary>
-        /// <param name="key"></param>
-        /// <param name="value"></param>
-        public void Add(K key, V value)
-        {
-            int hash = Smear(comparer.GetHashCode(key));
+            int hash = Smear(comparer.GetHashCode(item.Key));
             int index = IndexFor(hash, buckets.Length);
 
             lock (GetMutexFor(index))
@@ -215,7 +205,7 @@ namespace ArenaNet.SockNet.Common.Collections
 
                 if (foundNode == null)
                 {
-                    buckets[index] = new Node(new KeyValuePair<K, V>(key, value));
+                    buckets[index] = new Node(item);
                     Interlocked.Increment(ref count);
                 }
                 else
@@ -224,7 +214,7 @@ namespace ArenaNet.SockNet.Common.Collections
 
                     do
                     {
-                        if (comparer.Equals(foundNode.kvp.Key, key))
+                        if (comparer.Equals(foundNode.kvp.Key, item.Key))
                         {
                             break;
                         }
@@ -235,18 +225,28 @@ namespace ArenaNet.SockNet.Common.Collections
 
                     if (foundNode != null)
                     {
-                        foundNode.kvp = new KeyValuePair<K, V>(key, value);
+                        foundNode.kvp = item;
                     }
                     else
                     {
                         lastNode.next = new Node(
-                            new KeyValuePair<K, V>(key, value),
+                            item,
                             lastNode.next
                         );
                         Interlocked.Increment(ref count);
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Adds a key and a value to this hash map.
+        /// </summary>
+        /// <param name="key"></param>
+        /// <param name="value"></param>
+        public void Add(K key, V value)
+        {
+            Add(new KeyValuePair<K, V>(key, value));
         }
 
         /// <summary>
@@ -592,7 +592,7 @@ namespace ArenaNet.SockNet.Common.Collections
         /// defends against poor quality hash functions.  This is critical
         /// because HashMap uses power-of-two length hash tables, that
         /// otherwise encounter collisions for hashCodes that do not differ
-        /// in lower bits. Note: Null keys always map to hash 0, thus index 0.
+        /// in lower bits.
         /// </summary>
         /// <param name="hashCode"></param>
         /// <returns></returns>

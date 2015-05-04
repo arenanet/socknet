@@ -396,6 +396,76 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         }
 
         [TestMethod]
+        public void TestIncompleteBufferParsing()
+        {
+            WebSocketEchoServer server = new WebSocketEchoServer();
+
+            try
+            {
+                server.Start();
+
+                BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
+
+                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint)
+                    .AddModule(new WebSocketClientSockNetChannelModule("/", "localhost", (ISockNetChannel sockNetClient) => { blockingCollection.Add(true); }));
+
+                client.Connect().WaitForValue(TimeSpan.FromSeconds(5));
+
+                object currentObject;
+
+                Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
+                Assert.IsTrue((bool)currentObject);
+
+                client.Pipe.AddIncomingLast<WebSocketFrame>((ISockNetChannel sockNetClient, ref WebSocketFrame data) => { blockingCollection.Add(data); });
+
+                string body1 = new string('A', 4913) + "X";
+
+                WebSocketFrame frame1 = WebSocketFrame.CreateTextFrame(
+                    "STS/1.0 200 OK" + "\r\n" +
+                    "s:7R" + "\r\n" +
+                    "n:bytes 0-4915/5000" + "\r\n" +
+                    "l:4916" + "\r\n" +
+                    "" + "\r\n" +
+                    body1 + "\r\n",
+                    false);
+                client.Send(frame1);
+
+                string body2 = new string('B', 81) + "Y";
+
+                WebSocketFrame frame2 = WebSocketFrame.CreateTextFrame(
+                    "STS/1.0 200 OK" + "\r\n" +
+                    "s:7R" + "\r\n" +
+                    "n:bytes 4916-4999/5000" + "\r\n" +
+                    "l:84" + "\r\n" +
+                    "" + "\r\n" +
+                    body2 + "\r\n",
+                    false);
+
+                client.Send(frame2);
+
+                Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
+                Assert.IsTrue(currentObject is WebSocketFrame);
+
+                Assert.AreEqual(frame1.DataAsString, ((WebSocketFrame)currentObject).DataAsString);
+
+                Console.WriteLine("Got response: \n" + ((WebSocketFrame)currentObject).DataAsString);
+
+                Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
+                Assert.IsTrue(currentObject is WebSocketFrame);
+
+                Assert.AreEqual(frame2.DataAsString, ((WebSocketFrame)currentObject).DataAsString);
+
+                Console.WriteLine("Got response: \n" + ((WebSocketFrame)currentObject).DataAsString);
+
+                client.Disconnect().WaitForValue(TimeSpan.FromSeconds(5));
+            }
+            finally
+            {
+                server.Stop();
+            }
+        }
+
+        [TestMethod]
         public void TestEchoWithMaskWithSsl()
         {
             WebSocketEchoServer server = new WebSocketEchoServer();

@@ -392,9 +392,19 @@ namespace ArenaNet.SockNet.Common
                 {
                     chunkedBuffer.OfferChunk(state.buffer, state.offset, count);
 
-                    object obj = chunkedBuffer;
+                    while (true)
+                    {
+                        long startingPosition = chunkedBuffer.ReadPosition;
 
-                    Pipe.HandleIncomingData(ref obj);
+                        object obj = chunkedBuffer;
+
+                        Pipe.HandleIncomingData(ref obj);
+
+                        if (startingPosition == chunkedBuffer.ReadPosition)
+                        {
+                            break;
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
