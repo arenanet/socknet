@@ -47,7 +47,7 @@ namespace ArenaNet.SockNet.Common.Collections
 
         private readonly IEqualityComparer<K> comparer;
 
-        private Node[] lookupTable;
+        private Node[] buckets;
         private object[] locks;
         private int count;
 
@@ -93,7 +93,7 @@ namespace ArenaNet.SockNet.Common.Collections
                 this.comparer = comparer;
             }
 
-            this.lookupTable = new Node[lookupTableSize];
+            this.buckets = new Node[lookupTableSize];
             this.locks = new object[lockCount];
             for (int i = 0; i < locks.Length; i++)
             {
@@ -112,11 +112,11 @@ namespace ArenaNet.SockNet.Common.Collections
             {
                 List<K> keys = new List<K>();
 
-                for (int i = 0; i < lookupTable.Length; i++)
+                for (int i = 0; i < buckets.Length; i++)
                 {
                     lock (GetMutexFor(i))
                     {
-                        Node currentNode = lookupTable[i];
+                        Node currentNode = buckets[i];
 
                         while (currentNode != null)
                         {
@@ -139,11 +139,11 @@ namespace ArenaNet.SockNet.Common.Collections
             {
                 List<V> values = new List<V>();
 
-                for (int i = 0; i < lookupTable.Length; i++)
+                for (int i = 0; i < buckets.Length; i++)
                 {
                     lock (GetMutexFor(i))
                     {
-                        Node currentNode = lookupTable[i];
+                        Node currentNode = buckets[i];
 
                         while (currentNode != null)
                         {
@@ -207,22 +207,22 @@ namespace ArenaNet.SockNet.Common.Collections
         public void Add(K key, V value)
         {
             int hash = Smear(comparer.GetHashCode(key));
-            int index = IndexFor(hash, lookupTable.Length);
+            int index = IndexFor(hash, buckets.Length);
 
             lock (GetMutexFor(index))
             {
-                Node foundNode = lookupTable[index];
+                Node foundNode = buckets[index];
 
                 if (foundNode == null)
                 {
-                    lookupTable[index] = new Node(new KeyValuePair<K, V>(key, value));
+                    buckets[index] = new Node(new KeyValuePair<K, V>(key, value));
                     Interlocked.Increment(ref count);
                 }
                 else
                 {
                     Node lastNode = null;
 
-                    while (foundNode != null)
+                    do
                     {
                         if (comparer.Equals(foundNode.kvp.Key, key))
                         {
@@ -231,7 +231,7 @@ namespace ArenaNet.SockNet.Common.Collections
 
                         lastNode = foundNode;
                         foundNode = foundNode.next;
-                    }
+                    } while (foundNode != null);
 
                     if (foundNode != null)
                     {
@@ -276,11 +276,11 @@ namespace ArenaNet.SockNet.Common.Collections
         public bool ContainsKey(K key)
         {
             int hash = Smear(comparer.GetHashCode(key));
-            int index = IndexFor(hash, lookupTable.Length);
+            int index = IndexFor(hash, buckets.Length);
 
             lock (GetMutexFor(index))
             {
-                Node foundNode = lookupTable[index];
+                Node foundNode = buckets[index];
 
                 if (foundNode == null)
                 {
@@ -288,7 +288,7 @@ namespace ArenaNet.SockNet.Common.Collections
                 }
                 else
                 {
-                    while (foundNode != null)
+                    do
                     {
                         if (comparer.Equals(foundNode.kvp.Key, key))
                         {
@@ -296,7 +296,7 @@ namespace ArenaNet.SockNet.Common.Collections
                         }
 
                         foundNode = foundNode.next;
-                    }
+                    } while (foundNode != null);
 
                     if (foundNode != null)
                     {
@@ -328,11 +328,11 @@ namespace ArenaNet.SockNet.Common.Collections
         public bool Remove(K key)
         {
             int hash = Smear(comparer.GetHashCode(key));
-            int index = IndexFor(hash, lookupTable.Length);
+            int index = IndexFor(hash, buckets.Length);
 
             lock (GetMutexFor(index))
             {
-                Node foundNode = lookupTable[index];
+                Node foundNode = buckets[index];
 
                 if (foundNode == null)
                 {
@@ -342,7 +342,7 @@ namespace ArenaNet.SockNet.Common.Collections
                 {
                     Node lastNode = null;
 
-                    while (foundNode != null)
+                    do
                     {
                         if (comparer.Equals(foundNode.kvp.Key, key))
                         {
@@ -351,7 +351,7 @@ namespace ArenaNet.SockNet.Common.Collections
 
                         lastNode = foundNode;
                         foundNode = foundNode.next;
-                    }
+                    } while (foundNode != null);
 
                     if (foundNode != null)
                     {
@@ -361,7 +361,7 @@ namespace ArenaNet.SockNet.Common.Collections
                         }
                         else
                         {
-                            lookupTable[index] = foundNode.next;
+                            buckets[index] = foundNode.next;
                         }
 
                         Interlocked.Decrement(ref count);
@@ -384,11 +384,11 @@ namespace ArenaNet.SockNet.Common.Collections
         public bool Remove(K key, V value)
         {
             int hash = Smear(comparer.GetHashCode(key));
-            int index = IndexFor(hash, lookupTable.Length);
+            int index = IndexFor(hash, buckets.Length);
 
             lock (GetMutexFor(index))
             {
-                Node foundNode = lookupTable[index];
+                Node foundNode = buckets[index];
 
                 if (foundNode == null)
                 {
@@ -398,7 +398,7 @@ namespace ArenaNet.SockNet.Common.Collections
                 {
                     Node lastNode = null;
 
-                    while (foundNode != null)
+                    do
                     {
                         if (comparer.Equals(foundNode.kvp.Key, key))
                         {
@@ -407,7 +407,7 @@ namespace ArenaNet.SockNet.Common.Collections
 
                         lastNode = foundNode;
                         foundNode = foundNode.next;
-                    }
+                    } while (foundNode != null);
 
                     if (foundNode != null && foundNode.kvp.Value.Equals(value))
                     {
@@ -417,7 +417,7 @@ namespace ArenaNet.SockNet.Common.Collections
                         }
                         else
                         {
-                            lookupTable[index] = foundNode.next;
+                            buckets[index] = foundNode.next;
                         }
 
                         Interlocked.Decrement(ref count);
@@ -440,11 +440,11 @@ namespace ArenaNet.SockNet.Common.Collections
         public bool TryGetValue(K key, out V value)
         {
             int hash = Smear(comparer.GetHashCode(key));
-            int index = IndexFor(hash, lookupTable.Length);
+            int index = IndexFor(hash, buckets.Length);
 
             lock (GetMutexFor(index))
             {
-                Node foundNode = lookupTable[index];
+                Node foundNode = buckets[index];
 
                 if (foundNode == null)
                 {
@@ -453,7 +453,7 @@ namespace ArenaNet.SockNet.Common.Collections
                 }
                 else
                 {
-                    while (foundNode != null)
+                    do
                     {
                         if (comparer.Equals(foundNode.kvp.Key, key))
                         {
@@ -461,7 +461,7 @@ namespace ArenaNet.SockNet.Common.Collections
                         }
 
                         foundNode = foundNode.next;
-                    }
+                    } while (foundNode != null);
 
                     if (foundNode != null)
                     {
@@ -482,13 +482,13 @@ namespace ArenaNet.SockNet.Common.Collections
         /// </summary>
         public void Clear()
         {
-            for (int i = 0; i < lookupTable.Length; i++)
+            for (int i = 0; i < buckets.Length; i++)
             {
                 lock (GetMutexFor(i))
                 {
-                    while (lookupTable[i] != null)
+                    while (buckets[i] != null)
                     {
-                        lookupTable[i] = lookupTable[i].next;
+                        buckets[i] = buckets[i].next;
                         Interlocked.Decrement(ref count);
                     }
                 }
@@ -530,11 +530,11 @@ namespace ArenaNet.SockNet.Common.Collections
         {
             List<KeyValuePair<K, V>> kvps = new List<KeyValuePair<K, V>>();
 
-            for (int i = 0; i < lookupTable.Length; i++)
+            for (int i = 0; i < buckets.Length; i++)
             {
                 lock (GetMutexFor(i))
                 {
-                    Node currentNode = lookupTable[i];
+                    Node currentNode = buckets[i];
 
                     while (currentNode != null)
                     {
