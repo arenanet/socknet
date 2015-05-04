@@ -28,7 +28,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
     {
         private bool combineChunks;
 
-        private ConcurrentHashMap<string, GdsFrame> streamChunks = new ConcurrentHashMap<string, GdsFrame>();
+        private ConcurrentHashMap<string, GdsFrame> streamChunks = new ConcurrentHashMap<string, GdsFrame>(null, 1024, 128);
 
         /// <summary>
         /// Creates a new Gds module.
