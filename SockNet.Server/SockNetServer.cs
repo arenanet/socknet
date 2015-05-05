@@ -16,6 +16,7 @@ using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using System.Security.Authentication;
 using ArenaNet.SockNet.Common;
+using ArenaNet.Medley.Pool;
 
 namespace ArenaNet.SockNet.Server
 {
@@ -24,14 +25,19 @@ namespace ArenaNet.SockNet.Server
     /// </summary>
     public static class SockNetServer
     {
-        public static ServerSockNetChannel Create(IPAddress bindAddress, int bindPort, int backlog = ServerSockNetChannel.DefaultBacklog)
+        public static ServerSockNetChannel Create(IPAddress bindAddress, int bindPort, int backlog = ServerSockNetChannel.DefaultBacklog, ObjectPool<byte[]> bufferPool = null)
         {
-            return Create(new IPEndPoint(bindAddress, bindPort), backlog);
+            return Create(new IPEndPoint(bindAddress, bindPort), backlog, bufferPool);
         }
 
-        public static ServerSockNetChannel Create(IPEndPoint bindEndpoint, int backlog = ServerSockNetChannel.DefaultBacklog)
+        public static ServerSockNetChannel Create(IPEndPoint bindEndpoint, int backlog = ServerSockNetChannel.DefaultBacklog, ObjectPool<byte[]> bufferPool = null)
         {
             // TODO possibly track?
+            if (bufferPool == null)
+            {
+                bufferPool = SockNetChannelGlobals.GlobalBufferPool;
+            }
+
             return new ServerSockNetChannel(bindEndpoint, SockNetChannelGlobals.GlobalBufferPool, backlog);
         }
     }

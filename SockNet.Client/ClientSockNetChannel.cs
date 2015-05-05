@@ -38,6 +38,9 @@ namespace ArenaNet.SockNet.Client
     /// </summary>
     public class ClientSockNetChannel : BaseSockNetChannel<ClientSockNetChannelState>
     {
+        public const bool DefaultNoDelay = false;
+        public const short DefaultTtl = 32;
+
         private IPEndPoint connectEndpoint = null;
 
         private bool isSsl;

@@ -20,6 +20,7 @@ using System.Net.Security;
 using System.Net.Sockets;
 using ArenaNet.SockNet.Common;
 using ArenaNet.SockNet.Common.IO;
+using ArenaNet.Medley.Pool;
 
 namespace ArenaNet.SockNet.Client
 {
@@ -28,15 +29,20 @@ namespace ArenaNet.SockNet.Client
     /// </summary>
     public static class SockNetClient
     {
-        public static ClientSockNetChannel Create(IPAddress address, int port, bool noDelay = false, short ttl = 32)
+        public static ClientSockNetChannel Create(IPAddress address, int port, bool noDelay = ClientSockNetChannel.DefaultNoDelay, short ttl = ClientSockNetChannel.DefaultTtl, ObjectPool<byte[]> bufferPool = null)
         {
-            return Create(new IPEndPoint(address, port), noDelay, ttl);
+            return Create(new IPEndPoint(address, port), noDelay, ttl, bufferPool);
         }
 
-        public static ClientSockNetChannel Create(IPEndPoint endpoint, bool noDelay = false, short ttl = 32)
+        public static ClientSockNetChannel Create(IPEndPoint endpoint, bool noDelay = ClientSockNetChannel.DefaultNoDelay, short ttl = ClientSockNetChannel.DefaultTtl, ObjectPool<byte[]> bufferPool = null)
         {
             // TODO client track channels
-            return new ClientSockNetChannel(endpoint, SockNetChannelGlobals.GlobalBufferPool).WithNoDelay(noDelay).WithTtl(ttl);
+            if (bufferPool == null)
+            {
+                bufferPool = SockNetChannelGlobals.GlobalBufferPool;
+            }
+
+            return new ClientSockNetChannel(endpoint, bufferPool).WithNoDelay(noDelay).WithTtl(ttl);
         }
     }
 }
