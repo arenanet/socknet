@@ -20,7 +20,6 @@ using System.Net.Security;
 using System.Net.Sockets;
 using ArenaNet.SockNet.Common;
 using ArenaNet.SockNet.Common.IO;
-using ArenaNet.SockNet.Common.Pool;
 
 namespace ArenaNet.SockNet.Client
 {

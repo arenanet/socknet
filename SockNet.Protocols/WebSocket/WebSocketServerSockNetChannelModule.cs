@@ -15,7 +15,7 @@ using System;
 using System.IO;
 using System.Text;
 using ArenaNet.SockNet.Common;
-using ArenaNet.SockNet.Common.Collections;
+using ArenaNet.Medley.Collections.Concurrent;
 using ArenaNet.SockNet.Common.IO;
 using ArenaNet.SockNet.Protocols.Http;
 

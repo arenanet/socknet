@@ -14,7 +14,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using ArenaNet.SockNet.Common.Pool;
+using ArenaNet.Medley.Pool;
 
 namespace ArenaNet.SockNet.Protocols.Http
 {

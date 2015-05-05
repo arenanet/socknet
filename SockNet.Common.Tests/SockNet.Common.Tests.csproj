@@ -35,6 +35,16 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Medley.Collections, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\Dependencies\Medley.Collections.dll</HintPath>
+    </Reference>
+    <Reference Include="Medley.Concurrent">
+      <HintPath>..\Dependencies\Medley.Concurrent.dll</HintPath>
+    </Reference>
+    <Reference Include="Medley.Pool">
+      <HintPath>..\Dependencies\Medley.Pool.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
   </ItemGroup>
   <Choose>
@@ -50,8 +60,6 @@
     </Otherwise>
   </Choose>
   <ItemGroup>
-    <Compile Include="Collections\ConcurrentHashMapTest.cs" />
-    <Compile Include="IO\ObjectPoolTest.cs" />
     <Compile Include="IO\ChunkedBufferTest.cs" />
   </ItemGroup>
   <ItemGroup>

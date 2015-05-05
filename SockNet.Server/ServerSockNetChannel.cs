@@ -20,8 +20,8 @@ using System.Collections.Generic;
 using System.Security.Cryptography.X509Certificates;
 using System.Security.Authentication;
 using ArenaNet.SockNet.Common;
-using ArenaNet.SockNet.Common.Collections;
-using ArenaNet.SockNet.Common.Pool;
+using ArenaNet.Medley.Pool;
+using ArenaNet.Medley.Concurrent;
 
 namespace ArenaNet.SockNet.Server
 {

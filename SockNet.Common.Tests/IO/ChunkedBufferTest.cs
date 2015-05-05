@@ -15,7 +15,7 @@ using System;
 using System.IO;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using ArenaNet.SockNet.Common.Pool;
+using ArenaNet.Medley.Pool;
 
 namespace ArenaNet.SockNet.Common.IO
 {

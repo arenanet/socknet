@@ -16,7 +16,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.IO;
 using ArenaNet.SockNet.Common;
-using ArenaNet.SockNet.Common.Collections;
+using ArenaNet.Medley.Collections.Concurrent;
 using ArenaNet.SockNet.Common.IO;
 
 namespace ArenaNet.SockNet.Protocols.Gds

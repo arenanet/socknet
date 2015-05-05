@@ -16,7 +16,6 @@ using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using System.Security.Authentication;
 using ArenaNet.SockNet.Common;
-using ArenaNet.SockNet.Common.Pool;
 
 namespace ArenaNet.SockNet.Server
 {

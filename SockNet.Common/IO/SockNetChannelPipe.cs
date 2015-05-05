@@ -14,7 +14,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using ArenaNet.SockNet.Common.Collections;
+using ArenaNet.Medley.Collections;
 
 namespace ArenaNet.SockNet.Common.IO
 {

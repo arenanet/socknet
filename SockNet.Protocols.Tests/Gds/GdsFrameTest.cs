@@ -18,7 +18,8 @@ using System.Linq;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using ArenaNet.SockNet.Common.IO;
-using ArenaNet.SockNet.Common.Pool;
+using ArenaNet.Medley.Pool;
+using ArenaNet.Medley.Concurrent;
 
 namespace ArenaNet.SockNet.Protocols.Gds
 {

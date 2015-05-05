@@ -23,8 +23,8 @@ using System.Security.Authentication;
 using System.Net.Sockets;
 using ArenaNet.SockNet.Common;
 using ArenaNet.SockNet.Common.IO;
-using ArenaNet.SockNet.Common.Pool;
-using ArenaNet.SockNet.Common.Collections;
+using ArenaNet.Medley.Pool;
+using ArenaNet.Medley.Concurrent;
 
 namespace ArenaNet.SockNet.Common
 {

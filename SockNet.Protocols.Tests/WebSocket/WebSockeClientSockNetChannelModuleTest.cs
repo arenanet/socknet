@@ -21,7 +21,8 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using ArenaNet.SockNet.Server;
 using ArenaNet.SockNet.Common;
 using ArenaNet.SockNet.Common.IO;
-using ArenaNet.SockNet.Common.Pool;
+using ArenaNet.Medley.Pool;
+using ArenaNet.Medley.Concurrent;
 using ArenaNet.SockNet.Client;
 using ArenaNet.SockNet.Protocols.Http;
 

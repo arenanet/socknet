@@ -22,6 +22,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using ArenaNet.SockNet.Common;
 using ArenaNet.SockNet.Client;
 using ArenaNet.SockNet.Server;
+using ArenaNet.Medley.Concurrent;
 
 namespace ArenaNet.SockNet.Protocols.Http
 {

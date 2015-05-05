@@ -1,6 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="12.0">
-  <!--Project was exported from assembly: C:\Users\elvir\Documents\Visual Studio 2013\Projects\SockNet\SockNet\bin\Debug\SockNet.dll-->
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
@@ -50,6 +49,12 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Medley.Concurrent">
+      <HintPath>..\Dependencies\Medley.Concurrent.dll</HintPath>
+    </Reference>
+    <Reference Include="Medley.Pool">
+      <HintPath>..\Dependencies\Medley.Pool.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>

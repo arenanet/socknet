@@ -16,7 +16,8 @@ using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using ArenaNet.SockNet.Common.IO;
-using ArenaNet.SockNet.Common.Pool;
+using ArenaNet.Medley.Pool;
+using ArenaNet.Medley.Concurrent;
 
 namespace ArenaNet.SockNet.Common
 {

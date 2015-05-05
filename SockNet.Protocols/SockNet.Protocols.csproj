@@ -30,8 +30,18 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Ionic.Zlib.CF">
-      <HintPath>lib\Ionic.Zlib.CF.dll</HintPath>
+    <Reference Include="Ionic.Zlib.CF, Version=1.9.1.8, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\Dependencies\Ionic.Zlib.CF.dll</HintPath>
+    </Reference>
+    <Reference Include="Medley.Collections">
+      <HintPath>..\Dependencies\Medley.Collections.dll</HintPath>
+    </Reference>
+    <Reference Include="Medley.Concurrent">
+      <HintPath>..\Dependencies\Medley.Concurrent.dll</HintPath>
+    </Reference>
+    <Reference Include="Medley.Pool">
+      <HintPath>..\Dependencies\Medley.Pool.dll</HintPath>
     </Reference>
     <Reference Include="System" />
   </ItemGroup>

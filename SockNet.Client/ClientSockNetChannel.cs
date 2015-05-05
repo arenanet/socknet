@@ -17,7 +17,8 @@ using System.Net.Security;
 using System.Net.Sockets;
 using System.Threading;
 using ArenaNet.SockNet.Common;
-using ArenaNet.SockNet.Common.Pool;
+using ArenaNet.Medley.Pool;
+using ArenaNet.Medley.Concurrent;
 
 namespace ArenaNet.SockNet.Client
 {

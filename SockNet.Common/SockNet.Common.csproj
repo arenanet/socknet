@@ -30,12 +30,19 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Medley.Collections">
+      <HintPath>..\Dependencies\Medley.Collections.dll</HintPath>
+    </Reference>
+    <Reference Include="Medley.Concurrent">
+      <HintPath>..\Dependencies\Medley.Concurrent.dll</HintPath>
+    </Reference>
+    <Reference Include="Medley.Pool">
+      <HintPath>..\Dependencies\Medley.Pool.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Collections\ConcurrentHashMap.cs" />
     <Compile Include="IO\ChunkedBuffer.cs" />
-    <Compile Include="Collections\IterableLinkedList.cs" />
     <Compile Include="IO\ChunkedBufferStream.cs" />
     <Compile Include="IO\BaseSockNetChannelHandler.cs" />
     <Compile Include="IO\SockNetChannelHandler.cs" />
@@ -43,10 +50,7 @@
     <Compile Include="IO\SockNetChannelIncomingHandler.cs" />
     <Compile Include="ISockNetChannel.cs" />
     <Compile Include="ISockNetChannelModule.cs" />
-    <Compile Include="Pool\ObjectPool.cs" />
-    <Compile Include="Pool\PooledObject.cs" />
     <Compile Include="IO\SockNetChannelPipe.cs" />
-    <Compile Include="Promise.cs" />
     <Compile Include="BaseSockNetChannel.cs" />
     <Compile Include="SockNetLogger.cs" />
   </ItemGroup>

@@ -14,7 +14,8 @@
 using System;
 using System.IO;
 using System.Collections.Generic;
-using ArenaNet.SockNet.Common.Pool;
+using ArenaNet.Medley.Pool;
+using ArenaNet.Medley.Concurrent;
 
 namespace ArenaNet.SockNet.Common.IO
 {
@@ -37,7 +38,8 @@ namespace ArenaNet.SockNet.Common.IO
         /// </summary>
         private class MemoryChunk
         {
-            public PooledObject<byte[]> pooledBytes;
+            public PooledObject<byte[]> pooledObject;
+            public byte[] pooledBytes;
             public int offset;
             public int count;
 
@@ -111,9 +113,9 @@ namespace ArenaNet.SockNet.Common.IO
                         break;
                     }
 
-                    if (currentChunk.pooledBytes.RefCount.Decrement() < 1)
+                    if (currentChunk.pooledObject != null && currentChunk.pooledObject.RefCount.Decrement() < 1)
                     {
-                        currentChunk.pooledBytes.Return();
+                        currentChunk.pooledObject.Return();
                     }
                     rootChunk = currentChunk.next;
                     ReadPosition -= currentChunk.count;
@@ -166,7 +168,7 @@ namespace ArenaNet.SockNet.Common.IO
                     {
                         int bytesToCopy = Math.Min(currentChunk.count, count - bytesRead);
 
-                        Buffer.BlockCopy(currentChunk.pooledBytes.Value, currentChunk.offset, buffer, offset + bytesRead, bytesToCopy);
+                        Buffer.BlockCopy(currentChunk.pooledBytes, currentChunk.offset, buffer, offset + bytesRead, bytesToCopy);
 
                         bytesRead += bytesToCopy;
                     }
@@ -175,7 +177,7 @@ namespace ArenaNet.SockNet.Common.IO
                         int sourceChunkOffset = (int)(ReadPosition - bytesScanned);
                         int bytesToCopy = Math.Min(currentChunk.count - sourceChunkOffset, count - bytesRead);
 
-                        Buffer.BlockCopy(currentChunk.pooledBytes.Value, currentChunk.offset + sourceChunkOffset, buffer, offset + bytesRead, bytesToCopy);
+                        Buffer.BlockCopy(currentChunk.pooledBytes, currentChunk.offset + sourceChunkOffset, buffer, offset + bytesRead, bytesToCopy);
 
                         bytesRead += bytesToCopy;
                     }
@@ -203,7 +205,8 @@ namespace ArenaNet.SockNet.Common.IO
 
             MemoryChunk chunk = new MemoryChunk()
             {
-                pooledBytes = new PooledObject<byte[]>(null, data),
+                pooledObject = null,
+                pooledBytes = data,
                 offset = offset,
                 count = count,
                 next = null
@@ -220,26 +223,27 @@ namespace ArenaNet.SockNet.Common.IO
         /// <param name="pooledBytes"></param>
         /// <param name="offset"></param>
         /// <param name="count"></param>
-        public ChunkedBuffer OfferChunk(PooledObject<byte[]> pooledBytes, int offset, int count)
+        public ChunkedBuffer OfferChunk(PooledObject<byte[]> pooledObject, int offset, int count)
         {
-            if (pooledBytes == null)
+            if (pooledObject == null)
             {
                 throw new ArgumentNullException("'data' cannot be null");
             }
 
-            if (pooledBytes.Pool != pool)
+            if (pooledObject.Pool != pool)
             {
                 throw new Exception("The given pooled object does not beong to ths pool that is assigned to this stream.");
             }
 
             MemoryChunk chunk = new MemoryChunk()
             {
-                pooledBytes = pooledBytes,
+                pooledObject = pooledObject,
+                pooledBytes = pooledObject.Value,
                 offset = offset,
                 count = count,
                 next = null
             };
-            pooledBytes.RefCount.Increment();
+            pooledObject.RefCount.Increment();
 
             AppendChunk(chunk);
 
@@ -293,7 +297,7 @@ namespace ArenaNet.SockNet.Common.IO
                 rootChunk = rootChunk.next;
             }
 
-            stream.BeginWrite(currentChunk.pooledBytes.Value, currentChunk.offset, currentChunk.count, new AsyncCallback(OnDrainChunksToStreamWriteComplete),
+            stream.BeginWrite(currentChunk.pooledBytes, currentChunk.offset, currentChunk.count, new AsyncCallback(OnDrainChunksToStreamWriteComplete),
                 new DrainChunksState()
                 {
                     currentChunk = currentChunk,
@@ -312,9 +316,9 @@ namespace ArenaNet.SockNet.Common.IO
 
             state.stream.EndWrite(result);
 
-            if (state.currentChunk.pooledBytes.Pool != null && state.currentChunk.pooledBytes.RefCount.Decrement() < 1)
+            if (state.currentChunk.pooledObject != null && state.currentChunk.pooledObject.Pool != null && state.currentChunk.pooledObject.RefCount.Decrement() < 1)
             {
-                state.currentChunk.pooledBytes.Return();
+                state.currentChunk.pooledObject.Return();
             }
 
             DrainChunksToStream(state.stream, state.promise);
@@ -337,15 +341,16 @@ namespace ArenaNet.SockNet.Common.IO
             {
                 for (int i = offset; i < count; )
                 {
-                    PooledObject<byte[]> pooledBytes = pool.Borrow();
-                    pooledBytes.RefCount.Increment();
-                    int bytesToCopy = Math.Min(pooledBytes.Value.Length, count - i);
+                    PooledObject<byte[]> pooledObject = pool.Borrow();
+                    pooledObject.RefCount.Increment();
+                    int bytesToCopy = Math.Min(pooledObject.Value.Length, count - i);
 
-                    Buffer.BlockCopy(buffer, i, pooledBytes.Value, 0, bytesToCopy);
+                    Buffer.BlockCopy(buffer, i, pooledObject.Value, 0, bytesToCopy);
 
                     AppendChunk(new MemoryChunk()
                     {
-                        pooledBytes = pooledBytes,
+                        pooledObject = pooledObject,
+                        pooledBytes = pooledObject.Value,
                         offset = 0,
                         count = bytesToCopy,
                         next = null

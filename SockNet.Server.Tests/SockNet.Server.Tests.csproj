@@ -35,6 +35,12 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Medley.Concurrent">
+      <HintPath>..\Dependencies\Medley.Concurrent.dll</HintPath>
+    </Reference>
+    <Reference Include="Medley.Pool">
+      <HintPath>..\Dependencies\Medley.Pool.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
   </ItemGroup>
   <Choose>
