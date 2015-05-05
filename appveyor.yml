@@ -8,10 +8,10 @@ nuget:
   account_feed: true
   project_feed: true
 after_build:
-- ps: '7z a SockNet.zip C:\projects\socknet\SockNet.Common\bin\Release\SockNet.Common.dll'
-- ps: '7z a SockNet.zip C:\projects\socknet\SockNet.Client\bin\Release\SockNet.Client.dll'
-- ps: '7z a SockNet.zip C:\projects\socknet\SockNet.Server\bin\Release\SockNet.Server.dll'
-- ps: '7z a SockNet.zip C:\projects\socknet\SockNet.Protocols\bin\Release\SockNet.Protocols.dll'
-- ps: '7z a SockNet.zip C:\projects\socknet\SockNet.Protocols\lib\Ionic.Zlib.CF.dll'
+- ps: '7z a Binaries.zip C:\projects\socknet\SockNet.Common\bin\Release\SockNet.Common.dll'
+- ps: '7z a Binaries.zip C:\projects\socknet\SockNet.Client\bin\Release\SockNet.Client.dll'
+- ps: '7z a Binaries.zip C:\projects\socknet\SockNet.Server\bin\Release\SockNet.Server.dll'
+- ps: '7z a Binaries.zip C:\projects\socknet\SockNet.Protocols\bin\Release\SockNet.Protocols.dll'
+- ps: '7z a Binaries.zip C:\projects\socknet\SockNet.Protocols\lib\Ionic.Zlib.CF.dll'
 artifacts:
-- path: 'SockNet.zip'
+- path: 'Binaries.zip'
