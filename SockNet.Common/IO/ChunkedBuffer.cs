@@ -14,6 +14,7 @@
 using System;
 using System.IO;
 using System.Collections.Generic;
+using System.Text;
 using ArenaNet.Medley.Pool;
 using ArenaNet.Medley.Concurrent;
 
@@ -276,6 +277,28 @@ namespace ArenaNet.SockNet.Common.IO
         }
 
         /// <summary>
+        /// Synchronously drains the buffer into the stream.
+        /// </summary>
+        /// <param name="stream"></param>
+        public void DrainToStreamSync(Stream stream)
+        {
+            lock (this)
+            {
+                while (rootChunk != null)
+                {
+                    stream.Write(rootChunk.pooledBytes, rootChunk.offset, rootChunk.count);
+
+                    if (rootChunk.pooledObject != null && rootChunk.pooledObject.Pool != null && rootChunk.pooledObject.RefCount.Decrement() < 1)
+                    {
+                        rootChunk.pooledObject.Return();
+                    }
+
+                    rootChunk = rootChunk.next;
+                }
+            }
+        }
+
+        /// <summary>
         /// Drains this ChunkedBuffer to the given stream.
         /// </summary>
         /// <param name="stream"></param>
@@ -412,6 +435,24 @@ namespace ArenaNet.SockNet.Common.IO
 
                 WritePosition += chunk.count;
             }
+        }
+
+        /// <summary>
+        /// Reads the contents of the buffer into a string.
+        /// </summary>
+        /// <param name="encoding"></param>
+        /// <returns></returns>
+        public string ToString(Encoding encoding)
+        {
+            byte[] data = null;
+
+            lock (this)
+            {
+                data = new byte[AvailableBytesToRead];
+                Read(data, 0, data.Length);
+            }
+
+            return encoding.GetString(data);
         }
 
         /// <summary>

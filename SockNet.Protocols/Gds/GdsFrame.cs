@@ -16,6 +16,8 @@ using System.Collections.Generic;
 using System.Net;
 using System.IO;
 using System.Text;
+using ArenaNet.SockNet.Common.IO;
+using ArenaNet.Medley.Pool;
 using Ionic.Zlib;
 
 namespace ArenaNet.SockNet.Protocols.Gds
@@ -211,14 +213,18 @@ namespace ArenaNet.SockNet.Protocols.Gds
         /// <summary>
         /// The body.
         /// </summary>
-        public byte[] Body { private set; get; }
+        public ChunkedBuffer Body { private set; get; }
+
+        private ObjectPool<byte[]> bufferPool;
 
         /// <summary>
         /// Creates a Gds frame.
         /// </summary>
-        private GdsFrame()
+        private GdsFrame(ObjectPool<byte[]> bufferPool)
         {
-            Headers = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
+            this.Headers = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
+
+            this.bufferPool = bufferPool;
         }
 
         /// <summary>
@@ -260,9 +266,9 @@ namespace ArenaNet.SockNet.Protocols.Gds
 
             if (Type == GdsFrameType.BodyOnly || Type == GdsFrameType.Full)
             {
-                writer.Write(((uint)IPAddress.HostToNetworkOrder((int)Body.Length)));
+                writer.Write(((uint)IPAddress.HostToNetworkOrder((int)Body.AvailableBytesToRead)));
 
-                writer.Write(Body);
+                Body.DrainToStreamSync(stream);
             }
 
             writer.Flush();
@@ -294,9 +300,9 @@ namespace ArenaNet.SockNet.Protocols.Gds
         /// </summary>
         /// <param name="stream"></param>
         /// <returns></returns>
-        public static GdsFrame ParseFrame(Stream stream)
+        public static GdsFrame ParseFrame(Stream stream, ObjectPool<byte[]> bufferPool)
         {
-            GdsFrame frame = new GdsFrame();
+            GdsFrame frame = new GdsFrame(bufferPool);
 
             BinaryReader reader = new BinaryReader(stream);
 
@@ -343,9 +349,24 @@ namespace ArenaNet.SockNet.Protocols.Gds
             {
                 uint length = (uint)IPAddress.NetworkToHostOrder((int)reader.ReadUInt32());
 
-                frame.Body = reader.ReadBytes((int)length);
+                frame.Body = new ChunkedBuffer(bufferPool);
 
-                if (frame.Body.Length != length)
+                PooledObject<byte[]> buffer = bufferPool.Borrow();
+                int count = 0;
+
+                while ((count = reader.Read(buffer.Value, 0, buffer.Value.Length)) > 0)
+                {
+                    frame.Body.OfferChunk(buffer, 0, count);
+
+                    buffer = bufferPool.Borrow();
+                }
+
+                if (count < 1)
+                {
+                    buffer.Return();
+                }
+
+                if (frame.Body.AvailableBytesToRead != length)
                 {
                     throw new EndOfStreamException();
                 }
@@ -396,7 +417,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
         /// <param name="body"></param>
         /// <param name="isComplete"></param>
         /// <returns></returns>
-        public static GdsFrame NewContentFrame(uint streamId, Dictionary<string, byte[]> headers = null, bool areHeadersCompressed = false, byte[] body = null, bool isComplete = true)
+        public static GdsFrame NewContentFrame(uint streamId, Dictionary<string, byte[]> headers = null, bool areHeadersCompressed = false, ChunkedBuffer body = null, bool isComplete = true)
         {
             GdsFrameType type = GdsFrameType.Full;
 
@@ -409,7 +430,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
                 type = GdsFrameType.BodyOnly;
             }
 
-            GdsFrame frame = new GdsFrame()
+            GdsFrame frame = new GdsFrame(null)
             {
                 IsComplete = isComplete,
                 Type = type,
@@ -439,7 +460,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
         /// <returns></returns>
         public static GdsFrame NewPingFrame(uint streamId)
         {
-            return new GdsFrame()
+            return new GdsFrame(null)
             {
                 IsComplete = true,
                 Type = GdsFrameType.Ping,
@@ -453,7 +474,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
         /// <returns></returns>
         public static GdsFrame NewPongFrame(uint streamId)
         {
-            return new GdsFrame()
+            return new GdsFrame(null)
             {
                 IsComplete = true,
                 Type = GdsFrameType.Pong,
@@ -467,7 +488,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
         /// <returns></returns>
         public static GdsFrame NewCloseFrame(uint streamId)
         {
-            return new GdsFrame()
+            return new GdsFrame(null)
             {
                 IsComplete = true,
                 Type = GdsFrameType.Close,

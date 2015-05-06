@@ -216,12 +216,15 @@ namespace ArenaNet.SockNet.Protocols.Gds
 
                 client.Pipe.AddIncomingLast<GdsFrame>((ISockNetChannel sockNetClient, ref GdsFrame data) => { blockingCollection.Add(data); });
 
-                client.Send(GdsFrame.NewContentFrame(1, null, false, Encoding.UTF8.GetBytes("some test"), true));
+                ChunkedBuffer body = new ChunkedBuffer(SockNetChannelGlobals.GlobalBufferPool);
+                body.OfferRaw(Encoding.UTF8.GetBytes("some test"), 0, Encoding.UTF8.GetByteCount("some test"));
+
+                client.Send(GdsFrame.NewContentFrame(1, null, false, body, true));
 
                 Assert.IsTrue(blockingCollection.TryTake(out currentObject, 5000));
                 Assert.IsTrue(currentObject is GdsFrame);
 
-                Assert.AreEqual("some test", Encoding.UTF8.GetString(((GdsFrame)currentObject).Body));
+                Assert.AreEqual("some test", ((GdsFrame)currentObject).Body.ToString(Encoding.UTF8));
 
                 Console.WriteLine("Got response: \n" + ((GdsFrame)currentObject).Body);
 
@@ -254,12 +257,15 @@ namespace ArenaNet.SockNet.Protocols.Gds
 
                 client.Pipe.AddIncomingLast<GdsFrame>((ISockNetChannel sockNetClient, ref GdsFrame data) => { blockingCollection.Add(data); });
 
-                client.Send(GdsFrame.NewContentFrame(1, null, false, Encoding.UTF8.GetBytes("some test"), true));
+                ChunkedBuffer body = new ChunkedBuffer(SockNetChannelGlobals.GlobalBufferPool);
+                body.OfferRaw(Encoding.UTF8.GetBytes("some test"), 0, Encoding.UTF8.GetByteCount("some test"));
+
+                client.Send(GdsFrame.NewContentFrame(1, null, false, body, true));
 
                 Assert.IsTrue(blockingCollection.TryTake(out currentObject, 5000));
                 Assert.IsTrue(currentObject is GdsFrame);
 
-                Assert.AreEqual("some test", Encoding.UTF8.GetString(((GdsFrame)currentObject).Body));
+                Assert.AreEqual("some test", ((GdsFrame)currentObject).Body.ToString(Encoding.UTF8));
 
                 Console.WriteLine("Got response: \n" + ((GdsFrame)currentObject).Body);
 
@@ -288,12 +294,15 @@ namespace ArenaNet.SockNet.Protocols.Gds
 
             uint streamId = 1;
 
+            ChunkedBuffer body = new ChunkedBuffer(SockNetChannelGlobals.GlobalBufferPool);
+            body.OfferRaw(Encoding.UTF8.GetBytes("This "), 0, Encoding.UTF8.GetByteCount("This "));
+
             GdsFrame chunk1 = GdsFrame.NewContentFrame(streamId, new Dictionary<string, byte[]>() 
                 { 
                     { "test1", new byte[] { 1 } } ,
                     { "test", new byte[] { 1 } } ,
-                }, 
-                false, Encoding.UTF8.GetBytes("This "), false);
+                },
+                false, body, false);
             ChunkedBuffer buffer = ToBuffer(chunk1);
             object receiveResponse = buffer;
             channel.Receive(ref receiveResponse);
@@ -301,12 +310,15 @@ namespace ArenaNet.SockNet.Protocols.Gds
 
             Assert.IsTrue(receiveResponse is ChunkedBuffer);
 
+            body = new ChunkedBuffer(SockNetChannelGlobals.GlobalBufferPool);
+            body.OfferRaw(Encoding.UTF8.GetBytes("is "), 0, Encoding.UTF8.GetByteCount("is "));
+
             GdsFrame chunk2 = GdsFrame.NewContentFrame(streamId, new Dictionary<string, byte[]>() 
                 { 
                     { "test2", new byte[] { 2 } } ,
                     { "test", new byte[] { 2 } } ,
                 },
-                false, Encoding.UTF8.GetBytes("is "), false);
+                false, body, false);
             buffer = ToBuffer(chunk2);
             receiveResponse = buffer;
             channel.Receive(ref receiveResponse);
@@ -314,19 +326,22 @@ namespace ArenaNet.SockNet.Protocols.Gds
 
             Assert.IsTrue(receiveResponse is ChunkedBuffer);
 
+            body = new ChunkedBuffer(SockNetChannelGlobals.GlobalBufferPool);
+            body.OfferRaw(Encoding.UTF8.GetBytes("awesome!"), 0, Encoding.UTF8.GetByteCount("awesome!"));
+
             GdsFrame chunk3 = GdsFrame.NewContentFrame(streamId, new Dictionary<string, byte[]>() 
                 { 
                     { "test3", new byte[] { 3 } } ,
                     { "test", new byte[] { 3 } } ,
                 },
-                false, Encoding.UTF8.GetBytes("awesome!"), true);
+                false, body, true);
             buffer = ToBuffer(chunk3);
             receiveResponse = buffer;
             channel.Receive(ref receiveResponse);
             buffer.Close();
 
             Assert.IsTrue(receiveResponse is GdsFrame);
-            Assert.AreEqual("This is awesome!", Encoding.UTF8.GetString(((GdsFrame)receiveResponse).Body));
+            Assert.AreEqual("This is awesome!", ((GdsFrame)receiveResponse).Body.ToString(Encoding.UTF8));
             Assert.AreEqual(1, ((GdsFrame)receiveResponse).Headers["test1"][0]);
             Assert.AreEqual(2, ((GdsFrame)receiveResponse).Headers["test2"][0]);
             Assert.AreEqual(3, ((GdsFrame)receiveResponse).Headers["test3"][0]);

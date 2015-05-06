@@ -189,7 +189,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
                 {
                     data = new byte[this.Data.Length];
 
-                    for (int i = 0; i < this.Data.Length; ++i)
+                    for (int i = 0; i < this.Data.Length; i++)
                     {
                         data[i] = (byte)(this.Data[i] ^ this.Mask[i % 4]);
                     }
@@ -346,6 +346,14 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
             }
 
             frame.Data = binaryReader.ReadBytes(length);
+
+            if (isMasked)
+            {
+                for (int i = 0; i < frame.Data.Length; i++)
+                {
+                    frame.Data[i] = (byte)(frame.Data[i] ^ frame.Mask[i % 4]);
+                }
+            }
 
             if (frame.Data.Length != length)
             {
