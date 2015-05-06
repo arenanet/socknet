@@ -145,7 +145,7 @@ namespace ArenaNet.SockNet.Common.IO
         }
 
         /// <summary>
-        /// Sets the length of the stream. Note: Trucation is not supported.
+        /// Sets the length of the stream. Note: Truncation is not supported.
         /// </summary>
         /// <param name="value"></param>
         public override void SetLength(long value)

@@ -280,13 +280,13 @@ namespace ArenaNet.SockNet.Common.IO
         /// </summary>
         /// <param name="stream"></param>
         /// <returns></returns>
-        public Promise<ChunkedBuffer> DrainChunksToStream(Stream stream)
+        public Promise<ChunkedBuffer> DrainToStream(Stream stream)
         {
             ValidateBuffer();
 
             Promise<ChunkedBuffer> promise = new Promise<ChunkedBuffer>();
 
-            DrainChunksToStream(stream, promise);
+            DrainToStream(stream, promise);
 
             return promise;
         }
@@ -296,7 +296,7 @@ namespace ArenaNet.SockNet.Common.IO
         /// </summary>
         /// <param name="stream"></param>
         /// <param name="promise"></param>
-        private void DrainChunksToStream(Stream stream, Promise<ChunkedBuffer> promise)
+        private void DrainToStream(Stream stream, Promise<ChunkedBuffer> promise)
         {
             MemoryChunkNode currentChunk = null;
 
@@ -314,7 +314,7 @@ namespace ArenaNet.SockNet.Common.IO
                 rootChunk = rootChunk.next;
             }
 
-            stream.BeginWrite(currentChunk.pooledBytes, currentChunk.offset, currentChunk.count, new AsyncCallback(OnDrainChunksToStreamWriteComplete),
+            stream.BeginWrite(currentChunk.pooledBytes, currentChunk.offset, currentChunk.count, new AsyncCallback(OnDrainToStreamWriteComplete),
                 new DrainChunksState()
                 {
                     currentChunk = currentChunk,
@@ -327,7 +327,7 @@ namespace ArenaNet.SockNet.Common.IO
         /// The async response to writing out this stream.
         /// </summary>
         /// <param name="result"></param>
-        private void OnDrainChunksToStreamWriteComplete(IAsyncResult result)
+        private void OnDrainToStreamWriteComplete(IAsyncResult result)
         {
             DrainChunksState state = (DrainChunksState)result.AsyncState;
 
@@ -338,7 +338,7 @@ namespace ArenaNet.SockNet.Common.IO
                 state.currentChunk.pooledObject.Return();
             }
 
-            DrainChunksToStream(state.stream, state.promise);
+            DrainToStream(state.stream, state.promise);
         }
 
         /// <summary>

@@ -539,7 +539,7 @@ namespace ArenaNet.SockNet.Common
 
                         isProcessingSendQueue = true;
 
-                        Promise<ChunkedBuffer> promise = nextState.buffer.DrainChunksToStream(stream);
+                        Promise<ChunkedBuffer> promise = nextState.buffer.DrainToStream(stream);
                         promise.State = nextState;
                         promise.OnFulfilled = QueueWriteCallback;
                     }

@@ -34,7 +34,7 @@ namespace ArenaNet.SockNet.Common.IO
 
                 MemoryStream stream = new MemoryStream();
 
-                buffer.DrainChunksToStream(stream).WaitForValue(TimeSpan.FromSeconds(5));
+                buffer.DrainToStream(stream).WaitForValue(TimeSpan.FromSeconds(5));
 
                 stream.Position = 0;
 
