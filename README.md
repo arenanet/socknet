@@ -1,4 +1,4 @@
-SockNet
+<img src="http://cdn.flaticon.com/png/256/59854.png" alt="Icon" width="30" height="30"/> SockNet
 =====
 [![Build status](https://ci.appveyor.com/api/projects/status/ygnc2qccn8mm5aqt?svg=true)](https://ci.appveyor.com/project/elvirb/socknet)
 [![License](https://img.shields.io/hexpm/l/plug.svg)](http://www.apache.org/licenses/LICENSE-2.0)
