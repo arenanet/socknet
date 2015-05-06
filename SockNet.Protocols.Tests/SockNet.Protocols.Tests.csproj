@@ -65,6 +65,7 @@
     <Compile Include="Http\HttpResponseTest.cs" />
     <Compile Include="Http\HttpRequestTest.cs" />
     <Compile Include="Http\HttpSockNetChannelModuleTest.cs" />
+    <Compile Include="WebSocket\WebSocketFrameTest.cs" />
     <Compile Include="WebSocket\WebSockeClientSockNetChannelModuleTest.cs" />
   </ItemGroup>
   <ItemGroup>

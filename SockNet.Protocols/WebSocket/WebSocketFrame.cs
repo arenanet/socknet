@@ -15,6 +15,8 @@ using System;
 using System.IO;
 using System.Net;
 using System.Text;
+using ArenaNet.SockNet.Common.IO;
+using ArenaNet.Medley.Pool;
 
 namespace ArenaNet.SockNet.Protocols.WebSocket
 {
@@ -347,17 +349,17 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
             frame.Data = binaryReader.ReadBytes(length);
 
+            if (frame.Data.Length != length)
+            {
+                throw new EndOfStreamException();
+            }
+
             if (isMasked)
             {
                 for (int i = 0; i < frame.Data.Length; i++)
                 {
                     frame.Data[i] = (byte)(frame.Data[i] ^ frame.Mask[i % 4]);
                 }
-            }
-
-            if (frame.Data.Length != length)
-            {
-                throw new EndOfStreamException();
             }
 
             return frame;
