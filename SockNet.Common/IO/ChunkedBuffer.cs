@@ -22,7 +22,7 @@ namespace ArenaNet.SockNet.Common.IO
     /// <summary>
     /// A chunked buffer.
     /// </summary>
-    public class ChunkedBuffer
+    public class ChunkedBuffer : IDisposable
     {
         private ObjectPool<byte[]> pool = null;
 
@@ -31,19 +31,29 @@ namespace ArenaNet.SockNet.Common.IO
         /// <summary>
         /// The root in the memory chunk chain
         /// </summary>
-        private MemoryChunk rootChunk;
+        private MemoryChunkNode rootChunk;
 
         /// <summary>
         /// Represents a memory chunk in the chain.
         /// </summary>
-        private class MemoryChunk
+        private class MemoryChunkNode
         {
             public PooledObject<byte[]> pooledObject;
             public byte[] pooledBytes;
             public int offset;
             public int count;
 
-            public MemoryChunk next;
+            public MemoryChunkNode next;
+        }
+
+        /// <summary>
+        /// The state during drains.
+        /// </summary>
+        private class DrainChunksState
+        {
+            public MemoryChunkNode currentChunk;
+            public Stream stream;
+            public Promise<ChunkedBuffer> promise;
         }
 
         private long _readPosition = 0;
@@ -91,9 +101,14 @@ namespace ArenaNet.SockNet.Common.IO
             {
                 ReadPosition = WritePosition;
 
-                Flush();
-
-                IsClosed = true;
+                try
+                {
+                    Flush();
+                }
+                finally
+                {
+                    IsClosed = true;
+                }
             }
         }
 
@@ -104,7 +119,9 @@ namespace ArenaNet.SockNet.Common.IO
         {
             lock (this)
             {
-                MemoryChunk currentChunk = rootChunk;
+                ValidateBuffer();
+
+                MemoryChunkNode currentChunk = rootChunk;
 
                 while (currentChunk != null)
                 {
@@ -131,6 +148,8 @@ namespace ArenaNet.SockNet.Common.IO
         /// <returns></returns>
         public int Read()
         {
+            ValidateBuffer();
+
             byte[] buffer = new byte[1];
 
             if (Read(buffer, 0, 1) == 1)
@@ -152,6 +171,8 @@ namespace ArenaNet.SockNet.Common.IO
         {
             lock (this)
             {
+                ValidateBuffer();
+
                 if (WritePosition == ReadPosition)
                 {
                     return 0;
@@ -160,7 +181,7 @@ namespace ArenaNet.SockNet.Common.IO
                 int bytesScanned = 0;
                 int bytesRead = 0;
 
-                MemoryChunk currentChunk = rootChunk;
+                MemoryChunkNode currentChunk = rootChunk;
 
                 while (currentChunk != null && bytesRead < count)
                 {
@@ -198,12 +219,14 @@ namespace ArenaNet.SockNet.Common.IO
         /// <param name="data"></param>
         public ChunkedBuffer OfferRaw(byte[] data, int offset, int count)
         {
+            ValidateBuffer();
+
             if (data == null)
             {
                 throw new ArgumentNullException("'data' cannot be null");
             }
 
-            MemoryChunk chunk = new MemoryChunk()
+            MemoryChunkNode chunk = new MemoryChunkNode()
             {
                 pooledObject = null,
                 pooledBytes = data,
@@ -225,6 +248,8 @@ namespace ArenaNet.SockNet.Common.IO
         /// <param name="count"></param>
         public ChunkedBuffer OfferChunk(PooledObject<byte[]> pooledObject, int offset, int count)
         {
+            ValidateBuffer();
+
             if (pooledObject == null)
             {
                 throw new ArgumentNullException("'data' cannot be null");
@@ -235,7 +260,7 @@ namespace ArenaNet.SockNet.Common.IO
                 throw new Exception("The given pooled object does not beong to ths pool that is assigned to this stream.");
             }
 
-            MemoryChunk chunk = new MemoryChunk()
+            MemoryChunkNode chunk = new MemoryChunkNode()
             {
                 pooledObject = pooledObject,
                 pooledBytes = pooledObject.Value,
@@ -251,22 +276,14 @@ namespace ArenaNet.SockNet.Common.IO
         }
 
         /// <summary>
-        /// The state during drains.
-        /// </summary>
-        private class DrainChunksState
-        {
-            public MemoryChunk currentChunk;
-            public Stream stream;
-            public Promise<ChunkedBuffer> promise;
-        }
-
-        /// <summary>
         /// Drains this ChunkedBuffer to the given stream.
         /// </summary>
         /// <param name="stream"></param>
         /// <returns></returns>
         public Promise<ChunkedBuffer> DrainChunksToStream(Stream stream)
         {
+            ValidateBuffer();
+
             Promise<ChunkedBuffer> promise = new Promise<ChunkedBuffer>();
 
             DrainChunksToStream(stream, promise);
@@ -281,7 +298,7 @@ namespace ArenaNet.SockNet.Common.IO
         /// <param name="promise"></param>
         private void DrainChunksToStream(Stream stream, Promise<ChunkedBuffer> promise)
         {
-            MemoryChunk currentChunk = null;
+            MemoryChunkNode currentChunk = null;
 
             lock (this)
             {
@@ -339,6 +356,8 @@ namespace ArenaNet.SockNet.Common.IO
 
             lock (this)
             {
+                ValidateBuffer();
+
                 for (int i = offset; i < count; )
                 {
                     PooledObject<byte[]> pooledObject = pool.Borrow();
@@ -347,7 +366,7 @@ namespace ArenaNet.SockNet.Common.IO
 
                     Buffer.BlockCopy(buffer, i, pooledObject.Value, 0, bytesToCopy);
 
-                    AppendChunk(new MemoryChunk()
+                    AppendChunk(new MemoryChunkNode()
                     {
                         pooledObject = pooledObject,
                         pooledBytes = pooledObject.Value,
@@ -365,7 +384,7 @@ namespace ArenaNet.SockNet.Common.IO
         /// Appeds the given chunk to this stream.
         /// </summary>
         /// <param name="chunk"></param>
-        private void AppendChunk(MemoryChunk chunk)
+        private void AppendChunk(MemoryChunkNode chunk)
         {
             lock (this)
             {
@@ -375,7 +394,7 @@ namespace ArenaNet.SockNet.Common.IO
                 }
                 else
                 {
-                    MemoryChunk currentChunk = rootChunk;
+                    MemoryChunkNode currentChunk = rootChunk;
 
                     while (currentChunk != null)
                     {
@@ -393,6 +412,25 @@ namespace ArenaNet.SockNet.Common.IO
 
                 WritePosition += chunk.count;
             }
+        }
+
+        /// <summary>
+        /// Validates this buffer an throws exception as neede.
+        /// </summary>
+        private void ValidateBuffer()
+        {
+            if (IsClosed)
+            {
+                throw new ObjectDisposedException("ChunkedBuffer");
+            }
+        }
+
+        /// <summary>
+        /// Closes this buffer.
+        /// </summary>
+        public void Dispose()
+        {
+            Close();
         }
     }
 }

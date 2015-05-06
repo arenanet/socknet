@@ -28,20 +28,20 @@ namespace ArenaNet.SockNet.Common.IO
         [TestMethod]
         public void TestDrainToStream()
         {
-            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[10]; });
-            ChunkedBuffer buffer = new ChunkedBuffer(pool);
-
-            buffer.Write(TestData, 0, TestData.Length);
-
-            MemoryStream stream = new MemoryStream();
-
-            buffer.DrainChunksToStream(stream).WaitForValue(TimeSpan.FromSeconds(5));
-
-            stream.Position = 0;
-
-            using (StreamReader reader = new StreamReader(stream))
+            using (ChunkedBuffer buffer = new ChunkedBuffer(new ObjectPool<byte[]>(() => { return new byte[10]; })))
             {
-                Assert.AreEqual(TestDataString, reader.ReadToEnd());
+                buffer.Write(TestData, 0, TestData.Length);
+
+                MemoryStream stream = new MemoryStream();
+
+                buffer.DrainChunksToStream(stream).WaitForValue(TimeSpan.FromSeconds(5));
+
+                stream.Position = 0;
+
+                using (StreamReader reader = new StreamReader(stream))
+                {
+                    Assert.AreEqual(TestDataString, reader.ReadToEnd());
+                }
             }
         }
 
@@ -49,56 +49,61 @@ namespace ArenaNet.SockNet.Common.IO
         public void TestWrite()
         {
             ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[10]; });
-            ChunkedBuffer stream = new ChunkedBuffer(pool);
 
-            Assert.AreEqual(0, stream.ReadPosition);
-            Assert.AreEqual(0, stream.WritePosition);
+            using (ChunkedBuffer stream = new ChunkedBuffer(pool))
+            {
+                Assert.AreEqual(0, stream.ReadPosition);
+                Assert.AreEqual(0, stream.WritePosition);
 
-            stream.Write(TestData, 0, TestData.Length);
+                stream.Write(TestData, 0, TestData.Length);
 
-            Assert.AreEqual(TestData.Length, stream.WritePosition);
-            Assert.AreEqual(0, stream.ReadPosition);
+                Assert.AreEqual(TestData.Length, stream.WritePosition);
+                Assert.AreEqual(0, stream.ReadPosition);
 
-            Assert.AreEqual(0, pool.ObjectsInPool);
-            Assert.AreEqual(Math.Round((float)TestData.Length / 10f, MidpointRounding.AwayFromZero), pool.TotalNumberOfObjects);
+                Assert.AreEqual(0, pool.ObjectsInPool);
+                Assert.AreEqual(Math.Round((float)TestData.Length / 10f, MidpointRounding.AwayFromZero), pool.TotalNumberOfObjects);
+            }
         }
 
         [TestMethod]
         public void TestWriteAndReadAndFlush()
         {
             ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[10]; });
-            ChunkedBuffer stream = new ChunkedBuffer(pool);
 
-            Assert.AreEqual(0, stream.ReadPosition);
-            Assert.AreEqual(0, stream.WritePosition);
+            using (ChunkedBuffer stream = new ChunkedBuffer(pool))
+            {
+                Assert.AreEqual(0, stream.ReadPosition);
+                Assert.AreEqual(0, stream.WritePosition);
 
-            stream.Write(TestData, 0, TestData.Length);
+                stream.Write(TestData, 0, TestData.Length);
 
-            Assert.AreEqual(TestData.Length, stream.WritePosition);
-            Assert.AreEqual(0, stream.ReadPosition);
+                Assert.AreEqual(TestData.Length, stream.WritePosition);
+                Assert.AreEqual(0, stream.ReadPosition);
 
-            Assert.AreEqual(0, pool.ObjectsInPool);
-            Assert.AreEqual(Math.Round((float)TestData.Length / 10f, MidpointRounding.AwayFromZero), pool.TotalNumberOfObjects);
+                Assert.AreEqual(0, pool.ObjectsInPool);
+                Assert.AreEqual(Math.Round((float)TestData.Length / 10f, MidpointRounding.AwayFromZero), pool.TotalNumberOfObjects);
 
-            StreamReader reader = new StreamReader(stream.Stream);
+                StreamReader reader = new StreamReader(stream.Stream);
 
-            Assert.AreEqual(Encoding.UTF8.GetString(TestData, 0, TestData.Length), reader.ReadToEnd());
+                Assert.AreEqual(Encoding.UTF8.GetString(TestData, 0, TestData.Length), reader.ReadToEnd());
 
-            Assert.AreEqual(TestData.Length, stream.ReadPosition);
-            Assert.AreEqual(TestData.Length, stream.WritePosition);
+                Assert.AreEqual(TestData.Length, stream.ReadPosition);
+                Assert.AreEqual(TestData.Length, stream.WritePosition);
 
-            stream.Flush();
+                stream.Flush();
 
-            Assert.AreEqual(0, stream.ReadPosition);
-            Assert.AreEqual(0, stream.WritePosition);
+                Assert.AreEqual(0, stream.ReadPosition);
+                Assert.AreEqual(0, stream.WritePosition);
+            }
         }
 
         [TestMethod]
         public void TestWriteAndReadAndClose()
         {
             ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[10]; });
-            ChunkedBuffer stream = new ChunkedBuffer(pool);
 
+            ChunkedBuffer stream = new ChunkedBuffer(pool);
+            
             Assert.AreEqual(0, stream.ReadPosition);
             Assert.AreEqual(0, stream.WritePosition);
 
