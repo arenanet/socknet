@@ -277,10 +277,43 @@ namespace ArenaNet.SockNet.Common.IO
         }
 
         /// <summary>
+        /// Reads at maximum maxBytes bytes from the given stream.
+        /// </summary>
+        /// <param name="stream"></param>
+        /// <param name="maxBytes"></param>
+        public ChunkedBuffer ReadFromStream(Stream stream, int maxBytes)
+        {
+            lock (this)
+            {
+                PooledObject<byte[]> pooledObject = null;
+                int bytesRead = 0;
+
+                do
+                {
+                    pooledObject = pool.Borrow();
+                    bytesRead = stream.Read(pooledObject.Value, 0, pooledObject.Value.Length);
+
+                    if (bytesRead > 0)
+                    {
+                        OfferChunk(pooledObject, 0, bytesRead);
+                    }
+                    else
+                    {
+                        pooledObject.Return();
+                        break;
+                    }
+                }
+                while (true);
+            }
+
+            return this;
+        }
+
+        /// <summary>
         /// Synchronously drains the buffer into the stream.
         /// </summary>
         /// <param name="stream"></param>
-        public void DrainToStreamSync(Stream stream)
+        public ChunkedBuffer DrainToStreamSync(Stream stream)
         {
             lock (this)
             {
@@ -296,6 +329,8 @@ namespace ArenaNet.SockNet.Common.IO
                     rootChunk = rootChunk.next;
                 }
             }
+
+            return this;
         }
 
         /// <summary>
@@ -472,6 +507,60 @@ namespace ArenaNet.SockNet.Common.IO
         public void Dispose()
         {
             Close();
+        }
+
+        /// <summary>
+        /// Reads the given stream into a new buffer.
+        /// </summary>
+        /// <param name="stream"></param>
+        /// <param name="maxBytes"></param>
+        /// <param name="bufferPool"></param>
+        /// <returns></returns>
+        public static ChunkedBuffer ReadFully(Stream stream, int maxBytes, ObjectPool<byte[]> bufferPool = null)
+        {
+            if (bufferPool == null)
+            {
+                bufferPool = SockNetChannelGlobals.GlobalBufferPool;
+            }
+
+            return new ChunkedBuffer(bufferPool).ReadFromStream(stream, maxBytes);
+        }
+
+        /// <summary>
+        /// Wraps the given byte array.
+        /// </summary>
+        /// <param name="data"></param>
+        /// <param name="offset"></param>
+        /// <param name="count"></param>
+        /// <param name="bufferPool"></param>
+        /// <returns></returns>
+        public static ChunkedBuffer Wrap(byte[] data, int offset, int count, ObjectPool<byte[]> bufferPool = null)
+        {
+            if (bufferPool == null) 
+            {
+                bufferPool = SockNetChannelGlobals.GlobalBufferPool;
+            }
+
+            return new ChunkedBuffer(bufferPool).OfferRaw(data, offset, count);
+        }
+
+        /// <summary>
+        /// Wraps the given string.
+        /// </summary>
+        /// <param name="data"></param>
+        /// <param name="encoding"></param>
+        /// <param name="bufferPool"></param>
+        /// <returns></returns>
+        public static ChunkedBuffer Wrap(string data, Encoding encoding, ObjectPool<byte[]> bufferPool = null)
+        {
+            if (bufferPool == null)
+            {
+                bufferPool = SockNetChannelGlobals.GlobalBufferPool;
+            }
+
+            byte[] rawData = encoding.GetBytes(data);
+
+            return new ChunkedBuffer(bufferPool).OfferRaw(rawData, 0, rawData.Length);
         }
     }
 }

@@ -153,8 +153,8 @@ namespace ArenaNet.SockNet.Protocols.Gds
                     }
 
                     body = new ChunkedBuffer(channel.BufferPool);
-                    chunkedFrame.Body.DrainToStreamSync(body.Stream);
-                    frame.Body.DrainToStreamSync(body.Stream);
+                    chunkedFrame.Body.DrainToStreamSync(body.Stream).Close();
+                    frame.Body.DrainToStreamSync(body.Stream).Close();
                 }
 
                 Dictionary<string, byte[]> headers = null;
