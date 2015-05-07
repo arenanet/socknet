@@ -281,7 +281,7 @@ namespace ArenaNet.SockNet.Common.IO
         /// </summary>
         /// <param name="stream"></param>
         /// <param name="maxBytes"></param>
-        public ChunkedBuffer ReadFromStream(Stream stream, int maxBytes)
+        public ChunkedBuffer ReadFromStream(Stream stream)
         {
             lock (this)
             {
@@ -513,17 +513,16 @@ namespace ArenaNet.SockNet.Common.IO
         /// Reads the given stream into a new buffer.
         /// </summary>
         /// <param name="stream"></param>
-        /// <param name="maxBytes"></param>
         /// <param name="bufferPool"></param>
         /// <returns></returns>
-        public static ChunkedBuffer ReadFully(Stream stream, int maxBytes, ObjectPool<byte[]> bufferPool = null)
+        public static ChunkedBuffer ReadFully(Stream stream, ObjectPool<byte[]> bufferPool = null)
         {
             if (bufferPool == null)
             {
                 bufferPool = SockNetChannelGlobals.GlobalBufferPool;
             }
 
-            return new ChunkedBuffer(bufferPool).ReadFromStream(stream, maxBytes);
+            return new ChunkedBuffer(bufferPool).ReadFromStream(stream);
         }
 
         /// <summary>

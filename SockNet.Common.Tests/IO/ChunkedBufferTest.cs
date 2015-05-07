@@ -26,6 +26,30 @@ namespace ArenaNet.SockNet.Common.IO
         private static readonly byte[] TestData = Encoding.UTF8.GetBytes(TestDataString);
 
         [TestMethod]
+        public void TestReadFromStream()
+        {
+            string testValue = "a wonderful string, this is.";
+
+            MemoryStream stream = new MemoryStream();
+            stream.Write(Encoding.UTF8.GetBytes(testValue), 0, Encoding.UTF8.GetByteCount(testValue));
+            stream.Position = 0;
+
+            MemoryStream newStream = new MemoryStream();
+
+            new ChunkedBuffer(SockNetChannelGlobals.GlobalBufferPool)
+                .ReadFromStream(stream)
+                .DrainToStreamSync(newStream)
+                .Close();
+
+            newStream.Position = 0;
+
+            Assert.AreEqual(testValue, new StreamReader(newStream).ReadToEnd());
+
+            stream.Close();
+            newStream.Close();
+        }
+
+        [TestMethod]
         public void TestDrainToStreamSync()
         {
             using (ChunkedBuffer buffer = new ChunkedBuffer(new ObjectPool<byte[]>(() => { return new byte[10]; })))
