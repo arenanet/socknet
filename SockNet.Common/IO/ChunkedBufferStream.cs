@@ -118,7 +118,7 @@ namespace ArenaNet.SockNet.Common.IO
         /// <returns></returns>
         public override long Seek(long offset, SeekOrigin origin)
         {
-            lock (this)
+            lock (chunkedBuffer)
             {
                 switch (origin)
                 {

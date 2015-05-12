@@ -14,6 +14,7 @@
 using System;
 using System.Text;
 using System.Net;
+using System.Threading;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
 using System.Collections.Concurrent;
@@ -299,6 +300,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         {
             Random random = new Random(this.GetHashCode() ^ DateTime.Now.Millisecond);
 
+            ClientSockNetChannel client = null;
             WebSocketEchoServer server = new WebSocketEchoServer();
 
             try
@@ -307,7 +309,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
                 BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
 
-                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint)
+                client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint)
                     .AddModule(new WebSocketClientSockNetChannelModule("/", "localhost", (ISockNetChannel sockNetClient) => { blockingCollection.Add(true); }));
 
                 client.Connect().WaitForValue(TimeSpan.FromSeconds(5));
@@ -319,30 +321,76 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
                 client.Pipe.AddIncomingLast<WebSocketFrame>((ISockNetChannel sockNetClient, ref WebSocketFrame data) => { blockingCollection.Add(data); });
 
-                byte[][] expectedResults = new byte[20][];
+                int numberOfMessages = 20;
 
-                for (int i = 0; i < 20; i++)
+                byte[][] expectedResults = new byte[numberOfMessages][];
+
+                for (int i = 0; i < numberOfMessages; i++)
                 {
-                    byte[] messageData = new byte[random.Next(75000, 125000)];
-                    expectedResults[i] = messageData;
-                    random.NextBytes(messageData);
+                    ThreadPool.QueueUserWorkItem((object state) =>
+                    {
+                        int index = (int)state;
 
-                    client.Send(WebSocketFrame.CreateBinaryFrame(messageData));
+                        byte[] messageData = new byte[random.Next(75000, 125000)];
+                        random.NextBytes(messageData);
+                        messageData[0] = (byte)(index >> 0);
+                        messageData[1] = (byte)(index >> 8);
+                        messageData[2] = (byte)(index >> 16);
+                        messageData[3] = (byte)(index >> 24);
+
+                        expectedResults[index] = messageData;
+
+                        client.Send(WebSocketFrame.CreateBinaryFrame(messageData));
+
+                        // simulate GC
+                        if (index % Math.Max(numberOfMessages / 10, 1) == 0)
+                        {
+                            GC.Collect();
+                            GC.WaitForPendingFinalizers();
+                        }
+                    }, i);
                 }
 
-                for (int i = 0; i < 20; i++)
+                for (int i = 0; i < numberOfMessages; i++)
                 {
                     Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
                     Assert.IsTrue(currentObject is WebSocketFrame);
 
-                    AreArraysEqual(expectedResults[i], ((WebSocketFrame)currentObject).Data);
+                    // simulate GC
+                    if (i % Math.Max(numberOfMessages / 10, 1) == 0)
+                    {
+                        GC.Collect();
+                        GC.WaitForPendingFinalizers();
+                    }
+
+                    byte[] incomingData = ((WebSocketFrame)currentObject).Data;
+                    int index = 0;
+
+                    index |= incomingData[0] << 0;
+                    index |= incomingData[1] << 8;
+                    index |= incomingData[2] << 16;
+                    index |= incomingData[3] << 24;
+
+                    Console.WriteLine(index);
+
+                    AreArraysEqual(expectedResults[index], incomingData);
                 }
 
                 client.Disconnect().WaitForValue(TimeSpan.FromSeconds(5));
             }
             finally
             {
-                server.Stop();
+                try
+                {
+                    if (client != null)
+                    {
+                        client.Close();
+                    }
+                }
+                finally
+                {
+                    server.Stop();
+                }
             }
         }
 
@@ -371,15 +419,34 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
                 client.Pipe.AddIncomingLast<WebSocketFrame>((ISockNetChannel sockNetClient, ref WebSocketFrame data) => { blockingCollection.Add(data); });
 
-                byte[][] expectedResults = new byte[100][];
+                int numberOfMessages = 100;
+
+                byte[][] expectedResults = new byte[numberOfMessages][];
 
                 for (int i = 0; i < 100; i++)
                 {
-                    byte[] messageData = new byte[random.Next(50, 150)];
-                    expectedResults[i] = messageData;
-                    random.NextBytes(messageData);
+                    ThreadPool.QueueUserWorkItem((object state) =>
+                    {
+                        int index = (int)state;
 
-                    client.Send(WebSocketFrame.CreateBinaryFrame(messageData));
+                        byte[] messageData = new byte[random.Next(50, 100)];
+                        random.NextBytes(messageData);
+                        messageData[0] = (byte)(index >> 0);
+                        messageData[1] = (byte)(index >> 8);
+                        messageData[2] = (byte)(index >> 16);
+                        messageData[3] = (byte)(index >> 24);
+
+                        expectedResults[index] = messageData;
+
+                        client.Send(WebSocketFrame.CreateBinaryFrame(messageData));
+
+                        // simulate GC
+                        if (index % Math.Max(numberOfMessages / 10, 1) == 0)
+                        {
+                            GC.Collect();
+                            GC.WaitForPendingFinalizers();
+                        }
+                    }, i);
                 }
 
                 for (int i = 0; i < 100; i++)
@@ -387,7 +454,24 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
                     Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
                     Assert.IsTrue(currentObject is WebSocketFrame);
 
-                    AreArraysEqual(expectedResults[i], ((WebSocketFrame)currentObject).Data);
+                    // simulate GC
+                    if (i % Math.Max(numberOfMessages / 10, 1) == 0)
+                    {
+                        GC.Collect();
+                        GC.WaitForPendingFinalizers();
+                    }
+
+                    byte[] incomingData = ((WebSocketFrame)currentObject).Data;
+                    int index = 0;
+
+                    index |= incomingData[0] << 0;
+                    index |= incomingData[1] << 8;
+                    index |= incomingData[2] << 16;
+                    index |= incomingData[3] << 24;
+
+                    Console.WriteLine(index);
+
+                    AreArraysEqual(expectedResults[index], incomingData);
                 }
 
                 client.Disconnect().WaitForValue(TimeSpan.FromSeconds(5));

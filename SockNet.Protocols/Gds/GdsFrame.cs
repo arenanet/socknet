@@ -155,7 +155,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
     /// ===========================================================================
     /// 
     /// </summary>
-    public class GdsFrame : IDisposable
+    public sealed class GdsFrame : IDisposable
     {
         // Encoding
         private static readonly UTF8Encoding HeaderEncoding = new UTF8Encoding(false);
@@ -320,17 +320,15 @@ namespace ArenaNet.SockNet.Protocols.Gds
         /// </summary>
         public void Dispose()
         {
-            if (!disposed)
+            if (disposed)
+                return;
+
+            if (Body != null)
             {
-                disposed = true;
-
-                if (Body != null && !Body.IsClosed)
-                {
-                    Body.Close();
-                }
-
-                Body = null;
+                Body.Dispose();
             }
+
+            disposed = true;
         }
 
         /// <summary>

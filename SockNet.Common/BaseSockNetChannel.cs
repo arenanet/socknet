@@ -32,7 +32,7 @@ namespace ArenaNet.SockNet.Common
     /// A simplification layer on top of System.Net.Sockets.
     /// </summary>
     /// <typeparam name="S">The type representing the state.</typeparam>
-    public abstract class BaseSockNetChannel<S> : ISockNetChannel where S : struct, IComparable, IFormattable, IConvertible
+    public abstract class BaseSockNetChannel<S> : ISockNetChannel, IDisposable where S : struct, IComparable, IFormattable, IConvertible
     {
         // the pool for byte chunks
         private readonly ObjectPool<byte[]> bufferPool;
@@ -80,6 +80,11 @@ namespace ArenaNet.SockNet.Common
         /// Whether the send queue is currently being processed.
         /// </summary>
         private bool isProcessingSendQueue = false;
+
+        /// <summary>
+        /// Whether this object is disposed;
+        /// </summary>
+        private bool disposed = false;
 
         /// <summary>
         /// Returns true if this client is connected and the connection is encrypted.
@@ -163,6 +168,14 @@ namespace ArenaNet.SockNet.Common
             this.chunkedBuffer = new ChunkedBuffer(bufferPool);
 
             this.stateValues = Enum.GetValues(typeof(S));
+        }
+
+        /// <summary>
+        /// Disposes this channel.
+        /// </summary>
+        ~BaseSockNetChannel()
+        {
+            Dispose(false);
         }
 
         /// <summary>
@@ -593,17 +606,30 @@ namespace ArenaNet.SockNet.Common
         }
 
         /// <summary>
-        /// Reads a stream to the end.
+        /// Disposes this object.
         /// </summary>
-        /// <param name="stream"></param>
-        /// <returns></returns>
-        private byte[] ReadToEnd(ChunkedBuffer chunkedBuffer)
+        public void Dispose()
         {
-            byte[] response = new byte[chunkedBuffer.WritePosition - chunkedBuffer.ReadPosition];
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
 
-            chunkedBuffer.Read(response, 0, response.Length);
+        /// <summary>
+        /// Protected implementation of Dispose pattern.
+        /// </summary>
+        /// <param name="disposing"></param>
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposed)
+                return;
 
-            return response;
+            if (disposing)
+            {
+                stream.Dispose();
+                chunkedBuffer.Dispose();
+            }
+
+            disposed = true;
         }
 
         /// <summary>

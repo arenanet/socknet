@@ -23,7 +23,7 @@ namespace ArenaNet.SockNet.Common.IO
     /// <summary>
     /// A chunked buffer.
     /// </summary>
-    public class ChunkedBuffer : IDisposable
+    public sealed class ChunkedBuffer : IDisposable
     {
         private ObjectPool<byte[]> pool = null;
 
@@ -518,7 +518,30 @@ namespace ArenaNet.SockNet.Common.IO
         /// </summary>
         public void Dispose()
         {
-            Close();
+            lock (this)
+            {
+                MemoryChunkNode currentChunk = rootChunk;
+
+                while (currentChunk != null)
+                {
+                    if (currentChunk.pooledObject != null && currentChunk.pooledObject.RefCount.Decrement() < 1)
+                    {
+                        if (currentChunk.pooledObject.State == PooledObject<byte[]>.PooledObjectState.USED)
+                        {
+                            currentChunk.pooledObject.Dispose();
+                        }
+                        else
+                        {
+                            SockNetLogger.Log(SockNetLogger.LogLevel.WARN, this, "Potential resource leak found.");
+                        }
+                    }
+
+                    currentChunk = currentChunk.next;
+                }
+
+                rootChunk = null;
+                IsClosed = true;
+            }
         }
 
         /// <summary>

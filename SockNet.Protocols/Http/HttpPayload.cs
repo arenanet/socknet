@@ -204,7 +204,7 @@ namespace ArenaNet.SockNet.Protocols.Http
         /// </summary>
         ~HttpPayload()
         {
-            Dispose();
+            Dispose(false);
         }
 
         enum ParseState
@@ -470,17 +470,25 @@ namespace ArenaNet.SockNet.Protocols.Http
         /// </summary>
         public void Dispose()
         {
-            if (!disposed)
+            Dispose(true);
+            GC.SuppressFinalize(this); 
+        }
+
+        /// <summary>
+        /// Protected implementation of Dispose pattern. 
+        /// </summary>
+        /// <param name="disposing"></param>
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposed)
+                return;
+
+            if (Body != null)
             {
-                disposed = true;
-
-                if (Body != null && !Body.IsClosed)
-                {
-                    Body.Close();
-                }
-
-                Body = null;
+                Body.Dispose();
             }
+
+            disposed = true;
         }
 
         /// <summary>
