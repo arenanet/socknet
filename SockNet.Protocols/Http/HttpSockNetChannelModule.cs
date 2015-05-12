@@ -186,6 +186,8 @@ namespace ArenaNet.SockNet.Protocols.Http
 
             data.Write(buffer.Stream);
 
+            data.Dispose();
+
             obj = buffer;
         }
 
@@ -211,6 +213,8 @@ namespace ArenaNet.SockNet.Protocols.Http
             ChunkedBuffer buffer = new ChunkedBuffer(channel.BufferPool);
 
             data.Write(buffer.Stream);
+
+            data.Dispose();
 
             obj = buffer;
         }

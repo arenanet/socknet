@@ -177,6 +177,9 @@ namespace ArenaNet.SockNet.Protocols.Gds
                     }
                 }
 
+                chunkedFrame.Dispose();
+                frame.Dispose();
+
                 chunkedFrame = GdsFrame.NewContentFrame(frame.StreamId, headers, false, body, frame.IsComplete);
             }
         }
@@ -193,9 +196,12 @@ namespace ArenaNet.SockNet.Protocols.Gds
                 return;
             }
 
-            GdsFrame webSocketFrame = (GdsFrame)obj;
+            GdsFrame gdsFrame = (GdsFrame)obj;
             ChunkedBuffer buffer = new ChunkedBuffer(channel.BufferPool);
-            webSocketFrame.Write(buffer.Stream);
+            gdsFrame.Write(buffer.Stream);
+
+            gdsFrame.Dispose();
+
             obj = buffer;
         }
     }

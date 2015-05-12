@@ -155,7 +155,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
     /// ===========================================================================
     /// 
     /// </summary>
-    public class GdsFrame
+    public class GdsFrame : IDisposable
     {
         // Encoding
         private static readonly UTF8Encoding HeaderEncoding = new UTF8Encoding(false);
@@ -217,6 +217,8 @@ namespace ArenaNet.SockNet.Protocols.Gds
 
         private ObjectPool<byte[]> bufferPool;
 
+        private bool disposed = false;
+
         /// <summary>
         /// Creates a Gds frame.
         /// </summary>
@@ -228,11 +230,24 @@ namespace ArenaNet.SockNet.Protocols.Gds
         }
 
         /// <summary>
+        /// Invoke dispose on deconstruct.
+        /// </summary>
+        ~GdsFrame()
+        {
+            Dispose();
+        }
+
+        /// <summary>
         /// Writes this frame into the stream.
         /// </summary>
         /// <param name="stream"></param>
         public void Write(Stream stream)
         {
+            if (disposed)
+            {
+                throw new ObjectDisposedException(this.GetType().Name);
+            }
+
             BinaryWriter writer = new BinaryWriter(stream);
 
             uint frameDefinition = 0;
@@ -280,6 +295,11 @@ namespace ArenaNet.SockNet.Protocols.Gds
         /// <param name="stream"></param>
         private void WriteHeadersToStream(Stream stream)
         {
+            if (disposed)
+            {
+                throw new ObjectDisposedException(this.GetType().Name);
+            }
+
             BinaryWriter headerWriter = new BinaryWriter(stream);
 
             foreach (KeyValuePair<string, byte[]> kvp in Headers)
@@ -293,6 +313,22 @@ namespace ArenaNet.SockNet.Protocols.Gds
             }
 
             headerWriter.Flush();
+        }
+
+        /// <summary>
+        /// Disposes this object.
+        /// </summary>
+        public void Dispose()
+        {
+            if (!disposed)
+            {
+                disposed = true;
+
+                if (Body != null && !Body.IsClosed)
+                {
+                    Body.Close();
+                }
+            }
         }
 
         /// <summary>

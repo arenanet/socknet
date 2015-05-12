@@ -23,7 +23,7 @@ namespace ArenaNet.SockNet.Protocols.Http
     /// <summary>
     /// Represents a HTTP payload.
     /// </summary>
-    public abstract class HttpPayload
+    public abstract class HttpPayload : IDisposable
     {
         public const string LineEnding = "\r\n";
 
@@ -185,6 +185,8 @@ namespace ArenaNet.SockNet.Protocols.Http
         /// </summary>
         public int BodySize { get { return (int)Body.AvailableBytesToRead; } }
 
+        private bool disposed = false;
+
         /// <summary>
         /// Creates a HTTP payload.
         /// </summary>
@@ -195,6 +197,14 @@ namespace ArenaNet.SockNet.Protocols.Http
 
             IsChunked = false;
             Body = new ChunkedBuffer(bufferPool);
+        }
+        
+        /// <summary>
+        /// Invoke dispose on deconstruct.
+        /// </summary>
+        ~HttpPayload()
+        {
+            Dispose();
         }
 
         enum ParseState
@@ -452,6 +462,22 @@ namespace ArenaNet.SockNet.Protocols.Http
                 header = new KeyValuePair<string,List<string>>();
 
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Disposes this object.
+        /// </summary>
+        public void Dispose()
+        {
+            if (!disposed)
+            {
+                disposed = true;
+
+                if (Body != null && !Body.IsClosed)
+                {
+                    Body.Close();
+                }
             }
         }
 

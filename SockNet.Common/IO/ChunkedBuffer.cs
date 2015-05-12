@@ -100,6 +100,11 @@ namespace ArenaNet.SockNet.Common.IO
         {
             lock (this)
             {
+                if (IsClosed)
+                {
+                    return;
+                }
+
                 ReadPosition = WritePosition;
 
                 try
@@ -133,7 +138,14 @@ namespace ArenaNet.SockNet.Common.IO
 
                     if (currentChunk.pooledObject != null && currentChunk.pooledObject.RefCount.Decrement() < 1)
                     {
-                        currentChunk.pooledObject.Return();
+                        if (currentChunk.pooledObject.State == PooledObject<byte[]>.PooledObjectState.USED)
+                        {
+                            currentChunk.pooledObject.Return();
+                        }
+                        else
+                        {
+                            SockNetLogger.Log(SockNetLogger.LogLevel.WARN, this, "Potential resource leak found.");
+                        }
                     }
                     rootChunk = currentChunk.next;
                     ReadPosition -= currentChunk.count;

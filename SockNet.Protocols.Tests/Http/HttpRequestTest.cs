@@ -220,6 +220,8 @@ namespace ArenaNet.SockNet.Protocols.Http
             {
                 Assert.AreEqual("POST / HTTP/1.0\r\nHost: localhost\r\nTransfer-Encoding: chunked\r\n\r\n" + sampleContent, reader.ReadToEnd());
             }
+
+            request.Dispose();
         }
     }
 }
