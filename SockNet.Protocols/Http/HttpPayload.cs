@@ -478,6 +478,8 @@ namespace ArenaNet.SockNet.Protocols.Http
                 {
                     Body.Close();
                 }
+
+                Body = null;
             }
         }
 

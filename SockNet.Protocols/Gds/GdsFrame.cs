@@ -328,6 +328,8 @@ namespace ArenaNet.SockNet.Protocols.Gds
                 {
                     Body.Close();
                 }
+
+                Body = null;
             }
         }
 
