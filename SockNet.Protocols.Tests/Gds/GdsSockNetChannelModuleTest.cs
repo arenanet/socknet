@@ -347,6 +347,11 @@ namespace ArenaNet.SockNet.Protocols.Gds
             Assert.AreEqual(3, ((GdsFrame)receiveResponse).Headers["test3"][0]);
             Assert.AreEqual(3, ((GdsFrame)receiveResponse).Headers["test"][0]);
 
+            body.Dispose();
+            chunk1.Dispose();
+            chunk2.Dispose();
+            chunk3.Dispose();
+
             Console.WriteLine("Pool stats: " + SockNetChannelGlobals.GlobalBufferPool.ObjectsInPool + "/" + SockNetChannelGlobals.GlobalBufferPool.TotalNumberOfObjects);
         }
 

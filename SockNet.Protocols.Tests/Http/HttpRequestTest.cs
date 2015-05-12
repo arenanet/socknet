@@ -33,27 +33,31 @@ namespace ArenaNet.SockNet.Protocols.Http
         {
             string sampleRequest = "GET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
 
-            ChunkedBuffer buffer = new ChunkedBuffer(pool);
-            buffer.Write(Encoding.ASCII.GetBytes(sampleRequest), 0, Encoding.ASCII.GetByteCount(sampleRequest));
-
-            HttpRequest request = new HttpRequest(pool);
-            Assert.IsTrue(request.Parse(buffer.Stream, true));
-
-            Assert.AreEqual("GET", request.Action);
-            Assert.AreEqual("/", request.Path);
-            Assert.AreEqual("HTTP/1.0", request.Version);
-            Assert.AreEqual("GET / HTTP/1.0", request.CommandLine);
-            Assert.AreEqual("localhost", request.Header["Host"]);
-            Assert.AreEqual(0, request.BodySize);
-            Assert.AreEqual(0, request.Body.WritePosition);
-
-            MemoryStream stream = new MemoryStream();
-            request.Write(stream, false);
-            stream.Position = 0;
-            
-            using (StreamReader reader = new StreamReader(stream))
+            using (ChunkedBuffer buffer = new ChunkedBuffer(pool))
             {
-                Assert.AreEqual(sampleRequest, reader.ReadToEnd());
+                buffer.Write(Encoding.ASCII.GetBytes(sampleRequest), 0, Encoding.ASCII.GetByteCount(sampleRequest));
+
+                using (HttpRequest request = new HttpRequest(pool))
+                {
+                    Assert.IsTrue(request.Parse(buffer.Stream, true));
+
+                    Assert.AreEqual("GET", request.Action);
+                    Assert.AreEqual("/", request.Path);
+                    Assert.AreEqual("HTTP/1.0", request.Version);
+                    Assert.AreEqual("GET / HTTP/1.0", request.CommandLine);
+                    Assert.AreEqual("localhost", request.Header["Host"]);
+                    Assert.AreEqual(0, request.BodySize);
+                    Assert.AreEqual(0, request.Body.WritePosition);
+
+                    MemoryStream stream = new MemoryStream();
+                    request.Write(stream, false);
+                    stream.Position = 0;
+
+                    using (StreamReader reader = new StreamReader(stream))
+                    {
+                        Assert.AreEqual(sampleRequest, reader.ReadToEnd());
+                    }
+                }
             }
         }
 
@@ -100,33 +104,37 @@ namespace ArenaNet.SockNet.Protocols.Http
             string sampleRequest2 = sampleRequest.Substring(partialSize, partialSize);
             string sampleRequest3 = sampleRequest.Substring(partialSize * 2, sampleRequest.Length - (partialSize * 2));
 
-            ChunkedBuffer buffer = new ChunkedBuffer(pool);
-            buffer.Write(Encoding.ASCII.GetBytes(sampleRequest1), 0, Encoding.ASCII.GetByteCount(sampleRequest1));
-
-            HttpRequest request = new HttpRequest(pool);
-            Assert.IsFalse(request.Parse(buffer.Stream, false));
-
-            buffer.Write(Encoding.ASCII.GetBytes(sampleRequest2), 0, Encoding.ASCII.GetByteCount(sampleRequest2));
-            Assert.IsFalse(request.Parse(buffer.Stream, false));
-
-            buffer.Write(Encoding.ASCII.GetBytes(sampleRequest3), 0, Encoding.ASCII.GetByteCount(sampleRequest3));
-            Assert.IsTrue(request.Parse(buffer.Stream, false));
-
-            Assert.AreEqual("POST", request.Action);
-            Assert.AreEqual("/", request.Path);
-            Assert.AreEqual("HTTP/1.0", request.Version);
-            Assert.AreEqual("POST / HTTP/1.0", request.CommandLine);
-            Assert.AreEqual("localhost", request.Header["Host"]);
-            Assert.AreEqual(sampleContentLength, request.BodySize);
-            Assert.AreEqual(sampleContentLength, request.Body.WritePosition);
-
-            MemoryStream stream = new MemoryStream();
-            request.Write(stream, false);
-            stream.Position = 0;
-
-            using (StreamReader reader = new StreamReader(stream))
+            using (ChunkedBuffer buffer = new ChunkedBuffer(pool))
             {
-                Assert.AreEqual(sampleRequest, reader.ReadToEnd());
+                buffer.Write(Encoding.ASCII.GetBytes(sampleRequest1), 0, Encoding.ASCII.GetByteCount(sampleRequest1));
+
+                using (HttpRequest request = new HttpRequest(pool))
+                {
+                    Assert.IsFalse(request.Parse(buffer.Stream, false));
+
+                    buffer.Write(Encoding.ASCII.GetBytes(sampleRequest2), 0, Encoding.ASCII.GetByteCount(sampleRequest2));
+                    Assert.IsFalse(request.Parse(buffer.Stream, false));
+
+                    buffer.Write(Encoding.ASCII.GetBytes(sampleRequest3), 0, Encoding.ASCII.GetByteCount(sampleRequest3));
+                    Assert.IsTrue(request.Parse(buffer.Stream, false));
+
+                    Assert.AreEqual("POST", request.Action);
+                    Assert.AreEqual("/", request.Path);
+                    Assert.AreEqual("HTTP/1.0", request.Version);
+                    Assert.AreEqual("POST / HTTP/1.0", request.CommandLine);
+                    Assert.AreEqual("localhost", request.Header["Host"]);
+                    Assert.AreEqual(sampleContentLength, request.BodySize);
+                    Assert.AreEqual(sampleContentLength, request.Body.WritePosition);
+
+                    MemoryStream stream = new MemoryStream();
+                    request.Write(stream, false);
+                    stream.Position = 0;
+
+                    using (StreamReader reader = new StreamReader(stream))
+                    {
+                        Assert.AreEqual(sampleRequest, reader.ReadToEnd());
+                    }
+                }
             }
         }
 
@@ -137,27 +145,31 @@ namespace ArenaNet.SockNet.Protocols.Http
             int sampleContentLength = Encoding.UTF8.GetByteCount(sampleContent);
             string sampleRequest = "POST / HTTP/1.0\r\nHost: localhost\r\nContent-Length: " + sampleContentLength + "\r\n\r\n" + sampleContent;
 
-            ChunkedBuffer buffer = new ChunkedBuffer(pool);
-            buffer.Write(Encoding.ASCII.GetBytes(sampleRequest), 0, Encoding.ASCII.GetByteCount(sampleRequest));
-
-            HttpRequest request = new HttpRequest(pool);
-            Assert.IsTrue(request.Parse(buffer.Stream, true));
-
-            Assert.AreEqual("POST", request.Action);
-            Assert.AreEqual("/", request.Path);
-            Assert.AreEqual("HTTP/1.0", request.Version);
-            Assert.AreEqual("POST / HTTP/1.0", request.CommandLine);
-            Assert.AreEqual("localhost", request.Header["Host"]);
-            Assert.AreEqual(sampleContentLength, request.BodySize);
-            Assert.AreEqual(sampleContentLength, request.Body.WritePosition);
-
-            MemoryStream stream = new MemoryStream();
-            request.Write(stream, false);
-            stream.Position = 0;
-
-            using (StreamReader reader = new StreamReader(stream))
+            using (ChunkedBuffer buffer = new ChunkedBuffer(pool))
             {
-                Assert.AreEqual(sampleRequest, reader.ReadToEnd());
+                buffer.Write(Encoding.ASCII.GetBytes(sampleRequest), 0, Encoding.ASCII.GetByteCount(sampleRequest));
+
+                using (HttpRequest request = new HttpRequest(pool))
+                {
+                    Assert.IsTrue(request.Parse(buffer.Stream, true));
+
+                    Assert.AreEqual("POST", request.Action);
+                    Assert.AreEqual("/", request.Path);
+                    Assert.AreEqual("HTTP/1.0", request.Version);
+                    Assert.AreEqual("POST / HTTP/1.0", request.CommandLine);
+                    Assert.AreEqual("localhost", request.Header["Host"]);
+                    Assert.AreEqual(sampleContentLength, request.BodySize);
+                    Assert.AreEqual(sampleContentLength, request.Body.WritePosition);
+
+                    MemoryStream stream = new MemoryStream();
+                    request.Write(stream, false);
+                    stream.Position = 0;
+
+                    using (StreamReader reader = new StreamReader(stream))
+                    {
+                        Assert.AreEqual(sampleRequest, reader.ReadToEnd());
+                    }
+                }
             }
         }
 
@@ -221,6 +233,10 @@ namespace ArenaNet.SockNet.Protocols.Http
                 Assert.AreEqual("POST / HTTP/1.0\r\nHost: localhost\r\nTransfer-Encoding: chunked\r\n\r\n" + sampleContent, reader.ReadToEnd());
             }
 
+            buffer1.Dispose();
+            buffer2.Dispose();
+            buffer3.Dispose();
+            buffer4.Dispose();
             request.Dispose();
         }
     }

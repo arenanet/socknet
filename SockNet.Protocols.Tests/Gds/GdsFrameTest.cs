@@ -344,6 +344,9 @@ namespace ArenaNet.SockNet.Protocols.Gds
             readFrame.Body.Read(readBodyBuffer, 0, readBodyBuffer.Length);
 
             AssertEquals(bodyBuffer, readBodyBuffer);
+
+            frame.Dispose();
+            readFrame.Dispose();
         }
 
         [TestMethod]
@@ -393,6 +396,9 @@ namespace ArenaNet.SockNet.Protocols.Gds
             readFrame.Body.Read(readBodyBuffer, 0, readBodyBuffer.Length);
 
             AssertEquals(bodyBuffer, readBodyBuffer);
+
+            frame.Dispose();
+            readFrame.Dispose();
         }
 
         private static void AssertEquals(byte[] l, byte[] r)

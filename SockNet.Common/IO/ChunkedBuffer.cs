@@ -23,7 +23,7 @@ namespace ArenaNet.SockNet.Common.IO
     /// <summary>
     /// A chunked buffer.
     /// </summary>
-    public sealed class ChunkedBuffer : IDisposable
+    public class ChunkedBuffer : IDisposable
     {
         private ObjectPool<byte[]> pool = null;
 
@@ -91,6 +91,14 @@ namespace ArenaNet.SockNet.Common.IO
             this.IsClosed = false;
             this.WritePosition = 0;
             this.ReadPosition = 0;
+        }
+
+        /// <summary>
+        /// Finalizer.
+        /// </summary>
+        ~ChunkedBuffer()
+        {
+            Dispose(false);
         }
 
         /// <summary>
@@ -518,30 +526,25 @@ namespace ArenaNet.SockNet.Common.IO
         /// </summary>
         public void Dispose()
         {
-            lock (this)
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        /// <summary>
+        /// Protected implementation of Dispose pattern.
+        /// </summary>
+        /// <param name="disposing"></param>
+        protected virtual void Dispose(bool disposing)
+        {
+            if (IsClosed)
+                return;
+
+            if (disposing)
             {
-                MemoryChunkNode currentChunk = rootChunk;
-
-                while (currentChunk != null)
-                {
-                    if (currentChunk.pooledObject != null && currentChunk.pooledObject.RefCount.Decrement() < 1)
-                    {
-                        if (currentChunk.pooledObject.State == PooledObject<byte[]>.PooledObjectState.USED)
-                        {
-                            currentChunk.pooledObject.Dispose();
-                        }
-                        else
-                        {
-                            SockNetLogger.Log(SockNetLogger.LogLevel.WARN, this, "[Dispose] Potential resource leak found.");
-                        }
-                    }
-
-                    currentChunk = currentChunk.next;
-                }
-
-                rootChunk = null;
-                IsClosed = true;
+                Close();
             }
+
+            IsClosed = true;
         }
 
         /// <summary>
