@@ -144,7 +144,7 @@ namespace ArenaNet.SockNet.Common.IO
                         }
                         else
                         {
-                            SockNetLogger.Log(SockNetLogger.LogLevel.WARN, this, "Potential resource leak found.");
+                            SockNetLogger.Log(SockNetLogger.LogLevel.WARN, this, "[Flush] Potential resource leak found.");
                         }
                     }
                     rootChunk = currentChunk.next;
@@ -532,7 +532,7 @@ namespace ArenaNet.SockNet.Common.IO
                         }
                         else
                         {
-                            SockNetLogger.Log(SockNetLogger.LogLevel.WARN, this, "Potential resource leak found.");
+                            SockNetLogger.Log(SockNetLogger.LogLevel.WARN, this, "[Dispose] Potential resource leak found.");
                         }
                     }
 
