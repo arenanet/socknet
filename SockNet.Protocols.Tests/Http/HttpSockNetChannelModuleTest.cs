@@ -20,6 +20,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Collections.Concurrent;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using ArenaNet.SockNet.Common;
+using ArenaNet.SockNet.Common.IO;
 using ArenaNet.SockNet.Client;
 using ArenaNet.SockNet.Server;
 using ArenaNet.Medley.Concurrent;
@@ -29,6 +30,86 @@ namespace ArenaNet.SockNet.Protocols.Http
     [TestClass]
     public class HttpSockNetChannelModuleTest
     {
+        public class HttpChunkedServer
+        {
+            private ServerSockNetChannel server;
+
+            public IPEndPoint Endpoint { get { return new IPEndPoint(GetLocalIpAddress(), server == null ? -1 : server.LocalEndpoint.Port); } }
+
+            public void Start(bool isTls = false)
+            {
+                string sampleContent = "<test><val>hello</val></test>";
+
+                int sampleContentLength = Encoding.UTF8.GetByteCount(sampleContent);
+
+                string chunk1Content = "<test><val>";
+                string chunk2Content = "hello</val>";
+                string chunk3Content = "</test>";
+
+                int chunk1ContentLength = Encoding.UTF8.GetByteCount(chunk1Content);
+                int chunk2ContentLength = Encoding.UTF8.GetByteCount(chunk2Content);
+                int chunk3ContentLength = Encoding.UTF8.GetByteCount(chunk3Content);
+
+                string chunk1HttpContent = "HTTP/1.0 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n" + string.Format("{0:X}", chunk1ContentLength) + "\r\n" + chunk1Content + "\r\n";
+                string chunk2HttpContent = string.Format("{0:X}", chunk2ContentLength) + "\r\n" + chunk2Content + "\r\n";
+                string chunk3HttpContent = string.Format("{0:X}", chunk3ContentLength) + "\r\n" + chunk3Content + "\r\n";
+                string chunk4HttpContent = "0\r\n\r\n";
+
+                server = SockNetServer.Create(GetLocalIpAddress(), 0);
+
+                try
+                {
+                    server.AddModule(new HttpSockNetChannelModule(HttpSockNetChannelModule.ParsingMode.Server));
+
+                    server.Pipe.AddIncomingLast<HttpRequest>((ISockNetChannel channel, ref HttpRequest data) =>
+                    {
+                        ChunkedBuffer buffer1 = new ChunkedBuffer(channel.BufferPool);
+                        buffer1.Write(Encoding.ASCII.GetBytes(chunk1HttpContent), 0, Encoding.ASCII.GetByteCount(chunk1HttpContent));
+                        channel.Send(buffer1);
+
+                        ChunkedBuffer buffer2 = new ChunkedBuffer(channel.BufferPool);
+                        buffer2.Write(Encoding.ASCII.GetBytes(chunk2HttpContent), 0, Encoding.ASCII.GetByteCount(chunk2HttpContent));
+                        channel.Send(buffer2);
+
+                        ChunkedBuffer buffer3 = new ChunkedBuffer(channel.BufferPool);
+                        buffer3.Write(Encoding.ASCII.GetBytes(chunk3HttpContent), 0, Encoding.ASCII.GetByteCount(chunk3HttpContent));
+                        channel.Send(buffer3);
+
+                        ChunkedBuffer buffer4 = new ChunkedBuffer(channel.BufferPool);
+                        buffer4.Write(Encoding.ASCII.GetBytes(chunk4HttpContent), 0, Encoding.ASCII.GetByteCount(chunk4HttpContent));
+                        channel.Send(buffer4);
+                    });
+
+                    if (isTls)
+                    {
+                        byte[] rawCert = CertificateUtil.CreateSelfSignCertificatePfx("CN=\"test\"; C=\"USA\"", DateTime.Today.AddDays(-10), DateTime.Today.AddDays(+10));
+
+                        server.BindWithTLS(new X509Certificate2(rawCert),
+                            (object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => { return true; }).WaitForValue(TimeSpan.FromSeconds(5));
+                    }
+                    else
+                    {
+                        server.Bind().WaitForValue(TimeSpan.FromSeconds(5));
+                    }
+
+                    Assert.IsTrue(server.IsActive);
+                }
+                catch (Exception)
+                {
+                    Stop();
+                }
+            }
+
+            public void Stop()
+            {
+                if (server != null)
+                {
+                    server.Close();
+                    server = null;
+                }
+            }
+        }
+
         public class HttpEchoServer
         {
             private ServerSockNetChannel server;
@@ -197,39 +278,50 @@ namespace ArenaNet.SockNet.Protocols.Http
         [TestMethod]
         public void TestChunked()
         {
-            BlockingCollection<HttpResponse> responses = new BlockingCollection<HttpResponse>();
+            HttpChunkedServer server = new HttpChunkedServer();
 
-            ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(new IPEndPoint(Dns.GetHostEntry("www.httpwatch.com").AddressList[0], 80))
-                .AddModule(new HttpSockNetChannelModule(HttpSockNetChannelModule.ParsingMode.Client));
-            client.Pipe.AddIncomingLast<HttpResponse>((ISockNetChannel channel, ref HttpResponse data) => { responses.Add(data); });
-            Assert.IsNotNull(client.Connect().WaitForValue(TimeSpan.FromSeconds(5)));
-
-            HttpRequest request = new HttpRequest(client.BufferPool)
+            try
             {
-                Action = "GET",
-                Path = "/httpgallery/chunked/chunkedimage.aspx",
-                Version = "HTTP/1.1"
-            };
-            request.Header["Host"] = "www.httpwatch.com";
+                server.Start(false);
 
-            client.Send(request);
+                BlockingCollection<HttpResponse> responses = new BlockingCollection<HttpResponse>();
 
-            HttpResponse response = null;
-            responses.TryTake(out response, 10000);
+                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint)
+                    .AddModule(new HttpSockNetChannelModule(HttpSockNetChannelModule.ParsingMode.Client));
+                client.Pipe.AddIncomingLast<HttpResponse>((ISockNetChannel channel, ref HttpResponse data) => { responses.Add(data); });
+                Assert.IsNotNull(client.Connect().WaitForValue(TimeSpan.FromSeconds(5)));
 
-            Assert.IsNotNull(response);
+                HttpRequest request = new HttpRequest(client.BufferPool)
+                {
+                    Action = "GET",
+                    Path = "/httpgallery/chunked/chunkedimage.aspx",
+                    Version = "HTTP/1.1"
+                };
+                request.Header["Host"] = "www.httpwatch.com";
 
-            Assert.IsNotNull(response.Version);
-            Assert.IsNotNull(response.Code);
-            Assert.IsNotNull(response.Reason);
+                client.Send(request);
 
-            MemoryStream stream = new MemoryStream();
-            response.Write(stream, false);
-            stream.Position = 0;
+                HttpResponse response = null;
+                responses.TryTake(out response, 10000);
 
-            using (StreamReader reader = new StreamReader(stream))
+                Assert.IsNotNull(response);
+
+                Assert.IsNotNull(response.Version);
+                Assert.IsNotNull(response.Code);
+                Assert.IsNotNull(response.Reason);
+
+                MemoryStream stream = new MemoryStream();
+                response.Write(stream, false);
+                stream.Position = 0;
+
+                using (StreamReader reader = new StreamReader(stream))
+                {
+                    Console.WriteLine("Got response: " + reader.ReadToEnd());
+                }
+            }
+            finally
             {
-                Console.WriteLine("Got response: " + reader.ReadToEnd());
+                server.Stop();
             }
         }
 

@@ -56,6 +56,7 @@
     </Otherwise>
   </Choose>
   <ItemGroup>
+    <Compile Include="CertificateUtil.cs" />
     <Compile Include="SockNetClientTest.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -66,6 +67,14 @@
     <ProjectReference Include="..\SockNet.Common\SockNet.Common.csproj">
       <Project>{409023e0-1369-4f59-8a30-ebdc6b84fcee}</Project>
       <Name>SockNet.Common</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\SockNet.Protocols\SockNet.Protocols.csproj">
+      <Project>{d51e44ca-a6cf-401f-bd8e-c1cd1cb0fd16}</Project>
+      <Name>SockNet.Protocols</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\SockNet.Server\SockNet.Server.csproj">
+      <Project>{c65df4cd-1b0f-4b5d-97f5-48fd082cb685}</Project>
+      <Name>SockNet.Server</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
