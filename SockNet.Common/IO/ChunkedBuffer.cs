@@ -595,34 +595,9 @@ namespace ArenaNet.SockNet.Common.IO
                 bufferPool = SockNetChannelGlobals.GlobalBufferPool;
             }
 
-            ChunkedBuffer buffer = new ChunkedBuffer(bufferPool);
+            byte[] rawData = encoding.GetBytes(data);
 
-            if (bufferPool != null)
-            {
-                PooledObject<byte[]> pooledObject = bufferPool.Borrow();
-                int charIndex = 0;
-                int count = 0;
-
-                while ((count = encoding.GetBytes(data, charIndex, data.Length - charIndex, pooledObject.Value, 0)) > 0)
-                {
-                    charIndex += encoding.GetCharCount(pooledObject.Value, 0, count);
-                    buffer.OfferChunk(pooledObject, 0, count);
-                    pooledObject = bufferPool.Borrow();
-                }
-
-                if (count < 1)
-                {
-                    pooledObject.Return();
-                }
-            }
-            else
-            {
-                byte[] rawData = encoding.GetBytes(data);
-
-                buffer.OfferRaw(rawData, 0, rawData.Length);
-            }
-
-            return buffer;
+            return new ChunkedBuffer(bufferPool).OfferRaw(rawData, 0, rawData.Length);
         }
     }
 }

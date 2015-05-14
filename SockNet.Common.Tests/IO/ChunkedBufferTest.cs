@@ -26,6 +26,30 @@ namespace ArenaNet.SockNet.Common.IO
         private static readonly byte[] TestData = Encoding.UTF8.GetBytes(TestDataString);
 
         [TestMethod]
+        public void TestWrapString()
+        {
+            Random rand = new Random(this.GetHashCode() ^ DateTime.Now.Millisecond);
+
+            byte[] randomUtf8StringBytes = new byte[rand.Next(2000, 5000)];
+            for (int i = 0; i < randomUtf8StringBytes.Length; i++)
+            {
+                randomUtf8StringBytes[i] = (byte)rand.Next(0x0020, 0x007F);
+            }
+
+            string randomUtf8String = Encoding.UTF8.GetString(randomUtf8StringBytes);
+
+            Console.WriteLine("Generated random string: " + randomUtf8String);
+
+            using (ChunkedBuffer buffer = ChunkedBuffer.Wrap(randomUtf8String, Encoding.UTF8, SockNetChannelGlobals.GlobalBufferPool))
+            {
+                using (StreamReader reader = new StreamReader(buffer.Stream, Encoding.UTF8))
+                {
+                    Assert.AreEqual(randomUtf8String, reader.ReadToEnd());
+                }
+            }
+        }
+
+        [TestMethod]
         public void TestReadFromStream()
         {
             MemoryStream stream = new MemoryStream();
