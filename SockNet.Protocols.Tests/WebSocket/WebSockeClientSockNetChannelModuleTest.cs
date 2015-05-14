@@ -280,6 +280,62 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         }
 
         [TestMethod]
+        public void TestSmallMessage()
+        {
+            DummySockNetChannel channel = new DummySockNetChannel()
+            {
+                State = null,
+                IsActive = true,
+                BufferPool = SockNetChannelGlobals.GlobalBufferPool
+            };
+            channel.Pipe = new SockNetChannelPipe(channel);
+
+            WebSocketClientSockNetChannelModule module = new WebSocketClientSockNetChannelModule("/test", "test", null);
+            channel.AddModule(module);
+            channel.Connect();
+
+            object sent = null;
+            channel.outgoing.TryTake(out sent, 5000);
+            Assert.IsTrue(sent is HttpRequest);
+
+            HttpResponse handshakeResponse = null;
+
+            using (HttpRequest request = (HttpRequest)sent)
+            {
+                handshakeResponse = new HttpResponse(null) { Code = "200", Reason = "OK", Version = "HTTP/1.1" };
+                handshakeResponse.Header[WebSocketUtil.WebSocketAcceptHeader] = WebSocketUtil.GenerateAccept(request.Header[WebSocketUtil.WebSocketKeyHeader]);
+            }
+
+            object receiveResponse = handshakeResponse;
+            channel.Receive(ref receiveResponse);
+
+            Random random = new Random(this.GetHashCode() ^ (int)DateTime.Now.Subtract(new DateTime(2000, 1, 1)).TotalMilliseconds);
+
+            for (int n = 0; n < 1000; n++)
+            {
+                byte[] data = new byte[random.Next(50, 150)];
+                random.NextBytes(data);
+
+                WebSocketFrame frame = WebSocketFrame.CreateBinaryFrame(data, false);
+                using (ChunkedBuffer buffer = ToBuffer(frame))
+                {
+                    receiveResponse = buffer;
+                    channel.Receive(ref receiveResponse);
+
+                    Assert.IsTrue(receiveResponse is WebSocketFrame);
+                    Assert.AreEqual(data.Length, ((WebSocketFrame)receiveResponse).Data.Length);
+                    for (int i = 0; i < data.Length; i++)
+                    {
+                        Assert.AreEqual(data[i], ((WebSocketFrame)receiveResponse).Data[i]);
+                    }
+                    buffer.Close();
+                }
+            }
+
+            Console.WriteLine("Pool stats: " + SockNetChannelGlobals.GlobalBufferPool.ObjectsInPool + "/" + SockNetChannelGlobals.GlobalBufferPool.TotalNumberOfObjects);
+        }
+
+        [TestMethod]
         public void TestLargeMessage()
         {
             DummySockNetChannel channel = new DummySockNetChannel()
@@ -298,32 +354,38 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
             channel.outgoing.TryTake(out sent, 5000);
             Assert.IsTrue(sent is HttpRequest);
 
-            HttpRequest request = (HttpRequest)sent;
+            HttpResponse handshakeResponse = null;
 
-            HttpResponse handshakeResponse = new HttpResponse(null) { Code = "200", Reason = "OK", Version = "HTTP/1.1" };
-            handshakeResponse.Header[WebSocketUtil.WebSocketAcceptHeader] = WebSocketUtil.GenerateAccept(request.Header[WebSocketUtil.WebSocketKeyHeader]);
+            using (HttpRequest request = (HttpRequest)sent)
+            {
+                handshakeResponse = new HttpResponse(null) { Code = "200", Reason = "OK", Version = "HTTP/1.1" };
+                handshakeResponse.Header[WebSocketUtil.WebSocketAcceptHeader] = WebSocketUtil.GenerateAccept(request.Header[WebSocketUtil.WebSocketKeyHeader]);
+            }
+
             object receiveResponse = handshakeResponse;
             channel.Receive(ref receiveResponse);
 
             Random random = new Random(this.GetHashCode() ^ (int)DateTime.Now.Subtract(new DateTime(2000, 1, 1)).TotalMilliseconds);
 
-            for (int n = 0; n < 100; n++)
+            for (int n = 0; n < 1000; n++)
             {
                 byte[] data = new byte[random.Next(50000, 150000)];
                 random.NextBytes(data);
 
                 WebSocketFrame frame = WebSocketFrame.CreateBinaryFrame(data, false);
-                ChunkedBuffer buffer = ToBuffer(frame);
-                receiveResponse = buffer;
-                channel.Receive(ref receiveResponse);
-
-                Assert.IsTrue(receiveResponse is WebSocketFrame);
-                Assert.AreEqual(data.Length, ((WebSocketFrame)receiveResponse).Data.Length);
-                for (int i = 0; i < data.Length; i++)
+                using (ChunkedBuffer buffer = ToBuffer(frame))
                 {
-                    Assert.AreEqual(data[i], ((WebSocketFrame)receiveResponse).Data[i]);
+                    receiveResponse = buffer;
+                    channel.Receive(ref receiveResponse);
+
+                    Assert.IsTrue(receiveResponse is WebSocketFrame);
+                    Assert.AreEqual(data.Length, ((WebSocketFrame)receiveResponse).Data.Length);
+                    for (int i = 0; i < data.Length; i++)
+                    {
+                        Assert.AreEqual(data[i], ((WebSocketFrame)receiveResponse).Data[i]);
+                    }
+                    buffer.Close();
                 }
-                buffer.Close();
             }
 
             Console.WriteLine("Pool stats: " + SockNetChannelGlobals.GlobalBufferPool.ObjectsInPool + "/" + SockNetChannelGlobals.GlobalBufferPool.TotalNumberOfObjects);
