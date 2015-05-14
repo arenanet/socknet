@@ -464,7 +464,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
                 byte[][] expectedResults = new byte[numberOfMessages][];
 
-                for (int i = 0; i < 100; i++)
+                for (int i = 0; i < numberOfMessages; i++)
                 {
                     ThreadPool.QueueUserWorkItem((object state) =>
                     {
@@ -490,7 +490,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
                     }, i);
                 }
 
-                for (int i = 0; i < 100; i++)
+                for (int i = 0; i < numberOfMessages; i++)
                 {
                     Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
                     Assert.IsTrue(currentObject is WebSocketFrame);
