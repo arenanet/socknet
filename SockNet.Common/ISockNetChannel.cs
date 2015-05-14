@@ -51,6 +51,30 @@ namespace ArenaNet.SockNet.Common
         string Id { get; }
 
         /// <summary>
+        /// Sets an attribute.
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="value"></param>
+        /// <param name="upsert"></param>
+        /// <returns></returns>
+        bool SetAttribute<T>(string name, T value, bool upsert = true);
+
+        /// <summary>
+        /// Removes an attribute.
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns></returns>
+        bool RemoveAttribute(string name);
+
+        /// <summary>
+        /// Gets an attribute.
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        bool TryGetAttribute<T>(string name, out T value);
+
+        /// <summary>
         /// The protocol of this channel.
         /// </summary>
         SockNetChannelProtocol Protocol { get; }

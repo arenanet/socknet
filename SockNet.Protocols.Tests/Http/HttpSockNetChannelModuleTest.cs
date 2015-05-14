@@ -42,21 +42,7 @@ namespace ArenaNet.SockNet.Protocols.Http
                 try
                 {
                     server.AddModule(new HttpSockNetChannelModule(HttpSockNetChannelModule.ParsingMode.Server));
-
-                    if (isTls)
-                    {
-                        byte[] rawCert = CertificateUtil.CreateSelfSignCertificatePfx("CN=\"test\"; C=\"USA\"", DateTime.Today.AddDays(-10), DateTime.Today.AddDays(+10));
-
-                        server.BindWithTLS(new X509Certificate2(rawCert),
-                            (object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => { return true; }).WaitForValue(TimeSpan.FromSeconds(5));
-                    }
-                    else
-                    {
-                        server.Bind().WaitForValue(TimeSpan.FromSeconds(5));
-                    }
-
-                    Assert.IsTrue(server.IsActive);
-
+                    
                     server.Pipe.AddIncomingLast<HttpRequest>((ISockNetChannel channel, ref HttpRequest data) =>
                     {
                         HttpResponse response = new HttpResponse(channel.BufferPool)
@@ -75,6 +61,20 @@ namespace ArenaNet.SockNet.Protocols.Http
 
                         channel.Send(response);
                     });
+
+                    if (isTls)
+                    {
+                        byte[] rawCert = CertificateUtil.CreateSelfSignCertificatePfx("CN=\"test\"; C=\"USA\"", DateTime.Today.AddDays(-10), DateTime.Today.AddDays(+10));
+
+                        server.BindWithTLS(new X509Certificate2(rawCert),
+                            (object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => { return true; }).WaitForValue(TimeSpan.FromSeconds(5));
+                    }
+                    else
+                    {
+                        server.Bind().WaitForValue(TimeSpan.FromSeconds(5));
+                    }
+
+                    Assert.IsTrue(server.IsActive);
                 }
                 catch (Exception)
                 {

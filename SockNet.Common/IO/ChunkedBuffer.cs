@@ -146,7 +146,7 @@ namespace ArenaNet.SockNet.Common.IO
 
                     if (currentChunk.pooledObject != null && currentChunk.pooledObject.RefCount.Decrement() < 1)
                     {
-                        if (currentChunk.pooledObject.State == PooledObject<byte[]>.PooledObjectState.USED)
+                        if (currentChunk.pooledObject.State == PooledObjectState.USED)
                         {
                             currentChunk.pooledObject.Return();
                         }

@@ -194,6 +194,28 @@ namespace ArenaNet.SockNet.Protocols.Gds
             {
                 get { return SockNetChannelProtocol.Tcp; }
             }
+
+            private ConcurrentDictionary<string, object> attributes = new ConcurrentDictionary<string, object>();
+
+            public bool SetAttribute<T>(string name, T value, bool upsert = true)
+            {
+                return attributes.TryAdd(name, (object)value);
+            }
+
+            public bool RemoveAttribute(string name)
+            {
+                object ignore;
+                return attributes.TryRemove(name, out ignore);
+            }
+
+            public bool TryGetAttribute<T>(string name, out T value)
+            {
+                object response;
+                bool success = attributes.TryGetValue(name, out response);
+                value = (T)response;
+
+                return success;
+            }
         }
 
         [TestMethod]

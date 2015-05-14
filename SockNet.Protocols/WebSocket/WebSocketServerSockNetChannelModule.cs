@@ -14,6 +14,7 @@
 using System;
 using System.IO;
 using System.Text;
+using System.Collections.Generic;
 using ArenaNet.SockNet.Common;
 using ArenaNet.Medley.Collections.Concurrent;
 using ArenaNet.SockNet.Common.IO;
@@ -24,199 +25,258 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
     /// <summary>
     /// A module that can be applied to a ISockNetChannel to enable WebSocket support.
     /// </summary>
-    public class WebSocketServerSockNetChannelModule : ISockNetChannelModule
+    public class WebSocketServerSockNetChannelModule : BaseMultiChannelSockNetChannelModule
     {
         private static readonly byte[] HeaderNewLine = Encoding.ASCII.GetBytes("\r\n");
 
         private bool combineContinuations;
         private string path;
         private string hostname;
-        private HttpSockNetChannelModule httpModule = new HttpSockNetChannelModule(HttpSockNetChannelModule.ParsingMode.Server);
+        private OnWebSocketProtocolDelegate protocolDelegate;
 
-        private ConcurrentHashMap<string, WebSocketFrame> continuationFrames = new ConcurrentHashMap<string, WebSocketFrame>(null, 1024, 128);
+        /// <summary>
+        /// A per channel module.
+        /// </summary>
+        private class PerChannelWebSocketServerSockNetChannelModule : ISockNetChannelModule
+        {
+            private bool combineContinuations;
+            private string path;
+            private string hostname;
+            private OnWebSocketProtocolDelegate protocolDelegate;
 
-        public WebSocketServerSockNetChannelModule(string path, string hostname, bool combineContinuations = true)
+            private HttpSockNetChannelModule httpModule = new HttpSockNetChannelModule(HttpSockNetChannelModule.ParsingMode.Server);
+
+            private WebSocketFrame continuationFrame;
+
+            public PerChannelWebSocketServerSockNetChannelModule(string path, string hostname, bool combineContinuations = true, OnWebSocketProtocolDelegate protocolDelegate = null)
+            {
+                this.path = path;
+                this.hostname = hostname;
+                this.combineContinuations = combineContinuations;
+                this.protocolDelegate = protocolDelegate;
+            }
+
+            /// <summary>
+            /// Installs this module.
+            /// </summary>
+            /// <param name="channel"></param>
+            public void Install(ISockNetChannel channel)
+            {
+                channel.AddModule(httpModule);
+
+                channel.Pipe.AddIncomingLast<HttpRequest>(HandleHandshake);
+            }
+
+            /// <summary>
+            /// Uninstalls this module.
+            /// </summary>
+            /// <param name="channel"></param>
+            public void Uninstall(ISockNetChannel channel)
+            {
+                channel.Pipe.RemoveIncoming<HttpRequest>(HandleHandshake);
+                channel.Pipe.RemoveIncoming<object>(HandleIncomingFrames);
+                channel.Pipe.RemoveOutgoing<object>(HandleOutgoingFrames);
+
+                if (channel.HasModule(httpModule))
+                {
+                    channel.RemoveModule(httpModule);
+                }
+            }
+
+            /// <summary>
+            /// Handles the WebSocket handshake.
+            /// </summary>
+            /// <param name="channel"></param>
+            /// <param name="request"></param>
+            private void HandleHandshake(ISockNetChannel channel, ref HttpRequest request)
+            {
+                string connection = request.Header["Connection"];
+                string upgrade = request.Header["Upgrade"];
+                string securityKey = request.Header[WebSocketUtil.WebSocketKeyHeader];
+
+                if (connection != null && upgrade != null && securityKey != null && "websocket".Equals(upgrade.Trim().ToLower()) && "upgrade".Equals(connection.Trim().ToLower()))
+                {
+                    string[] requestProtocols = request.Headers[WebSocketUtil.WebSocketProtocolHeader];
+
+                    List<string> handledProtocols = new List<string>();
+                    if (requestProtocols != null && protocolDelegate != null)
+                    {
+                        for (int i = 0; i < requestProtocols.Length; i++)
+                        {
+                            if (protocolDelegate(channel, requestProtocols[i]))
+                            {
+                                handledProtocols.Add(requestProtocols[i]);
+                            }
+                        }
+                    }
+
+                    HttpResponse response = new HttpResponse(channel.BufferPool)
+                    {
+                        Version = "HTTP/1.1",
+                        Code = "101",
+                        Reason = "Switching Protocols"
+                    };
+                    response.Header["Upgrade"] = "websocket";
+                    response.Header["Connection"] = "Upgrade";
+                    response.Header[WebSocketUtil.WebSocketAcceptHeader] = WebSocketUtil.GenerateAccept(securityKey);
+                    response.Header[WebSocketUtil.WebSocketProtocolHeader] = string.Join(",", handledProtocols.ToArray());
+
+                    channel.Send(response);
+
+                    channel.RemoveModule(httpModule);
+                    channel.Pipe.AddIncomingFirst<object>(HandleIncomingFrames);
+                    channel.Pipe.AddOutgoingLast<object>(HandleOutgoingFrames);
+                }
+                else
+                {
+                    SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Expecting upgrade request.");
+
+                    channel.Close();
+                }
+            }
+
+            /// <summary>
+            /// Handles incoming raw frames and translates them into WebSocketFrame(s)
+            /// </summary>
+            /// <param name="channel"></param>
+            /// <param name="request"></param>
+            private void HandleIncomingFrames(ISockNetChannel channel, ref object data)
+            {
+                if (!(data is ChunkedBuffer))
+                {
+                    return;
+                }
+
+                ChunkedBuffer stream = (ChunkedBuffer)data;
+                long startingPosition = stream.ReadPosition;
+
+                try
+                {
+                    WebSocketFrame frame = WebSocketFrame.ParseFrame(stream.Stream);
+
+                    if (combineContinuations)
+                    {
+                        if (frame.IsFinished)
+                        {
+                            UpdateContinuation(ref continuationFrame, frame);
+
+                            data = continuationFrame;
+                            continuationFrame = null;
+                        }
+                        else
+                        {
+                            UpdateContinuation(ref continuationFrame, frame);
+                        }
+                    }
+                    else
+                    {
+                        data = frame;
+                    }
+
+                    if (SockNetLogger.DebugEnabled)
+                    {
+                        SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Received WebSocket message. Size: {0}, Type: {1}, IsFinished: {2}", frame.Data.Length, Enum.GetName(typeof(WebSocketFrame.WebSocketFrameOperation), frame.Operation), frame.IsFinished);
+                    }
+                }
+                catch (EndOfStreamException)
+                {
+                    // websocket frame isn't done
+                    stream.ReadPosition = startingPosition;
+                }
+                catch (ArgumentOutOfRangeException)
+                {
+                    // websocket frame isn't done
+                    stream.ReadPosition = startingPosition;
+                }
+                catch (Exception e)
+                {
+                    SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Unable to parse web-socket request", e);
+
+                    channel.Close();
+                }
+            }
+
+            /// Updates the local continuation.
+            /// </summary>
+            /// <param name="frame"></param>
+            private void UpdateContinuation(ref WebSocketFrame continuationFrame, WebSocketFrame frame)
+            {
+                if (continuationFrame == null)
+                {
+                    continuationFrame = frame;  // set initial frame
+                }
+                else
+                {
+                    byte[] frameData = new byte[continuationFrame.Data.Length + frame.Data.Length];
+                    Buffer.BlockCopy(continuationFrame.Data, 0, frameData, 0, continuationFrame.Data.Length);
+                    Buffer.BlockCopy(frame.Data, 0, frameData, continuationFrame.Data.Length, frame.Data.Length);
+
+                    switch (continuationFrame.Operation)
+                    {
+                        case WebSocketFrame.WebSocketFrameOperation.BinaryFrame:
+                            continuationFrame = WebSocketFrame.CreateBinaryFrame(frameData, false, false);
+                            break;
+                        case WebSocketFrame.WebSocketFrameOperation.TextFrame:
+                            continuationFrame = WebSocketFrame.CreateTextFrame(frameData, false, false);
+                            break;
+                    }
+                }
+            }
+
+            /// <summary>
+            /// Handles WebSocketFrame(s) and translates them into raw frames.
+            /// </summary>
+            /// <param name="channel"></param>
+            /// <param name="request"></param>
+            private void HandleOutgoingFrames(ISockNetChannel channel, ref object data)
+            {
+                if (!(data is WebSocketFrame))
+                {
+                    return;
+                }
+
+                WebSocketFrame webSocketFrame = (WebSocketFrame)data;
+                ChunkedBuffer buffer = new ChunkedBuffer(channel.BufferPool);
+                webSocketFrame.Write(buffer.Stream);
+                data = buffer;
+            }
+        }
+
+        /// <summary>
+        /// A delegates that is used for websocket establishment notifications.
+        /// </summary>
+        /// <param name="channel"></param>
+        public delegate bool OnWebSocketProtocolDelegate(ISockNetChannel channel, string protocol);
+
+        /// <summary>
+        /// Creates a new web socket server socknet channel module.
+        /// </summary>
+        /// <param name="path"></param>
+        /// <param name="hostname"></param>
+        /// <param name="combineContinuations"></param>
+        public WebSocketServerSockNetChannelModule(string path, string hostname, bool combineContinuations = true, OnWebSocketProtocolDelegate protocolDelegate = null)
         {
             this.path = path;
             this.hostname = hostname;
             this.combineContinuations = combineContinuations;
+            this.protocolDelegate = protocolDelegate;
         }
 
         /// <summary>
-        /// Installs this module.
+        /// The module name.
         /// </summary>
-        /// <param name="channel"></param>
-        public void Install(ISockNetChannel channel)
+        protected override string ModuleName
         {
-            channel.AddModule(httpModule);
-
-            channel.Pipe.AddIncomingLast<HttpRequest>(HandleHandshake);
+            get { return "WebSocketServerModule"; }
         }
 
         /// <summary>
-        /// Uninstalls this module.
+        /// Creates a new per channel module.
         /// </summary>
-        /// <param name="channel"></param>
-        public void Uninstall(ISockNetChannel channel)
+        /// <returns></returns>
+        protected override ISockNetChannelModule NewPerChannelModule()
         {
-            channel.Pipe.RemoveIncoming<HttpRequest>(HandleHandshake);
-            channel.Pipe.RemoveIncoming<object>(HandleIncomingFrames);
-            channel.Pipe.RemoveOutgoing<object>(HandleOutgoingFrames);
-
-            if (channel.HasModule(httpModule))
-            {
-                channel.RemoveModule(httpModule);
-            }
-        }
-
-        /// <summary>
-        /// Handles the WebSocket handshake.
-        /// </summary>
-        /// <param name="channel"></param>
-        /// <param name="data"></param>
-        private void HandleHandshake(ISockNetChannel channel, ref HttpRequest data)
-        {
-            string connection = data.Header["Connection"];
-            string upgrade = data.Header["Upgrade"];
-            string securityKey = data.Header["Sec-WebSocket-Key"];
-
-            if (connection != null && upgrade != null && securityKey != null && "websocket".Equals(upgrade.Trim().ToLower()) && "upgrade".Equals(connection.Trim().ToLower()))
-            {
-                HttpResponse request = new HttpResponse(channel.BufferPool)
-                {
-                    Version = "HTTP/1.1",
-                    Code = "101",
-                    Reason = "Switching Protocols"
-                };
-                request.Header["Upgrade"] = "websocket";
-                request.Header["Connection"] = "Upgrade";
-                request.Header[WebSocketUtil.WebSocketAcceptHeader] = WebSocketUtil.GenerateAccept(securityKey);
-                request.Header["Sec-WebSocket-Protocol"] = "";
-
-                channel.Send(request);
-
-                channel.RemoveModule(httpModule);
-                channel.Pipe.AddIncomingFirst<object>(HandleIncomingFrames);
-                channel.Pipe.AddOutgoingLast<object>(HandleOutgoingFrames);
-            }
-            else
-            {
-                SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Expecting upgrade request.");
-
-                channel.Close();
-            }
-        }
-
-        /// <summary>
-        /// Handles incoming raw frames and translates them into WebSocketFrame(s)
-        /// </summary>
-        /// <param name="channel"></param>
-        /// <param name="data"></param>
-        private void HandleIncomingFrames(ISockNetChannel channel, ref object data)
-        {
-            if (!(data is ChunkedBuffer))
-            {
-                return;
-            }
-
-            ChunkedBuffer stream = (ChunkedBuffer)data;
-            long startingPosition = stream.ReadPosition;
-
-            try
-            {
-                WebSocketFrame frame = WebSocketFrame.ParseFrame(stream.Stream);
-
-                if (combineContinuations)
-                {
-                    WebSocketFrame continuationFrame = null;
-
-                    continuationFrames.TryGetValue(channel.Id, out continuationFrame);
-
-                    if (frame.IsFinished)
-                    {
-                        UpdateContinuation(ref continuationFrame, frame);
-
-                        data = continuationFrame;
-                        continuationFrames.Remove(channel.Id);
-                    }
-                    else
-                    {
-                        UpdateContinuation(ref continuationFrame, frame);
-
-                        continuationFrames[channel.Id] = continuationFrame;
-                    }
-                }
-                else
-                {
-                    data = frame;
-                }
-
-                if (SockNetLogger.DebugEnabled)
-                {
-                    SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Received WebSocket message. Size: {0}, Type: {1}, IsFinished: {2}", frame.Data.Length, Enum.GetName(typeof(WebSocketFrame.WebSocketFrameOperation), frame.Operation), frame.IsFinished);
-                }
-            }
-            catch (EndOfStreamException)
-            {
-                // websocket frame isn't done
-                stream.ReadPosition = startingPosition;
-            }
-            catch (ArgumentOutOfRangeException)
-            {
-                // websocket frame isn't done
-                stream.ReadPosition = startingPosition;
-            }
-            catch (Exception e)
-            {
-                SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Unable to parse web-socket request", e);
-
-                channel.Close();
-            }
-        }
-
-        /// Updates the local continuation.
-        /// </summary>
-        /// <param name="frame"></param>
-        private void UpdateContinuation(ref WebSocketFrame continuationFrame, WebSocketFrame frame)
-        {
-            if (continuationFrame == null)
-            {
-                continuationFrame = frame;  // set initial frame
-            }
-            else
-            {
-                byte[] frameData = new byte[continuationFrame.Data.Length + frame.Data.Length];
-                Buffer.BlockCopy(continuationFrame.Data, 0, frameData, 0, continuationFrame.Data.Length);
-                Buffer.BlockCopy(frame.Data, 0, frameData, continuationFrame.Data.Length, frame.Data.Length);
-
-                switch (continuationFrame.Operation)
-                {
-                    case WebSocketFrame.WebSocketFrameOperation.BinaryFrame:
-                        continuationFrame = WebSocketFrame.CreateBinaryFrame(frameData, false, false);
-                        break;
-                    case WebSocketFrame.WebSocketFrameOperation.TextFrame:
-                        continuationFrame = WebSocketFrame.CreateTextFrame(frameData, false, false);
-                        break;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Handles WebSocketFrame(s) and translates them into raw frames.
-        /// </summary>
-        /// <param name="channel"></param>
-        /// <param name="data"></param>
-        private void HandleOutgoingFrames(ISockNetChannel channel, ref object data)
-        {
-            if (!(data is WebSocketFrame))
-            {
-                return;
-            }
-
-            WebSocketFrame webSocketFrame = (WebSocketFrame)data;
-            ChunkedBuffer buffer = new ChunkedBuffer(channel.BufferPool);
-            webSocketFrame.Write(buffer.Stream);
-            data = buffer;
+            return new PerChannelWebSocketServerSockNetChannelModule(path, hostname, combineContinuations);
         }
     }
 }

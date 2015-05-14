@@ -7,7 +7,10 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 {
     public static class WebSocketUtil
     {
+        public static readonly string WebSocketKeyHeader = "Sec-WebSocket-Key";
+        public static readonly string WebSocketVersionHeader = "Sec-WebSocket-Version";
         public static readonly string WebSocketAcceptHeader = "Sec-WebSocket-Accept";
+        public static readonly string WebSocketProtocolHeader = "Sec-WebSocket-Protocol";
 
         public const string Magic = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 

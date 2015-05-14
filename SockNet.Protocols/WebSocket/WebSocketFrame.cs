@@ -61,12 +61,12 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         public WebSocketFrame.WebSocketFrameOperation Operation { get; private set; }
 
         /// <summary>
-        /// The raw data of this frame.
+        /// The raw request of this frame.
         /// </summary>
         public byte[] Data { get; private set; }
 
         /// <summary>
-        /// The data as a string.
+        /// The request as a string.
         /// </summary>
         public string DataAsString { 
             get 
@@ -272,7 +272,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         /// <summary>
         /// Creates a Binary WebSocketFrame.
         /// </summary>
-        /// <param name="data"></param>
+        /// <param name="request"></param>
         /// <param name="mask"></param>
         /// <returns></returns>
         public static WebSocketFrame CreateBinaryFrame(byte[] data, bool mask = true, bool continuation = false)

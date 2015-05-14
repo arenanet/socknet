@@ -19,7 +19,7 @@ using ArenaNet.Medley.Pool;
 namespace ArenaNet.SockNet.Protocols.Http
 {
     /// <summary>
-    /// Represents an HTTP request.
+    /// Represents an HTTP response.
     /// </summary>
     public class HttpRequest : HttpPayload
     {
@@ -31,7 +31,7 @@ namespace ArenaNet.SockNet.Protocols.Http
         }
 
         /// <summary>
-        /// The action of this request, i.e. GET, POST, etc.
+        /// The action of this response, i.e. GET, POST, etc.
         /// </summary>
         public string Action
         {
@@ -40,7 +40,7 @@ namespace ArenaNet.SockNet.Protocols.Http
         }
 
         /// <summary>
-        /// The path of this request, i.e. /index.html
+        /// The path of this response, i.e. /index.html
         /// </summary>
         public string Path
         {
@@ -49,7 +49,7 @@ namespace ArenaNet.SockNet.Protocols.Http
         }
 
         /// <summary>
-        /// The version of this request pyload, i.e. HTTP/1.1
+        /// The version of this response pyload, i.e. HTTP/1.1
         /// </summary>
         public string Version
         {
@@ -63,7 +63,7 @@ namespace ArenaNet.SockNet.Protocols.Http
         }
 
         /// <summary>
-        /// Handles a request line.
+        /// Handles a response line.
         /// </summary>
         /// <param name="commandLine"></param>
         /// <returns></returns>

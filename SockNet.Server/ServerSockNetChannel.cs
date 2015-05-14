@@ -22,6 +22,7 @@ using System.Security.Authentication;
 using ArenaNet.SockNet.Common;
 using ArenaNet.Medley.Pool;
 using ArenaNet.Medley.Concurrent;
+using ArenaNet.Medley.Collections.Concurrent;
 
 namespace ArenaNet.SockNet.Server
 {
@@ -55,7 +56,7 @@ namespace ArenaNet.SockNet.Server
         private IPEndPoint bindEndpoint = null;
         private int backlog;
 
-        private Dictionary<string, RemoteSockNetChannel> remoteChannels = new Dictionary<string, RemoteSockNetChannel>();
+        private ConcurrentHashMap<string, RemoteSockNetChannel> remoteChannels = new ConcurrentHashMap<string, RemoteSockNetChannel>(StringComparer.Ordinal, 1024, 256);
 
         /// <summary>
         /// Creates a socknet client that can connect to the given address and port using a receive buffer size.
@@ -185,11 +186,9 @@ namespace ArenaNet.SockNet.Server
 
             if (remoteSocket != null)
             {
-                RemoteSockNetChannel channel = new RemoteSockNetChannel(this, remoteSocket, BufferPool, modules.Keys);
-                lock (remoteChannels)
-                {
-                    remoteChannels[channel.Id] = channel;
-                }
+                RemoteSockNetChannel channel = new RemoteSockNetChannel(this, remoteSocket, BufferPool, modules);
+
+                remoteChannels[channel.Id] = channel;
             }
         }
 
@@ -211,6 +210,16 @@ namespace ArenaNet.SockNet.Server
             }
 
             return new Promise<ISockNetChannel>(this);
+        }
+
+        /// <summary>
+        /// Always reuturns false.
+        /// </summary>
+        /// <param name="module"></param>
+        /// <returns></returns>
+        public override bool ShouldInstallModule(ISockNetChannelModule module)
+        {
+            return false;
         }
     }
 }

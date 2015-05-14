@@ -25,6 +25,7 @@ using ArenaNet.SockNet.Common;
 using ArenaNet.SockNet.Common.IO;
 using ArenaNet.Medley.Pool;
 using ArenaNet.Medley.Concurrent;
+using ArenaNet.Medley.Collections.Concurrent;
 
 namespace ArenaNet.SockNet.Common
 {
@@ -49,10 +50,13 @@ namespace ArenaNet.SockNet.Common
         protected Socket Socket { get; private set; }
 
         // the installed modules
-        protected Dictionary<ISockNetChannelModule, bool> modules = new Dictionary<ISockNetChannelModule, bool>();
+        protected ConcurrentHashSet<ISockNetChannelModule> modules = new ConcurrentHashSet<ISockNetChannelModule>(EqualityComparer<ISockNetChannelModule>.Default);
 
         // the current stream
         protected Stream stream;
+
+        // channel attributes
+        private ConcurrentHashMap<string, object> attributes = new ConcurrentHashMap<string, object>(StringComparer.OrdinalIgnoreCase, 1024, 256);
 
         /// <summary>
         /// Promise fulfiller for attachment.
@@ -185,20 +189,20 @@ namespace ArenaNet.SockNet.Common
         /// <returns></returns>
         public ISockNetChannel AddModule(ISockNetChannelModule module)
         {
-            lock (modules)
+            if (modules.TryAdd(module))
             {
-                if (!modules.ContainsKey(module))
-                {
-                    modules[module] = true;
+                SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Adding module: [{0}]", module);
 
+                if (ShouldInstallModule(module))
+                {
                     SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Installing module: [{0}]", module);
 
                     module.Install(this);
                 }
-                else
-                {
-                    throw new Exception("Module [" + module + "] already installed.");
-                }
+            }
+            else
+            {
+                throw new Exception("Module [" + module + "] already installed.");
             }
 
             return this;
@@ -211,18 +215,15 @@ namespace ArenaNet.SockNet.Common
         /// <returns></returns>
         public ISockNetChannel RemoveModule(ISockNetChannelModule module)
         {
-            lock (modules)
+            if (modules.Remove(module))
             {
-                if (modules.Remove(module))
-                {
-                    SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Uninstalling module: [{0}]", module);
+                SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Uninstalling module: [{0}]", module);
 
-                    module.Uninstall(this);
-                }
-                else
-                {
-                    throw new Exception("Module [" + module + "] not installed.");
-                }
+                module.Uninstall(this);
+            }
+            else
+            {
+                throw new Exception("Module [" + module + "] not installed.");
             }
 
             return this;
@@ -235,10 +236,7 @@ namespace ArenaNet.SockNet.Common
         /// <returns></returns>
         public bool HasModule(ISockNetChannelModule module)
         {
-            lock (modules)
-            {
-                return modules.ContainsKey(module);
-            }
+            return modules.Contains(module);
         }
 
         /// <summary>
@@ -606,6 +604,45 @@ namespace ArenaNet.SockNet.Common
         }
 
         /// <summary>
+        /// Sets an attribute.
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="value"></param>
+        /// <param name="upsert"></param>
+        /// <returns></returns>
+        public bool SetAttribute<T>(string name, T value, bool upsert = true)
+        {
+            return attributes.Put(name, (object)value, upsert);
+        }
+
+        /// <summary>
+        /// Removes an attribute.
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="value"></param>
+        /// <param name="upsert"></param>
+        /// <returns></returns>
+        public bool RemoveAttribute(string name)
+        {
+            return attributes.Remove(name);
+        }
+
+        /// <summary>
+        /// Gets an attribute.
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public bool TryGetAttribute<T>(string name, out T value)
+        {
+            object response;
+            bool success = attributes.TryGetValue(name, out response);
+            value = (T)response;
+
+            return success;
+        }
+
+        /// <summary>
         /// Disposes this object.
         /// </summary>
         public void Dispose()
@@ -637,6 +674,13 @@ namespace ArenaNet.SockNet.Common
         /// </summary>
         /// <returns></returns>
         public abstract Promise<ISockNetChannel> Close();
+
+        /// <summary>
+        /// Check to see if we should install this module when it gets added.
+        /// </summary>
+        /// <param name="module"></param>
+        /// <returns></returns>
+        public abstract bool ShouldInstallModule(ISockNetChannelModule module);
 
         /// <summary>
         /// Returns true if this channel is active.

@@ -103,6 +103,9 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         {
             public string Id { get { return "1"; } }
 
+            public BlockingCollection<object> outgoing = new BlockingCollection<object>();
+            public BlockingCollection<object> incoming = new BlockingCollection<object>();
+
             public SockNetChannelPipe Pipe
             {
                 get;
@@ -170,11 +173,15 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
             public void Receive(ref object data)
             {
+                incoming.Add(data);
+
                 Pipe.HandleIncomingData(ref data);
             }
 
             public Promise<ISockNetChannel> Send(object data)
             {
+                outgoing.Add(data);
+
                 Pipe.HandleOutgoingData(ref data);
 
                 if (data is ChunkedBuffer)
@@ -194,6 +201,28 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
             {
                 get { return SockNetChannelProtocol.Tcp; }
             }
+
+            private ConcurrentDictionary<string, object> attributes = new ConcurrentDictionary<string, object>();
+
+            public bool SetAttribute<T>(string name, T value, bool upsert = true)
+            {
+                return attributes.TryAdd(name, (object)value);
+            }
+
+            public bool RemoveAttribute(string name)
+            {
+                object ignore;
+                return attributes.TryRemove(name, out ignore);
+            }
+
+            public bool TryGetAttribute<T>(string name, out T value)
+            {
+                object response;
+                bool success = attributes.TryGetValue(name, out response);
+                value = (T)response;
+
+                return success;
+            }
         }
 
         [TestMethod]
@@ -211,8 +240,14 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
             channel.AddModule(module);
             channel.Connect();
 
+            object sent = null;
+            channel.outgoing.TryTake(out sent, 5000);
+            Assert.IsTrue(sent is HttpRequest);
+
+            HttpRequest request = (HttpRequest)sent;
+
             HttpResponse handshakeResponse = new HttpResponse(channel.BufferPool) { Code = "200", Reason = "OK", Version = "HTTP/1.1" };
-            handshakeResponse.Header[WebSocketUtil.WebSocketAcceptHeader] = module.ExpectedAccept;
+            handshakeResponse.Header[WebSocketUtil.WebSocketAcceptHeader] = WebSocketUtil.GenerateAccept(request.Header[WebSocketUtil.WebSocketKeyHeader]);
             object receiveResponse = handshakeResponse;
             channel.Receive(ref receiveResponse);
 
@@ -259,8 +294,14 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
             channel.AddModule(module);
             channel.Connect();
 
+            object sent = null;
+            channel.outgoing.TryTake(out sent, 5000);
+            Assert.IsTrue(sent is HttpRequest);
+
+            HttpRequest request = (HttpRequest)sent;
+
             HttpResponse handshakeResponse = new HttpResponse(null) { Code = "200", Reason = "OK", Version = "HTTP/1.1" };
-            handshakeResponse.Header[WebSocketUtil.WebSocketAcceptHeader] = module.ExpectedAccept;
+            handshakeResponse.Header[WebSocketUtil.WebSocketAcceptHeader] = WebSocketUtil.GenerateAccept(request.Header[WebSocketUtil.WebSocketKeyHeader]);
             object receiveResponse = handshakeResponse;
             channel.Receive(ref receiveResponse);
 

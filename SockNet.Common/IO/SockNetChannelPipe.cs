@@ -15,6 +15,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using ArenaNet.Medley.Collections;
+using ArenaNet.Medley.Collections.Concurrent;
 
 namespace ArenaNet.SockNet.Common.IO
 {
@@ -66,8 +67,9 @@ namespace ArenaNet.SockNet.Common.IO
         /// Clones this pipe and sets the given parent.
         /// </summary>
         /// <param name="newParent"></param>
+        /// <param name="includeModules"></param>
         /// <returns></returns>
-        public SockNetChannelPipe Clone(ISockNetChannel newParent)
+        public SockNetChannelPipe Clone(ISockNetChannel newParent, bool includeModules = true)
         {
             SockNetChannelPipe newPipe = new SockNetChannelPipe(newParent);
 
@@ -75,7 +77,10 @@ namespace ArenaNet.SockNet.Common.IO
             {
                 foreach (OnOpenedDelegate del in openedHandlers)
                 {
-                    newPipe.openedHandlers.AddLast(del);
+                    if (includeModules || !(del.Target is ISockNetChannelModule))
+                    {
+                        newPipe.openedHandlers.AddLast(del);
+                    }
                 }
             }
 
@@ -83,7 +88,10 @@ namespace ArenaNet.SockNet.Common.IO
             {
                 foreach (OnClosedDelegate del in closedHandlers)
                 {
-                    newPipe.closedHandlers.AddLast(del);
+                    if (includeModules || !(del.Target is ISockNetChannelModule))
+                    {
+                        newPipe.closedHandlers.AddLast(del);
+                    }
                 }
             }
 
@@ -91,7 +99,10 @@ namespace ArenaNet.SockNet.Common.IO
             {
                 foreach (IDelegateReference del in incomingHandlers)
                 {
-                    newPipe.incomingHandlers.AddLast(del);
+                    if (includeModules || !(del.Delegate.Target is ISockNetChannelModule))
+                    {
+                        newPipe.incomingHandlers.AddLast(del);
+                    }
                 }
             }
 
@@ -99,11 +110,49 @@ namespace ArenaNet.SockNet.Common.IO
             {
                 foreach (IDelegateReference del in outgoingHandlers)
                 {
-                    newPipe.outgoingHandlers.AddLast(del);
+                    if (includeModules || !(del.Delegate.Target is ISockNetChannelModule))
+                    {
+                        newPipe.outgoingHandlers.AddLast(del);
+                    }
                 }
             }
 
             return newPipe;
+        }
+
+        public void DebugLog()
+        {
+            lock (openedHandlers)
+            {
+                foreach (OnOpenedDelegate del in openedHandlers)
+                {
+                    SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "OnOpen: " + del.Target + "." + del.Method);
+                }
+            }
+
+            lock (closedHandlers)
+            {
+                foreach (OnClosedDelegate del in closedHandlers)
+                {
+                    SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "OnClosed: " + del.Target + "." + del.Method);
+                }
+            }
+
+            lock (incomingHandlers)
+            {
+                foreach (IDelegateReference del in incomingHandlers)
+                {
+                    SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "OnIncoming: " + del.Delegate.Target + "." + del.Delegate.Method);
+                }
+            }
+
+            lock (outgoingHandlers)
+            {
+                foreach (IDelegateReference del in outgoingHandlers)
+                {
+                    SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "OnOutgoing: " + del.Delegate.Target + "." + del.Delegate.Method);
+                }
+            }
         }
 
         /// <summary>

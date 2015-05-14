@@ -73,11 +73,11 @@ namespace ArenaNet.SockNet.Server
         {
             this.parent = parent;
 
-            this.Pipe = parent.Pipe.Clone(this);
+            this.Pipe = parent.Pipe.Clone(this, false);
 
             foreach (ISockNetChannelModule module in modules)
             {
-                this.modules[module] = true;
+                this.AddModule(module);
             }
 
             this.State = RemoteSockNetChannelState.Disconnected;
@@ -184,6 +184,16 @@ namespace ArenaNet.SockNet.Server
         public override Promise<ISockNetChannel> Close()
         {
             return Disconnect();
+        }
+
+        /// <summary>
+        /// Always returns true.
+        /// </summary>
+        /// <param name="module"></param>
+        /// <returns></returns>
+        public override bool ShouldInstallModule(ISockNetChannelModule module)
+        {
+            return true;
         }
     }
 }

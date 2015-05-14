@@ -36,7 +36,7 @@ namespace ArenaNet.SockNet.Client
     /// <summary>
     /// A channel that can be used to connect to remote endpoints
     /// </summary>
-    public class ClientSockNetChannel : BaseSockNetChannel<ClientSockNetChannelState>
+    public sealed class ClientSockNetChannel : BaseSockNetChannel<ClientSockNetChannelState>
     {
         public const bool DefaultNoDelay = false;
         public const short DefaultTtl = 32;
@@ -253,6 +253,16 @@ namespace ArenaNet.SockNet.Client
         public override Promise<ISockNetChannel> Close()
         {
             return Disconnect();
+        }
+
+        /// <summary>
+        /// Always returns true.
+        /// </summary>
+        /// <param name="module"></param>
+        /// <returns></returns>
+        public override bool ShouldInstallModule(ISockNetChannelModule module)
+        {
+            return true;
         }
     }
 }

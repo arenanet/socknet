@@ -23,13 +23,187 @@ namespace ArenaNet.SockNet.Protocols.Http
     /// <summary>
     /// HTTP module which enables support for HTTP 1.x and HTTP 1.x-like protocols.
     /// </summary>
-    public class HttpSockNetChannelModule : ISockNetChannelModule
+    public class HttpSockNetChannelModule : BaseMultiChannelSockNetChannelModule
     {
         public ParsingMode Mode { private set; get; }
         public enum ParsingMode
         {
             Client,
             Server
+        }
+
+        /// <summary>
+        /// A per channel http client module.
+        /// </summary>
+        private class PerChannelClientHttpSockNetChannelModule : ISockNetChannelModule
+        {
+            private HttpPayload currentIncoming;
+
+            /// <summary>
+            /// Installs the HTTP module.
+            /// </summary>
+            /// <param name="channel"></param>
+            public void Install(ISockNetChannel channel)
+            {
+                channel.Pipe.AddIncomingFirst<object>(HandleIncomingResponse);
+                channel.Pipe.AddOutgoingLast<object>(HandleOutgoingRequest);
+            }
+
+            /// <summary>
+            /// Uninstalls the HTTP module/
+            /// </summary>
+            /// <param name="channel"></param>
+            public void Uninstall(ISockNetChannel channel)
+            {
+                channel.Pipe.RemoveIncoming<object>(HandleIncomingResponse);
+                channel.Pipe.RemoveOutgoing<object>(HandleOutgoingRequest);
+            }
+
+            /// <summary>
+            /// Handles an incoming raw HTTP response.
+            /// </summary>
+            /// <param name="channel"></param>
+            /// <param name="obj"></param>
+            private void HandleIncomingResponse(ISockNetChannel channel, ref object obj)
+            {
+                if (!(obj is ChunkedBuffer))
+                {
+                    return;
+                }
+
+                ChunkedBuffer data = (ChunkedBuffer)obj;
+
+                if (currentIncoming == null)
+                {
+                    currentIncoming = new HttpResponse(channel.BufferPool);
+                }
+
+                if (currentIncoming.Parse(data.Stream, channel.IsActive))
+                {
+                    if (SockNetLogger.DebugEnabled)
+                    {
+                        SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Received HTTP Response: Command Line: [{0}], Body Size [{1}]", currentIncoming.CommandLine, currentIncoming.BodySize);
+                    }
+
+                    obj = currentIncoming;
+                    currentIncoming = null;
+                }
+            }
+
+            /// <summary>
+            /// Handles an outgoing HttpRequest and converts it to a raw buffer.
+            /// </summary>
+            /// <param name="channel"></param>
+            /// <param name="obj"></param>
+            private void HandleOutgoingRequest(ISockNetChannel channel, ref object obj)
+            {
+                if (!(obj is HttpRequest))
+                {
+                    return;
+                }
+
+                HttpRequest data = (HttpRequest)obj;
+
+                if (SockNetLogger.DebugEnabled)
+                {
+                    SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Sending HTTP Request: Command Line: [{0}], Body Size [{1}]", data.CommandLine, data.BodySize);
+                }
+
+                ChunkedBuffer buffer = new ChunkedBuffer(channel.BufferPool);
+
+                data.Write(buffer.Stream);
+
+                data.Dispose();
+
+                obj = buffer;
+            }
+        }
+
+        /// <summary>
+        /// A per channel http server module.
+        /// </summary>
+        private class PerChannelServerHttpSockNetChannelModule : ISockNetChannelModule
+        {
+            private HttpPayload currentIncoming;
+
+            /// <summary>
+            /// Installs the HTTP module.
+            /// </summary>
+            /// <param name="channel"></param>
+            public void Install(ISockNetChannel channel)
+            {
+                channel.Pipe.AddIncomingFirst<object>(HandleIncomingRequest);
+                channel.Pipe.AddOutgoingLast<object>(HandleOutgoingResponse);
+            }
+
+            /// <summary>
+            /// Uninstalls the HTTP module/
+            /// </summary>
+            /// <param name="channel"></param>
+            public void Uninstall(ISockNetChannel channel)
+            {
+                channel.Pipe.RemoveIncoming<object>(HandleIncomingRequest);
+                channel.Pipe.RemoveOutgoing<object>(HandleOutgoingResponse);
+            }
+
+            /// <summary>
+            /// Handles an incomming raw HTTP response.
+            /// </summary>
+            /// <param name="channel"></param>
+            /// <param name="obj"></param>
+            private void HandleIncomingRequest(ISockNetChannel channel, ref object obj)
+            {
+                if (!(obj is ChunkedBuffer))
+                {
+                    return;
+                }
+
+                ChunkedBuffer data = (ChunkedBuffer)obj;
+
+                if (currentIncoming == null)
+                {
+                    currentIncoming = new HttpRequest(channel.BufferPool);
+                }
+
+                if (currentIncoming.Parse(data.Stream, channel.IsActive))
+                {
+                    if (SockNetLogger.DebugEnabled)
+                    {
+                        SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Received HTTP Request: Command Line: [{0}], Body Size [{1}]", currentIncoming.CommandLine, currentIncoming.BodySize);
+                    }
+
+                    obj = currentIncoming;
+                    currentIncoming = null;
+                }
+            }
+
+            /// <summary>
+            /// Handles an outgoing HttpResponse and converts it into a raw buffer.
+            /// </summary>
+            /// <param name="channel"></param>
+            /// <param name="obj"></param>
+            private void HandleOutgoingResponse(ISockNetChannel channel, ref object obj)
+            {
+                if (!(obj is HttpResponse))
+                {
+                    return;
+                }
+
+                HttpResponse data = (HttpResponse)obj;
+
+                if (SockNetLogger.DebugEnabled)
+                {
+                    SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Sending HTTP Response: Command Line: [{0}], Body Size [{1}]", data.CommandLine, data.BodySize);
+                }
+
+                ChunkedBuffer buffer = new ChunkedBuffer(channel.BufferPool);
+
+                data.Write(buffer.Stream);
+
+                data.Dispose();
+
+                obj = buffer;
+            }
         }
 
         /// <summary>
@@ -41,182 +215,29 @@ namespace ArenaNet.SockNet.Protocols.Http
             this.Mode = mode;
         }
 
-        private ConcurrentHashMap<string, HttpPayload> incomingPayloads = new ConcurrentHashMap<string,HttpPayload>(null, 1024, 128);
+        /// <summary>
+        /// The current module name.
+        /// </summary>
+        protected override string ModuleName
+        {
+            get { return "Http" + Mode + "Module"; }
+        }
 
         /// <summary>
-        /// Installs the HTTP module.
+        /// Creates a new client or server channel depending on the settings of this module.
         /// </summary>
-        /// <param name="channel"></param>
-        public void Install(ISockNetChannel channel)
+        /// <returns></returns>
+        protected override ISockNetChannelModule NewPerChannelModule()
         {
             switch (Mode)
             {
                 case ParsingMode.Client:
-                    channel.Pipe.AddIncomingFirst<object>(HandleIncomingResponse);
-                    channel.Pipe.AddOutgoingLast<object>(HandleOutgoingRequest);
-                    break;
+                    return new PerChannelClientHttpSockNetChannelModule();
                 case ParsingMode.Server:
-                    channel.Pipe.AddIncomingFirst<object>(HandleIncomingRequest);
-                    channel.Pipe.AddOutgoingLast<object>(HandleOutgoingResponse);
-                    break;
+                    return new PerChannelServerHttpSockNetChannelModule();
+                default:
+                    throw new InvalidOperationException();
             }
-
-            channel.Pipe.AddClosedFirst(OnClosed);
-        }
-
-        /// <summary>
-        /// Uninstalls the HTTP module/
-        /// </summary>
-        /// <param name="channel"></param>
-        public void Uninstall(ISockNetChannel channel)
-        {
-            switch (Mode)
-            {
-                case ParsingMode.Client:
-                    channel.Pipe.RemoveIncoming<object>(HandleIncomingResponse);
-                    channel.Pipe.RemoveOutgoing<object>(HandleOutgoingRequest);
-                    break;
-                case ParsingMode.Server:
-                    channel.Pipe.RemoveIncoming<object>(HandleIncomingRequest);
-                    channel.Pipe.RemoveOutgoing<object>(HandleOutgoingResponse);
-                    break;
-            }
-
-            OnClosed(channel);
-            channel.Pipe.RemoveClosed(OnClosed);
-        }
-
-        /// <summary>
-        /// Invoked when the channel closes.
-        /// </summary>
-        /// <param name="channel"></param>
-        public void OnClosed(ISockNetChannel channel)
-        {
-            incomingPayloads.Remove(channel.Id);
-        }
-
-        /// <summary>
-        /// Handles an incomming raw HTTP request.
-        /// </summary>
-        /// <param name="channel"></param>
-        /// <param name="obj"></param>
-        private void HandleIncomingRequest(ISockNetChannel channel, ref object obj)
-        {
-            if (!(obj is ChunkedBuffer))
-            {
-                return;
-            }
-
-            ChunkedBuffer data = (ChunkedBuffer)obj;
-
-            HttpPayload currentIncoming = null;
-
-            if (!incomingPayloads.TryGetValue(channel.Id, out currentIncoming))
-            {
-                currentIncoming = new HttpRequest(channel.BufferPool);
-                incomingPayloads[channel.Id] = currentIncoming;
-            }
-
-            if (currentIncoming.Parse(data.Stream, channel.IsActive))
-            {
-                if (SockNetLogger.DebugEnabled)
-                {
-                    SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Received HTTP Request: Command Line: [{0}], Body Size [{1}]", currentIncoming.CommandLine, currentIncoming.BodySize);
-                }
-
-                obj = currentIncoming;
-                currentIncoming = null;
-            }
-        }
-
-        /// <summary>
-        /// Handles an incoming raw HTTP response.
-        /// </summary>
-        /// <param name="channel"></param>
-        /// <param name="obj"></param>
-        private void HandleIncomingResponse(ISockNetChannel channel, ref object obj)
-        {
-            if (!(obj is ChunkedBuffer))
-            {
-                return;
-            }
-
-            ChunkedBuffer data = (ChunkedBuffer)obj;
-
-            HttpPayload currentIncoming = null;
-
-            if (!incomingPayloads.TryGetValue(channel.Id, out currentIncoming))
-            {
-                currentIncoming = new HttpResponse(channel.BufferPool);
-                incomingPayloads[channel.Id] = currentIncoming;
-            }
-
-            if (currentIncoming.Parse(data.Stream, channel.IsActive))
-            {
-                if (SockNetLogger.DebugEnabled)
-                {
-                    SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Received HTTP Response: Command Line: [{0}], Body Size [{1}]", currentIncoming.CommandLine, currentIncoming.BodySize);
-                }
-
-                obj = currentIncoming;
-                currentIncoming = null;
-            }
-        }
-
-        /// <summary>
-        /// Handles an outgoing HttpRequest and converts it to a raw buffer.
-        /// </summary>
-        /// <param name="channel"></param>
-        /// <param name="obj"></param>
-        private void HandleOutgoingRequest(ISockNetChannel channel, ref object obj)
-        {
-            if (!(obj is HttpRequest))
-            {
-                return;
-            }
-
-            HttpRequest data = (HttpRequest)obj;
-
-            if (SockNetLogger.DebugEnabled)
-            {
-                SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Sending HTTP Request: Command Line: [{0}], Body Size [{1}]", data.CommandLine, data.BodySize);
-            }
-
-            ChunkedBuffer buffer = new ChunkedBuffer(channel.BufferPool);
-
-            data.Write(buffer.Stream);
-
-            data.Dispose();
-
-            obj = buffer;
-        }
-
-        /// <summary>
-        /// Handles an outgoing HttpResponse and converts it into a raw buffer.
-        /// </summary>
-        /// <param name="channel"></param>
-        /// <param name="obj"></param>
-        private void HandleOutgoingResponse(ISockNetChannel channel, ref object obj)
-        {
-            if (!(obj is HttpResponse))
-            {
-                return;
-            }
-
-            HttpResponse data = (HttpResponse)obj;
-
-            if (SockNetLogger.DebugEnabled)
-            {
-                SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Sending HTTP Response: Command Line: [{0}], Body Size [{1}]", data.CommandLine, data.BodySize);
-            }
-
-            ChunkedBuffer buffer = new ChunkedBuffer(channel.BufferPool);
-
-            data.Write(buffer.Stream);
-
-            data.Dispose();
-
-            obj = buffer;
         }
     }
 }
