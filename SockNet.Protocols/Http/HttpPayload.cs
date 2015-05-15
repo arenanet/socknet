@@ -466,6 +466,25 @@ namespace ArenaNet.SockNet.Protocols.Http
         }
 
         /// <summary>
+        /// Returns a string representation of this http payload.
+        /// </summary>
+        /// <returns></returns>
+        public override string ToString()
+        {
+            using (MemoryStream stream = new MemoryStream())
+            {
+                Write(stream, false);
+
+                stream.Position = 0;
+
+                using (StreamReader reader = new StreamReader(stream))
+                {
+                    return reader.ReadToEnd();
+                }
+            }
+        }
+
+        /// <summary>
         /// Disposes this object.
         /// </summary>
         public void Dispose()

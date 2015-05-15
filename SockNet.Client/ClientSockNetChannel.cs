@@ -211,6 +211,8 @@ namespace ArenaNet.SockNet.Client
             {
                 SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Disconnecting from [{0}]...", RemoteEndpoint);
 
+                Socket.Shutdown(SocketShutdown.Both);
+
                 Socket.BeginDisconnect(true, new AsyncCallback(DisconnectCallback), promise);
             }
             else
@@ -227,22 +229,29 @@ namespace ArenaNet.SockNet.Client
         /// <param name="result"></param>
         private void DisconnectCallback(IAsyncResult result)
         {
-            if (TryFlaggingAs(ClientSockNetChannelState.Disconnected, ClientSockNetChannelState.Disconnecting))
-            {
-                SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Disconnected from [{0}]", RemoteEndpoint);
+            Promise<ISockNetChannel> promise = (Promise<ISockNetChannel>)result.AsyncState;
 
+            try
+            {
                 Socket.EndDisconnect(result);
 
-                stream.Close();
+                if (TryFlaggingAs(ClientSockNetChannelState.Disconnected, ClientSockNetChannelState.Disconnecting))
+                {
+                    SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Disconnected from [{0}]", RemoteEndpoint);
 
-                Pipe.HandleClosed();
+                    stream.Close();
 
-                Promise<ISockNetChannel> promise = (Promise<ISockNetChannel>)result.AsyncState;
-                promise.CreateFulfiller().Fulfill(this);
-            }
-            else
+                    Pipe.HandleClosed();
+
+                    promise.CreateFulfiller().Fulfill(this);
+                }
+                else
+                {
+                    promise.CreateFulfiller().Fulfill(new Exception("Unable to mark channel as disconnected. State was: " + State));
+                }
+            } catch (Exception e)
             {
-                throw new Exception("Must be disconnecting.");
+                promise.CreateFulfiller().Fulfill(e);
             }
         }
 

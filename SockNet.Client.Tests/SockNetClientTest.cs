@@ -54,6 +54,8 @@ namespace ArenaNet.SockNet.Client
 
                         response.Body = ChunkedBuffer.Wrap(body, Encoding.UTF8);
 
+                        response.Header["Content-Length"] = "" + response.BodySize;
+
                         channel.Send(response);
                     });
 
@@ -117,59 +119,22 @@ namespace ArenaNet.SockNet.Client
 
                 BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
 
-                ClientSockNetChannel client = SockNetClient.Create(server.Endpoint);
+                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint)
+                    .AddModule(new HttpSockNetChannelModule(HttpSockNetChannelModule.ParsingMode.Client));
 
                 client.Connect().WaitForValue(TimeSpan.FromSeconds(5));
 
                 object currentObject;
 
-                client.Pipe.AddIncomingFirst<ChunkedBuffer>((ISockNetChannel sockNetClient, ref ChunkedBuffer data) => { blockingCollection.Add(data); });
+                client.Pipe.AddIncomingLast<HttpResponse>((ISockNetChannel sockNetClient, ref HttpResponse data) => { blockingCollection.Add(data); });
 
-                client.Send(Encoding.UTF8.GetBytes("GET / HTTP/1.1\r\nHost: www.guildwars2.com\r\n\r\n"));
-
-                Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
-                Assert.IsTrue(currentObject is ChunkedBuffer);
-
-                Console.WriteLine("Got response: \n" + new StreamReader(((ChunkedBuffer)currentObject).Stream, Encoding.UTF8).ReadToEnd());
-
-                client.Disconnect().WaitForValue(TimeSpan.FromSeconds(5));
-            }
-            finally
-            {
-                server.Stop();
-            }
-        }
-
-        [TestMethod]
-        public void TestConnectWithoutSslWithStreamSending()
-        {
-            string text = "some great text here...";
-            HttpSimpleServer server = new HttpSimpleServer();
-
-            try
-            {
-                server.Start(false, text);
-
-                BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
-
-                ClientSockNetChannel client = SockNetClient.Create(server.Endpoint, false, 32);
-
-                client.Connect().WaitForValue(TimeSpan.FromSeconds(5));
-
-                object currentObject;
-
-                client.Pipe.AddIncomingFirst<ChunkedBuffer>((ISockNetChannel sockNetClient, ref ChunkedBuffer data) => { blockingCollection.Add(data); });
-
-                ChunkedBuffer buffer = new ChunkedBuffer(client.BufferPool);
-                byte[] sendData = Encoding.UTF8.GetBytes("GET / HTTP/1.1\r\nHost: www.guildwars2.com\r\n\r\n");
-                buffer.Write(sendData, 0, sendData.Length);
-
-                client.Send(buffer);
+                client.Send(new HttpRequest(client.BufferPool) { Action = "GET", Path = "/", Version = "HTTP/1.0" });
 
                 Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
-                Assert.IsTrue(currentObject is ChunkedBuffer);
 
-                Console.WriteLine("Got response: \n" + new StreamReader(((ChunkedBuffer)currentObject).Stream, Encoding.UTF8).ReadToEnd());
+                Assert.IsTrue(currentObject is HttpResponse);
+
+                Console.WriteLine("Got " + currentObject.GetType() + ": \n" + currentObject);
 
                 client.Disconnect().WaitForValue(TimeSpan.FromSeconds(5));
             }
@@ -191,21 +156,23 @@ namespace ArenaNet.SockNet.Client
 
                 BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
 
-                ClientSockNetChannel client = SockNetClient.Create(server.Endpoint);
+                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint)
+                    .AddModule(new HttpSockNetChannelModule(HttpSockNetChannelModule.ParsingMode.Client));
 
                 client.ConnectWithTLS((object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => { return true; })
                     .WaitForValue(TimeSpan.FromSeconds(5));
 
                 object currentObject;
 
-                client.Pipe.AddIncomingFirst<ChunkedBuffer>((ISockNetChannel sockNetClient, ref ChunkedBuffer data) => { blockingCollection.Add(data); });
+                client.Pipe.AddIncomingLast<HttpResponse>((ISockNetChannel sockNetClient, ref HttpResponse data) => { blockingCollection.Add(data); });
 
-                client.Send(Encoding.UTF8.GetBytes("GET / HTTP/1.1\r\nHost: www.guildwars2.com\r\n\r\n"));
+                client.Send(new HttpRequest(client.BufferPool) { Action = "GET", Path = "/", Version = "HTTP/1.0" });
 
                 Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
-                Assert.IsTrue(currentObject is ChunkedBuffer);
 
-                Console.WriteLine("Got response: \n" + new StreamReader(((ChunkedBuffer)currentObject).Stream, Encoding.UTF8).ReadToEnd());
+                Assert.IsTrue(currentObject is HttpResponse);
+
+                Console.WriteLine("Got " + currentObject.GetType() + ": \n" + currentObject);
 
                 client.Disconnect().WaitForValue(TimeSpan.FromSeconds(5));
             }

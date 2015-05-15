@@ -437,20 +437,28 @@ namespace ArenaNet.SockNet.Common
                             PooledObject<byte[]> buffer = bufferPool.Borrow();
                             buffer.RefCount.Increment();
 
-                            SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, (this.stream is SslStream ? "[SSL] " : "") + "Reading data from [{0}]...", RemoteEndpoint);
-
                             if (IsActive)
                             {
+                                SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, (this.stream is SslStream ? "[SSL] " : "") + "Reading data from [{0}]...", RemoteEndpoint);
+
                                 stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), new ReceiveState() { buffer = buffer, offset = 0, count = buffer.Value.Length });
+                            }
+                            else
+                            {
+                                Close();
                             }
                         }
                         else
                         {
-                            SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, (this.stream is SslStream ? "[SSL] " : "") + "Reading data from [{0}]...", RemoteEndpoint);
-
                             if (IsActive)
                             {
+                                SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, (this.stream is SslStream ? "[SSL] " : "") + "Reading data from [{0}]...", RemoteEndpoint);
+
                                 stream.BeginRead(state.buffer.Value, state.offset + count, state.count - (state.offset + count), new AsyncCallback(ReceiveCallback), new ReceiveState() { buffer = state.buffer, offset = state.offset + count, count = state.count });
+                            }
+                            else
+                            {
+                                Close();
                             }
                         }
                     }
