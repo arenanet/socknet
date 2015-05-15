@@ -193,6 +193,15 @@ namespace ArenaNet.SockNet.Server
         }
 
         /// <summary>
+        /// Notifies this server of a disconnected channel.
+        /// </summary>
+        /// <param name="channel"></param>
+        internal void RemoteChannelDisconnected(RemoteSockNetChannel channel)
+        {
+            remoteChannels.Remove(channel.Id);
+        }
+
+        /// <summary>
         /// Closes this server.
         /// </summary>
         /// <returns></returns>

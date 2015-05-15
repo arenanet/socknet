@@ -42,6 +42,7 @@
     <Reference Include="System" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="BaseMultiChannelSockNetChannelModule.cs" />
     <Compile Include="IO\ChunkedBuffer.cs" />
     <Compile Include="IO\ChunkedBufferStream.cs" />
     <Compile Include="IO\BaseSockNetChannelHandler.cs" />

@@ -146,6 +146,8 @@ namespace ArenaNet.SockNet.Server
             }
             else
             {
+                parent.RemoteChannelDisconnected(this);
+
                 promise.CreateFulfiller().Fulfill(this);
             }
 
@@ -169,6 +171,9 @@ namespace ArenaNet.SockNet.Server
                 Pipe.HandleClosed();
 
                 Promise<ISockNetChannel> promise = (Promise<ISockNetChannel>)result.AsyncState;
+
+                parent.RemoteChannelDisconnected(this);
+
                 promise.CreateFulfiller().Fulfill(this);
             }
             else
