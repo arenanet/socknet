@@ -45,7 +45,7 @@ namespace ArenaNet.SockNet.Common.IO
         /// </summary>
         public override bool CanWrite
         {
-            get { return !chunkedBuffer.IsClosed; }
+            get { return !chunkedBuffer.IsClosed && !chunkedBuffer.IsReadOnly; }
         }
 
         /// <summary>

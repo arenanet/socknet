@@ -361,7 +361,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
             Random random = new Random(this.GetHashCode() ^ (int)DateTime.Now.Subtract(new DateTime(2000, 1, 1)).TotalMilliseconds);
 
-            for (int n = 0; n < 1000; n++)
+            for (int n = 0; n < 100; n++)
             {
                 byte[] data = new byte[random.Next(50000, 150000)];
                 random.NextBytes(data);

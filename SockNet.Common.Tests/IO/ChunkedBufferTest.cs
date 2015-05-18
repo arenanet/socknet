@@ -26,6 +26,40 @@ namespace ArenaNet.SockNet.Common.IO
         private static readonly byte[] TestData = Encoding.UTF8.GetBytes(TestDataString);
 
         [TestMethod]
+        public void TestReadAndWritePoolUsage()
+        {
+            Random rand = new Random(this.GetHashCode() ^ DateTime.Now.Millisecond);
+
+            byte[] randomUtf8StringBytes = new byte[rand.Next(2000, 5000)];
+            for (int i = 0; i < randomUtf8StringBytes.Length; i++)
+            {
+                randomUtf8StringBytes[i] = (byte)rand.Next(0x0020, 0x007F);
+            }
+
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[10]; });
+
+            using (ChunkedBuffer buffer = new ChunkedBuffer(pool))
+            {
+                buffer.Write(randomUtf8StringBytes, 0, randomUtf8StringBytes.Length);
+
+                Assert.AreEqual((randomUtf8StringBytes.Length / 10) + (randomUtf8StringBytes.Length % 10 > 0 ? 1 : 0), pool.TotalNumberOfObjects);
+
+                Assert.AreEqual(randomUtf8StringBytes.Length, buffer.AvailableBytesToRead);
+
+                byte[] readBytes = new byte[randomUtf8StringBytes.Length];
+
+                buffer.Read(readBytes, 0, readBytes.Length);
+
+                for (int i = 0; i < readBytes.Length; i++)
+                {
+                    Assert.AreEqual(readBytes[i], randomUtf8StringBytes[i]);
+                }
+            }
+
+            Assert.AreEqual(pool.ObjectsInPool, pool.TotalNumberOfObjects);
+        }
+
+        [TestMethod]
         public void TestWrapString()
         {
             Random rand = new Random(this.GetHashCode() ^ DateTime.Now.Millisecond);
@@ -132,7 +166,7 @@ namespace ArenaNet.SockNet.Common.IO
         }
 
         [TestMethod]
-        public void TestWriteAndReadAndFlush()
+        public void TestStreamWriteAndReadAndFlush()
         {
             ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[10]; });
 
@@ -164,7 +198,7 @@ namespace ArenaNet.SockNet.Common.IO
         }
 
         [TestMethod]
-        public void TestWriteAndReadAndClose()
+        public void TestStreamWriteAndReadAndClose()
         {
             ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[10]; });
 

@@ -29,6 +29,8 @@ namespace ArenaNet.SockNet.Common.IO
 
         public bool IsClosed { private set; get; }
 
+        private object _syncRoot = new object();
+
         /// <summary>
         /// The root in the memory chunk chain
         /// </summary>
@@ -55,6 +57,15 @@ namespace ArenaNet.SockNet.Common.IO
             public MemoryChunkNode currentChunk;
             public Stream stream;
             public Promise<ChunkedBuffer> promise;
+        }
+
+        /// <summary>
+        /// Returns true if this is a read only buffer.
+        /// </summary>
+        public bool IsReadOnly
+        {
+            private set;
+            get;
         }
 
         private long _readPosition = 0;
@@ -87,6 +98,11 @@ namespace ArenaNet.SockNet.Common.IO
         {
             this.pool = pool;
 
+            if (pool == null)
+            {
+                IsReadOnly = true;
+            }
+
             this.Stream = new ChunkedBufferStream(this);
             this.IsClosed = false;
             this.WritePosition = 0;
@@ -106,7 +122,7 @@ namespace ArenaNet.SockNet.Common.IO
         /// </summary>
         public void Close()
         {
-            lock (this)
+            lock (_syncRoot)
             {
                 if (IsClosed)
                 {
@@ -131,7 +147,7 @@ namespace ArenaNet.SockNet.Common.IO
         /// </summary>
         public void Flush()
         {
-            lock (this)
+            lock (_syncRoot)
             {
                 ValidateBuffer();
 
@@ -192,7 +208,7 @@ namespace ArenaNet.SockNet.Common.IO
         /// <returns></returns>
         public int Read(byte[] buffer, int offset, int count)
         {
-            lock (this)
+            lock (_syncRoot)
             {
                 ValidateBuffer();
 
@@ -310,7 +326,12 @@ namespace ArenaNet.SockNet.Common.IO
         /// <param name="maxBytes"></param>
         public ChunkedBuffer ReadFromStream(Stream stream)
         {
-            lock (this)
+            if (IsReadOnly)
+            {
+                throw new InvalidOperationException("The buffer is read only. Probably because no pool was set.");
+            }
+
+            lock (_syncRoot)
             {
                 PooledObject<byte[]> pooledObject = null;
                 int bytesRead = 0;
@@ -342,7 +363,7 @@ namespace ArenaNet.SockNet.Common.IO
         /// <param name="stream"></param>
         public ChunkedBuffer DrainToStreamSync(Stream stream)
         {
-            lock (this)
+            lock (_syncRoot)
             {
                 while (rootChunk != null)
                 {
@@ -385,7 +406,7 @@ namespace ArenaNet.SockNet.Common.IO
         {
             MemoryChunkNode currentChunk = null;
 
-            lock (this)
+            lock (_syncRoot)
             {
                 currentChunk = rootChunk;
 
@@ -439,7 +460,12 @@ namespace ArenaNet.SockNet.Common.IO
                 throw new ArgumentOutOfRangeException("Offset + count must be less then the buffer length.");
             }
 
-            lock (this)
+            if (IsReadOnly)
+            {
+                throw new InvalidOperationException("The buffer is read only. Probably because no pool was set.");
+            }
+
+            lock (_syncRoot)
             {
                 ValidateBuffer();
 
@@ -471,7 +497,7 @@ namespace ArenaNet.SockNet.Common.IO
         /// <param name="chunk"></param>
         private void AppendChunk(MemoryChunkNode chunk)
         {
-            lock (this)
+            lock (_syncRoot)
             {
                 if (rootChunk == null)
                 {
@@ -508,7 +534,7 @@ namespace ArenaNet.SockNet.Common.IO
         {
             byte[] data = null;
 
-            lock (this)
+            lock (_syncRoot)
             {
                 data = new byte[AvailableBytesToRead];
                 Read(data, 0, data.Length);
@@ -544,7 +570,9 @@ namespace ArenaNet.SockNet.Common.IO
         protected virtual void Dispose(bool disposing)
         {
             if (IsClosed)
+            {
                 return;
+            }
 
             if (disposing)
             {
