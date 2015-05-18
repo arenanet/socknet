@@ -184,11 +184,6 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
                 Pipe.HandleOutgoingData(ref data);
 
-                if (data is ChunkedBuffer)
-                {
-                    ((ChunkedBuffer)data).Close();
-                }
-
                 return new Promise<ISockNetChannel>(this);
             }
 
@@ -328,7 +323,6 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
                     {
                         Assert.AreEqual(data[i], ((WebSocketFrame)receiveResponse).Data[i]);
                     }
-                    buffer.Close();
                 }
             }
 

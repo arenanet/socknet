@@ -263,7 +263,7 @@ namespace ArenaNet.SockNet.Common
             PooledObject<byte[]> buffer = bufferPool.Borrow();
             buffer.RefCount.Increment();
 
-            stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), new ReceiveState() { buffer = buffer, offset = 0, count = buffer.Value.Length });
+            stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), new ReceiveState() { buffer = buffer, offset = 0, length = buffer.Value.Length });
 
             return (attachPromiseFulfiller = new Promise<ISockNetChannel>(this).CreateFulfiller()).Promise;
         }
@@ -324,7 +324,7 @@ namespace ArenaNet.SockNet.Common
             PooledObject<byte[]> buffer = bufferPool.Borrow();
             buffer.RefCount.Increment();
 
-            stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), new ReceiveState() { buffer = buffer, offset = 0, count = buffer.Value.Length });
+            stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), new ReceiveState() { buffer = buffer, offset = 0, length = buffer.Value.Length });
 
             attachPromiseFulfiller.Fulfill(this);
         }
@@ -359,7 +359,7 @@ namespace ArenaNet.SockNet.Common
             PooledObject<byte[]> buffer = bufferPool.Borrow();
             buffer.RefCount.Increment();
 
-            stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), new ReceiveState() { buffer = buffer, offset = 0, count = buffer.Value.Length });
+            stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), new ReceiveState() { buffer = buffer, offset = 0, length = buffer.Value.Length });
 
             attachPromiseFulfiller.Fulfill(this);
         }
@@ -371,7 +371,7 @@ namespace ArenaNet.SockNet.Common
         {
             public PooledObject<byte[]> buffer;
             public int offset;
-            public int count;
+            public int length;
         }
 
         /// <summary>
@@ -419,7 +419,7 @@ namespace ArenaNet.SockNet.Common
                 }
                 catch (Exception ex)
                 {
-                    SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, ex.Message);
+                    SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, ex.Message, ex);
                 }
                 finally
                 {
@@ -427,7 +427,7 @@ namespace ArenaNet.SockNet.Common
                     {
                         chunkedBuffer.Flush();
 
-                        if (state.offset + count >= state.count)
+                        if (state.offset + count >= state.length)
                         {
                             if (state.buffer.RefCount.Decrement() < 1)
                             {
@@ -441,7 +441,7 @@ namespace ArenaNet.SockNet.Common
                             {
                                 SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, (this.stream is SslStream ? "[SSL] " : "") + "Reading data from [{0}]...", RemoteEndpoint);
 
-                                stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), new ReceiveState() { buffer = buffer, offset = 0, count = buffer.Value.Length });
+                                stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), new ReceiveState() { buffer = buffer, offset = 0, length = buffer.Value.Length });
                             }
                             else
                             {
@@ -454,7 +454,7 @@ namespace ArenaNet.SockNet.Common
                             {
                                 SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, (this.stream is SslStream ? "[SSL] " : "") + "Reading data from [{0}]...", RemoteEndpoint);
 
-                                stream.BeginRead(state.buffer.Value, state.offset + count, state.count - (state.offset + count), new AsyncCallback(ReceiveCallback), new ReceiveState() { buffer = state.buffer, offset = state.offset + count, count = state.count });
+                                stream.BeginRead(state.buffer.Value, state.offset + count, state.length - (state.offset + count), new AsyncCallback(ReceiveCallback), new ReceiveState() { buffer = state.buffer, offset = state.offset + count, length = state.length });
                             }
                             else
                             {

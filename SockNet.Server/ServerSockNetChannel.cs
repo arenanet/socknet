@@ -51,7 +51,7 @@ namespace ArenaNet.SockNet.Server
         /// <summary>
         /// Returns true if this channel is active.
         /// </summary>
-        public override bool IsActive { get { return ServerSockNetChannelState.Bound.Equals(State); } }
+        public override bool IsActive { get { return ServerSockNetChannelState.Bound.Equals(State) && Socket.IsBound; } }
 
         private IPEndPoint bindEndpoint = null;
         private int backlog;
@@ -144,11 +144,11 @@ namespace ArenaNet.SockNet.Server
                 Socket.Bind(bindEndpoint);
                 Socket.Listen(backlog);
 
+                this.State = ServerSockNetChannelState.Bound;
+
                 SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Bound to [{0}].", LocalEndpoint);
 
                 Socket.BeginAccept(new AsyncCallback(AcceptCallback), Socket);
-
-                this.State = ServerSockNetChannelState.Bound;
 
                 promise.CreateFulfiller().Fulfill(this);
             }
@@ -181,7 +181,15 @@ namespace ArenaNet.SockNet.Server
             }
             finally
             {
-                Socket.BeginAccept(new AsyncCallback(AcceptCallback), Socket);
+                if (ServerSockNetChannelState.Bound.Equals(State))
+                {
+                    Socket.BeginAccept(new AsyncCallback(AcceptCallback), Socket);
+                }
+                else
+                {
+                    remoteSocket.Close();
+                    remoteSocket = null;
+                }
             }
 
             if (remoteSocket != null)
@@ -210,6 +218,11 @@ namespace ArenaNet.SockNet.Server
             if (TryFlaggingAs(ServerSockNetChannelState.Closing, ServerSockNetChannelState.Bound))
             {
                 SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Unbinding from [{0}]...", LocalEndpoint);
+
+                foreach (RemoteSockNetChannel remoteChannel in remoteChannels.Values)
+                {
+                    remoteChannel.Close().WaitForValue(TimeSpan.FromSeconds(5));
+                }
 
                 Socket.Close();
 

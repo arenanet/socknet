@@ -552,7 +552,7 @@ namespace ArenaNet.SockNet.Protocols.Http
         /// </summary>
         /// <param name="input"></param>
         /// <param name="output"></param>
-        /// <param name="count"></param>
+        /// <param name="length"></param>
         /// <returns></returns>
         private static int Copy(Stream input, Stream output, int count)
         {

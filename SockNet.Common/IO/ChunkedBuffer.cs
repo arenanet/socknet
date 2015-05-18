@@ -148,6 +148,8 @@ namespace ArenaNet.SockNet.Common.IO
                     {
                         if (currentChunk.pooledObject.State == PooledObjectState.USED)
                         {
+                            Console.WriteLine("Returning [" + currentChunk.pooledObject.GetHashCode() + "] inside of [" + this.GetHashCode() + "]");
+
                             currentChunk.pooledObject.Return();
                         }
                         else
@@ -186,7 +188,7 @@ namespace ArenaNet.SockNet.Common.IO
         /// </summary>
         /// <param name="buffer"></param>
         /// <param name="offset"></param>
-        /// <param name="count"></param>
+        /// <param name="length"></param>
         /// <returns></returns>
         public int Read(byte[] buffer, int offset, int count)
         {
@@ -266,7 +268,7 @@ namespace ArenaNet.SockNet.Common.IO
         /// </summary>
         /// <param name="pooledBytes"></param>
         /// <param name="offset"></param>
-        /// <param name="count"></param>
+        /// <param name="length"></param>
         public ChunkedBuffer OfferChunk(PooledObject<byte[]> pooledObject, int offset, int count)
         {
             ValidateBuffer();
@@ -276,9 +278,14 @@ namespace ArenaNet.SockNet.Common.IO
                 throw new ArgumentNullException("'data' cannot be null");
             }
 
+            if (pooledObject.State != PooledObjectState.USED)
+            {
+                throw new Exception("This pooled object is not active.");
+            }
+
             if (pooledObject.Pool != pool)
             {
-                throw new Exception("The given pooled object does not beong to ths pool that is assigned to this stream.");
+                throw new Exception("The given pooled object does not belong to ths pool that is assigned to this stream: " + pooledObject.Pool);
             }
 
             MemoryChunkNode chunk = new MemoryChunkNode()
@@ -424,7 +431,7 @@ namespace ArenaNet.SockNet.Common.IO
         /// </summary>
         /// <param name="buffer"></param>
         /// <param name="offset"></param>
-        /// <param name="count"></param>
+        /// <param name="length"></param>
         public void Write(byte[] buffer, int offset, int count)
         {
             if (buffer.Length < offset + count)
@@ -568,7 +575,7 @@ namespace ArenaNet.SockNet.Common.IO
         /// </summary>
         /// <param name="data"></param>
         /// <param name="offset"></param>
-        /// <param name="count"></param>
+        /// <param name="length"></param>
         /// <param name="bufferPool"></param>
         /// <returns></returns>
         public static ChunkedBuffer Wrap(byte[] data, int offset, int count, ObjectPool<byte[]> bufferPool = null)

@@ -60,7 +60,7 @@ namespace ArenaNet.SockNet.Client
             {
                 try
                 {
-                    return ClientSockNetChannelState.Connected.Equals(State) && (!this.Socket.Poll(1, SelectMode.SelectRead) || this.Socket.Available != 0);
+                    return ClientSockNetChannelState.Connected.Equals(State) && !(Socket.Poll(1000, SelectMode.SelectRead) && (Socket.Available == 0) && Socket.Connected);
                 }
                 catch
                 {

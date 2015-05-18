@@ -103,7 +103,7 @@ namespace ArenaNet.SockNet.Common.IO
         /// </summary>
         /// <param name="buffer"></param>
         /// <param name="offset"></param>
-        /// <param name="count"></param>
+        /// <param name="length"></param>
         /// <returns></returns>
         public override int Read(byte[] buffer, int offset, int count)
         {
@@ -158,7 +158,7 @@ namespace ArenaNet.SockNet.Common.IO
         /// </summary>
         /// <param name="buffer"></param>
         /// <param name="offset"></param>
-        /// <param name="count"></param>
+        /// <param name="length"></param>
         public override void Write(byte[] buffer, int offset, int count)
         {
             chunkedBuffer.Write(buffer, offset, count);
