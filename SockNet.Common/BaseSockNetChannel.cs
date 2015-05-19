@@ -426,6 +426,13 @@ namespace ArenaNet.SockNet.Common
                             break;
                         }
                     }
+
+                    if (chunkedBuffer.IsClosed)
+                    {
+                        Close();
+
+                        return;
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -608,7 +615,11 @@ namespace ArenaNet.SockNet.Common
 
                 isProcessingSendQueue = false;
 
-                buffer.Close();
+                // if the receive buffer was being sent don't close it
+                if (buffer != chunkedBuffer)
+                {
+                    buffer.Close();
+                }
             }
             catch (Exception e)
             {
