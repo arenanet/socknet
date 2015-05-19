@@ -37,7 +37,7 @@ using (ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(
     });
 
     // send a message
-    if (client.Send(WebSocketFrame.CreateTextFrame("Y u no echo!")).WaitForValue(TimeSpan.FromSeconds(5)) == null)
+    if (client.Send(WebSocketFrame.CreateTextFrame("Y u no echo?")).WaitForValue(TimeSpan.FromSeconds(5)) == null)
     {
         throw new IOException(string.Format("WebSocket frame send to [{0}] timed out.", client.RemoteEndpoint));
     }
