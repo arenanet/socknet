@@ -4,7 +4,7 @@ WebSocket implementation on top of SockNet.
 
 Example
 ==========
-The example bellow shows a client connecting to "echo.websocket.org", sending a text WebSocket frame, retrieving the echoed WebSocketFrame, printing it out, and then disconnecting.
+The example below shows a client connecting to "echo.websocket.org", sending a text WebSocket frame, retrieving the echoed WebSocketFrame, printing it out, and then disconnecting.
 
 ```csharp
 // blocking collection that holds flags for handshakes
@@ -54,7 +54,7 @@ using (ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(
 }
 ```
 
-The example bwlow creates a echo WebSocket server and has a client connect, send a frame, and read the echo frame back.
+The example below creates a echo WebSocket server and has a client connect, send a frame, and read the echo frame back.
 
 ```csharp
 // configure and create server channel
@@ -106,14 +106,14 @@ using (ServerSockNetChannel server = (ServerSockNetChannel)SockNetServer.Create(
         }
 
         // print out response data once we get it
-        WebSocketFrame httpResponse;
+        WebSocketFrame webSocketResponse;
 
-        if (!responseData.TryTake(out httpResponse, (int)TimeSpan.FromSeconds(5).TotalMilliseconds))
+        if (!responseData.TryTake(out webSocketResponse, (int)TimeSpan.FromSeconds(5).TotalMilliseconds))
         {
             throw new IOException(string.Format("Response timeout from [{0}].", client.RemoteEndpoint));
         }
 
-        Console.WriteLine(httpResponse.DataAsString);
+        Console.WriteLine(webSocketResponse.DataAsString);
     }
 }
 ```
