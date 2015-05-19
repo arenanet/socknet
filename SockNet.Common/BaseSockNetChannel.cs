@@ -50,7 +50,7 @@ namespace ArenaNet.SockNet.Common
         protected Socket Socket { get; private set; }
 
         // the installed modules
-        protected ConcurrentHashSet<ISockNetChannelModule> modules = new ConcurrentHashSet<ISockNetChannelModule>(EqualityComparer<ISockNetChannelModule>.Default);
+        protected ConcurrentHashMap<string, ISockNetChannelModule> modules = new ConcurrentHashMap<string, ISockNetChannelModule>(EqualityComparer<string>.Default);
 
         // the current stream
         protected Stream stream;
@@ -93,12 +93,7 @@ namespace ArenaNet.SockNet.Common
         /// <summary>
         /// The buffers that are queued for sends on this channel.
         /// </summary>
-        private Queue<SendQueueState> sendQueue = new Queue<SendQueueState>();
-
-        /// <summary>
-        /// Whether the send queue is currently being processed.
-        /// </summary>
-        private bool isProcessingSendQueue = false;
+        private ConcurrentLinkedQueue<SendQueueState> sendQueue = new ConcurrentLinkedQueue<SendQueueState>();
 
         /// <summary>
         /// Whether this object is disposed;
@@ -161,8 +156,10 @@ namespace ArenaNet.SockNet.Common
         /// Gets the current state of the client.
         /// </summary>
         private readonly Array stateValues;
-        public int state;
+        private int state;
         public Enum State { get { return (Enum)stateValues.GetValue(state); } protected set { state = ((IConvertible)value).ToInt32(null); } }
+
+        private int sendState = 0;
 
         /// <summary>
         /// Creates a base socknet channel given a socket and a buffer pool.
@@ -205,7 +202,9 @@ namespace ArenaNet.SockNet.Common
         /// <returns></returns>
         public ISockNetChannel AddModule(ISockNetChannelModule module)
         {
-            if (modules.TryAdd(module))
+            ISockNetChannelModule tmp;
+
+            if (modules.TryAdd(module.GetType().Name, module, out tmp, false))
             {
                 SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Adding module: [{0}]", module);
 
@@ -231,7 +230,7 @@ namespace ArenaNet.SockNet.Common
         /// <returns></returns>
         public ISockNetChannel RemoveModule(ISockNetChannelModule module)
         {
-            if (modules.Remove(module))
+            if (modules.Remove(module.GetType().Name))
             {
                 SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, "Uninstalling module: [{0}]", module);
 
@@ -549,14 +548,11 @@ namespace ArenaNet.SockNet.Common
         /// <param name="buffer"></param>
         private void EnqueueToSendQueueAndNotify(ChunkedBuffer buffer, Promise<ISockNetChannel> promise)
         {
-            lock (sendQueue)
+            sendQueue.Enqueue(new SendQueueState()
             {
-                sendQueue.Enqueue(new SendQueueState()
-                {
-                    buffer = buffer,
-                    promise = promise
-                });
-            }
+                buffer = buffer,
+                promise = promise
+            });
 
             NotifySendQueue();
         }
@@ -566,35 +562,26 @@ namespace ArenaNet.SockNet.Common
         /// </summary>
         private void NotifySendQueue()
         {
-            lock (sendQueue)
+            if (Interlocked.CompareExchange(ref sendState, 1, 0) == 0)
             {
-                if (isProcessingSendQueue)
-                {
-                    return;
-                }
+                SendQueueState nextState;
 
-                if (sendQueue.Count > 0)
+                if (sendQueue.Dequeue(out nextState))
                 {
                     try
                     {
-                        SendQueueState nextState = sendQueue.Dequeue();
-
-                        isProcessingSendQueue = true;
-
                         Promise<ChunkedBuffer> promise = nextState.buffer.DrainToStream(stream);
                         promise.State = nextState;
                         promise.OnFulfilled = QueueWriteCallback;
                     }
                     catch (Exception e)
                     {
-                        SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Send data to the socket stream", e);
-
-                        isProcessingSendQueue = false;
+                        SockNetLogger.Log(SockNetLogger.LogLevel.ERROR, this, "Send data to the socket stream failed.", e);
                     }
                 }
                 else
                 {
-                    isProcessingSendQueue = false;
+                    Interlocked.CompareExchange(ref sendState, 0, 1);
                 }
             }
         }
@@ -613,8 +600,6 @@ namespace ArenaNet.SockNet.Common
             {
                 SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, (stream is SslStream ? "[SSL] " : "") + "Sent data to [{0}].", RemoteEndpoint);
 
-                isProcessingSendQueue = false;
-
                 // if the receive buffer was being sent don't close it
                 if (buffer != chunkedBuffer)
                 {
@@ -627,6 +612,8 @@ namespace ArenaNet.SockNet.Common
             }
             finally
             {
+                Interlocked.CompareExchange(ref sendState, 0, 1);
+
                 try
                 {
                     state.promise.CreateFulfiller().Fulfill(this);
@@ -645,9 +632,9 @@ namespace ArenaNet.SockNet.Common
         /// <param name="value"></param>
         /// <param name="upsert"></param>
         /// <returns></returns>
-        public bool SetAttribute<T>(string name, T value, bool upsert = true)
+        public bool SetAttribute(string name, object value, bool upsert = true)
         {
-            return attributes.Put(name, (object)value, upsert);
+            return attributes.Put(name, value, upsert);
         }
 
         /// <summary>
@@ -668,13 +655,9 @@ namespace ArenaNet.SockNet.Common
         /// <param name="name"></param>
         /// <param name="value"></param>
         /// <returns></returns>
-        public bool TryGetAttribute<T>(string name, out T value)
+        public bool TryGetAttribute(string name, out object value)
         {
-            object response;
-            bool success = attributes.TryGetValue(name, out response);
-            value = (T)response;
-
-            return success;
+            return attributes.TryGetValue(name, out value);
         }
 
         /// <summary>

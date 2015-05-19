@@ -57,7 +57,7 @@ namespace ArenaNet.SockNet.Common
         /// <param name="value"></param>
         /// <param name="upsert"></param>
         /// <returns></returns>
-        bool SetAttribute<T>(string name, T value, bool upsert = true);
+        bool SetAttribute(string name, object value, bool upsert = true);
 
         /// <summary>
         /// Removes an attribute.
@@ -72,7 +72,7 @@ namespace ArenaNet.SockNet.Common
         /// <param name="name"></param>
         /// <param name="value"></param>
         /// <returns></returns>
-        bool TryGetAttribute<T>(string name, out T value);
+        bool TryGetAttribute(string name, out object value);
 
         /// <summary>
         /// The protocol of this channel.

@@ -41,11 +41,11 @@ namespace ArenaNet.SockNet.Protocols
         /// <param name="channel"></param>
         public void Uninstall(ISockNetChannel channel)
         {
-            ISockNetChannelModule module;
+            object module;
 
             if (channel.TryGetAttribute(ModuleName, out module))
             {
-                module.Uninstall(channel);
+                ((ISockNetChannelModule)module).Uninstall(channel);
 
                 channel.RemoveAttribute(ModuleName);
             }

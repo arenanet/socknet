@@ -204,9 +204,9 @@ namespace ArenaNet.SockNet.Protocols.Gds
 
             private ConcurrentDictionary<string, object> attributes = new ConcurrentDictionary<string, object>();
 
-            public bool SetAttribute<T>(string name, T value, bool upsert = true)
+            public bool SetAttribute(string name, object value, bool upsert = true)
             {
-                return attributes.TryAdd(name, (object)value);
+                return attributes.TryAdd(name, value);
             }
 
             public bool RemoveAttribute(string name)
@@ -215,13 +215,9 @@ namespace ArenaNet.SockNet.Protocols.Gds
                 return attributes.TryRemove(name, out ignore);
             }
 
-            public bool TryGetAttribute<T>(string name, out T value)
+            public bool TryGetAttribute(string name, out object value)
             {
-                object response;
-                bool success = attributes.TryGetValue(name, out response);
-                value = (T)response;
-
-                return success;
+                return attributes.TryGetValue(name, out value);
             }
         }
 
