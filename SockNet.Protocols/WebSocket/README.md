@@ -54,6 +54,70 @@ using (ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(
 }
 ```
 
+The example bwlow creates a echo WebSocket server and has a client connect, send a frame, and read the echo frame back.
+
+```charp
+// configure and create server channel
+using (ServerSockNetChannel server = (ServerSockNetChannel)SockNetServer.Create(new IPEndPoint(IPAddress.Any, 0))
+    .AddModule(new WebSocketServerSockNetChannelModule("/", "localhost")))
+{
+    // add data echo handler
+    server.Pipe.AddIncomingFirst<WebSocketFrame>((ISockNetChannel channel, ref WebSocketFrame data) =>
+    {
+        channel.Send(data);
+    });
+
+    // bind to the port
+    server.Bind();
+
+    // blocking collection that holds flags for handshakes
+    BlockingCollection<bool> handshakes = new BlockingCollection<bool>();
+
+    // blocking collection that will contain incoming WebSocket frame data
+    BlockingCollection<WebSocketFrame> responseData = new BlockingCollection<WebSocketFrame>();
+
+    // configure and create client channel
+    using (ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(new IPEndPoint(IPAddress.Parse("127.0.0.1"), server.LocalEndpoint.Port))
+        .AddModule(new WebSocketClientSockNetChannelModule("/", "localhost", (ISockNetChannel channel) => { handshakes.Add(true); })))
+    {
+        // connect to the channel's endpoint
+        if (client.Connect().WaitForValue(TimeSpan.FromSeconds(5)) == null)
+        {
+            throw new IOException(string.Format("Connection to [{0}] timed out.", client.RemoteEndpoint));
+        }
+
+        // wait for handshake
+        bool handshakeFlag = false;
+        if (!handshakes.TryTake(out handshakeFlag, TimeSpan.FromSeconds(5)) || !handshakeFlag)
+        {
+            throw new IOException(string.Format("Connection to [{0}] timed out.", client.RemoteEndpoint));
+        }
+
+        // add response collector
+        client.Pipe.AddIncomingLast<WebSocketFrame>((ISockNetChannel channel, ref WebSocketFrame response) =>
+        {
+            responseData.Add(response);
+        });
+
+        // send a message
+        if (client.Send(WebSocketFrame.CreateTextFrame("Y u no echo?")).WaitForValue(TimeSpan.FromSeconds(5)) == null)
+        {
+            throw new IOException(string.Format("WebSocket frame send to [{0}] timed out.", client.RemoteEndpoint));
+        }
+
+        // print out response data once we get it
+        WebSocketFrame httpResponse;
+
+        if (!responseData.TryTake(out httpResponse, (int)TimeSpan.FromSeconds(5).TotalMilliseconds))
+        {
+            throw new IOException(string.Format("Response timeout from [{0}].", client.RemoteEndpoint));
+        }
+
+        Console.WriteLine(httpResponse.DataAsString);
+    }
+}
+```
+
 ## Bugs and Feedback
 
 For bugs, questions and discussions please use the [GitHub Issues](https://github.com/ArenaNet/SockNet/issues).
