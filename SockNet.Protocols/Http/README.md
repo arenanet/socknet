@@ -27,7 +27,7 @@ using (ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(
     });
 
     // send a message
-    if (client.Send(ChunkedBuffer.Wrap("GET / HTTP/1.1\r\nHost: www.guildwars2.com\r\n\r\n", Encoding.UTF8)).WaitForValue(TimeSpan.FromSeconds(5)) == null)
+    if (client.Send(new HttpRequest(client.BufferPool) { Action = "GET", Path = "/", Version = "HTTP/1.1" }).WaitForValue(TimeSpan.FromSeconds(5)) == null)
     {
         throw new IOException(string.Format("HTTP message request to [{0}] timed out.", client.RemoteEndpoint));
     }
