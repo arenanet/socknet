@@ -7,47 +7,49 @@ Example
 The example bellow shows a client connecting to "www.guildwars2.com", sending a GET request, retrieving the response, and finally disconnecting.
 
 ```csharp
-// container for incomming response
-BlockingCollection<HttpResponse> responses = new BlockingCollection<HttpResponse>();
+// blocking collection that will contain incoming HTTP response data
+BlockingCollection<HttpResponse> responseData = new BlockingCollection<HttpResponse>();
 
-// create the client, connect to guildwars2.com, and place all incomming responses into the above container
-ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(new IPEndPoint(Dns.GetHostEntry("www.guildwars2.com").AddressList[0], 80))
-    .AddModule(new HttpSockNetChannelModule(HttpSockNetChannelModule.ParsingMode.Client));
-client.Pipe.AddIncomingLast<HttpResponse>((ISockNetChannel channel, ref HttpResponse data) => { responses.Add(data); });
-
-// connect and wait for 5 seconds
-if (client.Connect().WaitForValue(TimeSpan.FromSeconds(5)) == null) 
+// configure and create a channel
+using (ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(new IPEndPoint(Dns.GetHostEntry("www.guildwars2.com").AddressList[0], 80))
+    .AddModule(new HttpSockNetChannelModule(HttpSockNetChannelModule.ParsingMode.Client)))
 {
-    throw new Exception("Connection timed out.");
-}
-
-try {
-    // create a simple GET request and send it
-    HttpRequest request = new HttpRequest()
+    // connect to the channel's endpoint
+    if (client.Connect().WaitForValue(TimeSpan.FromSeconds(5)) == null)
     {
-        Action = "GET",
-        Path = "/en/",
-        Version = "HTTP/1.1"
-    };
-    request.Header["Host"] = "www.guildwars2.com";
-
-    client.Send(request);
-
-    // wait for response
-    HttpResponse response = null;
-
-    if (!responses.TryTake(out response, 5))
-    {
-        throw new Exception("Receive timeout.");
+        throw new IOException(string.Format("Connection to [{0}] timed out.", client.RemoteEndpoint));
     }
 
-    // do something with the response
-} finally {
-    // disconnect
-    if (client.Disconnect().WaitForValue(TimeSpan.FromSeconds(5)) == null)
+    // add response collector
+    client.Pipe.AddIncomingLast<HttpResponse>((ISockNetChannel channel, ref HttpResponse response) =>
     {
-        throw new Exception("Internal socket error.");
+        responseData.Add(response);
+    });
+
+    // send a message
+    if (client.Send(ChunkedBuffer.Wrap("GET / HTTP/1.1\r\nHost: www.guildwars2.com\r\n\r\n", Encoding.UTF8)).WaitForValue(TimeSpan.FromSeconds(5)) == null)
+    {
+        throw new IOException(string.Format("HTTP message request to [{0}] timed out.", client.RemoteEndpoint));
     }
+
+    // print out response data once we get it
+    HttpResponse httpResponse;
+
+    if (!responseData.TryTake(out httpResponse, (int)TimeSpan.FromSeconds(5).TotalMilliseconds))
+    {
+        throw new IOException(string.Format("Response timeout from [{0}].", client.RemoteEndpoint));
+    }
+
+    using (ChunkedBuffer buffer = new ChunkedBuffer(client.BufferPool))
+    {
+        httpResponse.Write(buffer.Stream, false);
+
+        StreamReader reader = new StreamReader(buffer.Stream, Encoding.UTF8);
+
+        Console.WriteLine(reader.ReadToEnd());
+    }
+
+    httpResponse.Dispose();
 }
 ```
 
