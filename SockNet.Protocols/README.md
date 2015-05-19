@@ -9,6 +9,8 @@ Bellow is a list of modules implemented by this library:
 [SockNet.Protocols.Http](https://github.com/arenanet/socknet/tree/master/SockNet.Protocols/Http) - HTTP implementation on top of SockNet.
 <br />
 [SockNet.Protocols.WebSocket](https://github.com/arenanet/socknet/tree/master/SockNet.Protocols/WebSocket) - WebSocket implementation on top of SockNet.
+<br />
+[SockNet.Protocols.Gds](https://github.com/arenanet/socknet/tree/master/SockNet.Protocols/Gds) - GDS implementation on top of SockNet. GDS is a custom multi-plexing frame protocol built on top of TCP/IP.
 
 ## Bugs and Feedback
 
