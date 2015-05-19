@@ -43,14 +43,14 @@ using (ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(
     }
 
     // print out response data once we get it
-    WebSocketFrame httpResponse;
+    WebSocketFrame webSocketResponse;
 
-    if (!responseData.TryTake(out httpResponse, (int)TimeSpan.FromSeconds(5).TotalMilliseconds))
+    if (!responseData.TryTake(out webSocketResponse, (int)TimeSpan.FromSeconds(5).TotalMilliseconds))
     {
         throw new IOException(string.Format("Response timeout from [{0}].", client.RemoteEndpoint));
     }
 
-    Console.WriteLine(httpResponse.DataAsString);
+    Console.WriteLine(webSocketResponse.DataAsString);
 }
 ```
 
