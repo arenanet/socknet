@@ -56,7 +56,7 @@ using (ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(
 
 The example bwlow creates a echo WebSocket server and has a client connect, send a frame, and read the echo frame back.
 
-```charp
+```csharp
 // configure and create server channel
 using (ServerSockNetChannel server = (ServerSockNetChannel)SockNetServer.Create(new IPEndPoint(IPAddress.Any, 0))
     .AddModule(new WebSocketServerSockNetChannelModule("/", "localhost")))
