@@ -69,6 +69,8 @@ namespace ArenaNet.SockNet.Protocols.Gds
         [TestMethod]
         public void TestPing()
         {
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
             Random rand = new Random(this.GetHashCode() ^ DateTime.Now.Millisecond);
 
             uint streamId = (uint)rand.Next(0, (int)(Math.Pow(2, 24) - 1));
@@ -86,7 +88,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
 
             stream.Position = 0;
 
-            GdsFrame readFrame = GdsFrame.ParseFrame(stream, SockNetChannelGlobals.GlobalBufferPool);
+            GdsFrame readFrame = GdsFrame.ParseFrame(stream, pool);
 
             Assert.AreEqual(true, readFrame.IsComplete);
             Assert.AreEqual(GdsFrame.GdsFrameType.Ping, readFrame.Type);
@@ -96,6 +98,8 @@ namespace ArenaNet.SockNet.Protocols.Gds
         [TestMethod]
         public void TestPong()
         {
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
             Random rand = new Random(this.GetHashCode() ^ DateTime.Now.Millisecond);
 
             uint streamId = (uint)rand.Next(0, (int)(Math.Pow(2, 24) - 1));
@@ -113,7 +117,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
 
             stream.Position = 0;
 
-            GdsFrame readFrame = GdsFrame.ParseFrame(stream, SockNetChannelGlobals.GlobalBufferPool);
+            GdsFrame readFrame = GdsFrame.ParseFrame(stream, pool);
 
             Assert.AreEqual(true, readFrame.IsComplete);
             Assert.AreEqual(GdsFrame.GdsFrameType.Pong, readFrame.Type);
@@ -123,6 +127,8 @@ namespace ArenaNet.SockNet.Protocols.Gds
         [TestMethod]
         public void TestClose()
         {
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
             Random rand = new Random(this.GetHashCode() ^ DateTime.Now.Millisecond);
 
             uint streamId = (uint)rand.Next(0, (int)(Math.Pow(2, 24) - 1));
@@ -140,7 +146,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
 
             stream.Position = 0;
 
-            GdsFrame readFrame = GdsFrame.ParseFrame(stream, SockNetChannelGlobals.GlobalBufferPool);
+            GdsFrame readFrame = GdsFrame.ParseFrame(stream, pool);
 
             Assert.AreEqual(true, readFrame.IsComplete);
             Assert.AreEqual(GdsFrame.GdsFrameType.Close, readFrame.Type);
@@ -150,6 +156,8 @@ namespace ArenaNet.SockNet.Protocols.Gds
         [TestMethod]
         public void TestHeaderOnlyNotCompressed()
         {
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
             Random rand = new Random(this.GetHashCode() ^ DateTime.Now.Millisecond);
 
             uint streamId = (uint)rand.Next(0, (int)(Math.Pow(2, 24) - 1));
@@ -186,7 +194,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
 
             stream.Position = 0;
 
-            GdsFrame readFrame = GdsFrame.ParseFrame(stream, SockNetChannelGlobals.GlobalBufferPool);
+            GdsFrame readFrame = GdsFrame.ParseFrame(stream, pool);
 
             Assert.AreEqual(true, readFrame.IsComplete);
             Assert.AreEqual(GdsFrame.GdsFrameType.HeadersOnly, readFrame.Type);
@@ -200,6 +208,8 @@ namespace ArenaNet.SockNet.Protocols.Gds
         [TestMethod]
         public void TestHeaderOnlyCompressed()
         {
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
             Random rand = new Random(this.GetHashCode() ^ DateTime.Now.Millisecond);
 
             uint streamId = (uint)rand.Next(0, (int)(Math.Pow(2, 24) - 1));
@@ -231,7 +241,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
 
             stream.Position = 0;
 
-            GdsFrame readFrame = GdsFrame.ParseFrame(stream, SockNetChannelGlobals.GlobalBufferPool);
+            GdsFrame readFrame = GdsFrame.ParseFrame(stream, pool);
 
             Assert.AreEqual(true, readFrame.IsComplete);
             Assert.AreEqual(GdsFrame.GdsFrameType.HeadersOnly, readFrame.Type);
@@ -245,13 +255,15 @@ namespace ArenaNet.SockNet.Protocols.Gds
         [TestMethod]
         public void TestBodyOnly()
         {
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
             Random rand = new Random(this.GetHashCode() ^ DateTime.Now.Millisecond);
 
             uint streamId = (uint)rand.Next(0, (int)(Math.Pow(2, 24) - 1));
 
             byte[] bodyBuffer = new byte[rand.Next(1024, 1024*64)];
             rand.NextBytes(bodyBuffer);
-            ChunkedBuffer body = new ChunkedBuffer(SockNetChannelGlobals.GlobalBufferPool);
+            ChunkedBuffer body = new ChunkedBuffer(pool);
             body.OfferRaw(bodyBuffer, 0, bodyBuffer.Length);
 
             GdsFrame frame = GdsFrame.NewContentFrame(streamId, null, false, body, true);
@@ -272,7 +284,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
 
             stream.Position = 0;
 
-            GdsFrame readFrame = GdsFrame.ParseFrame(stream, SockNetChannelGlobals.GlobalBufferPool);
+            GdsFrame readFrame = GdsFrame.ParseFrame(stream, pool);
 
             Assert.AreEqual(true, readFrame.IsComplete);
             Assert.AreEqual(GdsFrame.GdsFrameType.BodyOnly, readFrame.Type);
@@ -291,6 +303,8 @@ namespace ArenaNet.SockNet.Protocols.Gds
         [TestMethod]
         public void TestFull()
         {
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
             Random rand = new Random(this.GetHashCode() ^ DateTime.Now.Millisecond);
 
             uint streamId = (uint)rand.Next(0, (int)(Math.Pow(2, 24) - 1));
@@ -305,7 +319,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
 
             byte[] bodyBuffer = new byte[rand.Next(1024, 1024 * 64)];
             rand.NextBytes(bodyBuffer);
-            ChunkedBuffer body = new ChunkedBuffer(SockNetChannelGlobals.GlobalBufferPool);
+            ChunkedBuffer body = new ChunkedBuffer(pool);
             body.OfferRaw(bodyBuffer, 0, bodyBuffer.Length);
 
             GdsFrame frame = GdsFrame.NewContentFrame(streamId, new Dictionary<string, byte[]>() 
@@ -333,7 +347,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
 
             stream.Position = 0;
 
-            GdsFrame readFrame = GdsFrame.ParseFrame(stream, SockNetChannelGlobals.GlobalBufferPool);
+            GdsFrame readFrame = GdsFrame.ParseFrame(stream, pool);
 
             Assert.AreEqual(true, readFrame.IsComplete);
             Assert.AreEqual(GdsFrame.GdsFrameType.Full, readFrame.Type);
@@ -352,6 +366,8 @@ namespace ArenaNet.SockNet.Protocols.Gds
         [TestMethod]
         public void TestFullCompressed()
         {
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
             Random rand = new Random(this.GetHashCode() ^ DateTime.Now.Millisecond);
 
             uint streamId = (uint)rand.Next(0, (int)(Math.Pow(2, 24) - 1));
@@ -366,7 +382,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
 
             byte[] bodyBuffer = new byte[rand.Next(1024, 1024 * 64)];
             rand.NextBytes(bodyBuffer);
-            ChunkedBuffer body = new ChunkedBuffer(SockNetChannelGlobals.GlobalBufferPool);
+            ChunkedBuffer body = new ChunkedBuffer(pool);
             body.OfferRaw(bodyBuffer, 0, bodyBuffer.Length);
 
             GdsFrame frame = GdsFrame.NewContentFrame(streamId, new Dictionary<string, byte[]>() 
@@ -385,7 +401,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
 
             stream.Position = 0;
 
-            GdsFrame readFrame = GdsFrame.ParseFrame(stream, SockNetChannelGlobals.GlobalBufferPool);
+            GdsFrame readFrame = GdsFrame.ParseFrame(stream, pool);
 
             Assert.AreEqual(true, readFrame.IsComplete);
             Assert.AreEqual(GdsFrame.GdsFrameType.Full, readFrame.Type);

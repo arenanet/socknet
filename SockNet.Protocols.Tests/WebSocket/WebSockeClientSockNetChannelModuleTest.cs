@@ -36,13 +36,19 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
         public class WebSocketEchoServer
         {
+            private ObjectPool<byte[]> pool;
             private ServerSockNetChannel server;
 
             public IPEndPoint Endpoint { get { return new IPEndPoint(GetLocalIpAddress(), server == null ? -1 : server.LocalEndpoint.Port); } }
 
+            public WebSocketEchoServer(ObjectPool<byte[]> pool)
+            {
+                this.pool = pool;
+            }
+
             public void Start(bool isTls = false)
             {
-                server = SockNetServer.Create(GetLocalIpAddress(), 0);
+                server = SockNetServer.Create(GetLocalIpAddress(), 0, ServerSockNetChannel.DefaultBacklog, pool);
 
                 try
                 {
@@ -223,11 +229,13 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         [TestMethod]
         public void TestContinuation()
         {
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
             DummySockNetChannel channel = new DummySockNetChannel()
             {
                 State = null,
                 IsActive = true,
-                BufferPool = SockNetChannelGlobals.GlobalBufferPool
+                BufferPool = pool
             };
             channel.Pipe = new SockNetChannelPipe(channel);
 
@@ -271,17 +279,19 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
             Assert.IsTrue(receiveResponse is WebSocketFrame);
             Assert.AreEqual("This is awesome!", ((WebSocketFrame)receiveResponse).DataAsString);
 
-            Console.WriteLine("Pool stats: " + SockNetChannelGlobals.GlobalBufferPool.ObjectsInPool + "/" + SockNetChannelGlobals.GlobalBufferPool.TotalNumberOfObjects);
+            Console.WriteLine("Pool stats: " + pool.ObjectsInPool + "/" + pool.TotalNumberOfObjects);
         }
 
         [TestMethod]
         public void TestSmallMessage()
         {
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
             DummySockNetChannel channel = new DummySockNetChannel()
             {
                 State = null,
                 IsActive = true,
-                BufferPool = SockNetChannelGlobals.GlobalBufferPool
+                BufferPool = pool
             };
             channel.Pipe = new SockNetChannelPipe(channel);
 
@@ -326,17 +336,19 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
                 }
             }
 
-            Console.WriteLine("Pool stats: " + SockNetChannelGlobals.GlobalBufferPool.ObjectsInPool + "/" + SockNetChannelGlobals.GlobalBufferPool.TotalNumberOfObjects);
+            Console.WriteLine("Pool stats: " + pool.ObjectsInPool + "/" + pool.TotalNumberOfObjects);
         }
 
         [TestMethod]
         public void TestLargeMessage()
         {
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
             DummySockNetChannel channel = new DummySockNetChannel()
             {
                 State = null,
                 IsActive = true,
-                BufferPool = SockNetChannelGlobals.GlobalBufferPool
+                BufferPool = pool
             };
             channel.Pipe = new SockNetChannelPipe(channel);
 
@@ -382,12 +394,14 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
                 }
             }
 
-            Console.WriteLine("Pool stats: " + SockNetChannelGlobals.GlobalBufferPool.ObjectsInPool + "/" + SockNetChannelGlobals.GlobalBufferPool.TotalNumberOfObjects);
+            Console.WriteLine("Pool stats: " + pool.ObjectsInPool + "/" +pool.TotalNumberOfObjects);
         }
 
         public ChunkedBuffer ToBuffer(WebSocketFrame frame)
         {
-            ChunkedBuffer buffer = new ChunkedBuffer(SockNetChannelGlobals.GlobalBufferPool);
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
+            ChunkedBuffer buffer = new ChunkedBuffer(pool);
             frame.Write(buffer.Stream, true);
             return buffer;
         }
@@ -395,10 +409,12 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         [TestMethod]
         public void TestLargeMessagesInParallel()
         {
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
             Random random = new Random(this.GetHashCode() ^ DateTime.Now.Millisecond);
 
             ClientSockNetChannel client = null;
-            WebSocketEchoServer server = new WebSocketEchoServer();
+            WebSocketEchoServer server = new WebSocketEchoServer(pool);
 
             try
             {
@@ -406,7 +422,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
                 BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
 
-                client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint)
+                client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint, ClientSockNetChannel.DefaultNoDelay, ClientSockNetChannel.DefaultTtl, pool)
                     .AddModule(new WebSocketClientSockNetChannelModule("/", "localhost", (ISockNetChannel sockNetClient) => { blockingCollection.Add(true); }));
 
                 client.Connect().WaitForValue(TimeSpan.FromSeconds(5));
@@ -494,9 +510,11 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         [TestMethod]
         public void TestSmallMessagesInParallel()
         {
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
             Random random = new Random(this.GetHashCode() ^ DateTime.Now.Millisecond);
 
-            WebSocketEchoServer server = new WebSocketEchoServer();
+            WebSocketEchoServer server = new WebSocketEchoServer(pool);
 
             try
             {
@@ -504,7 +522,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
                 BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
 
-                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint)
+                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint, ClientSockNetChannel.DefaultNoDelay, ClientSockNetChannel.DefaultTtl, pool)
                     .AddModule(new WebSocketClientSockNetChannelModule("/", "localhost", (ISockNetChannel sockNetClient) => { blockingCollection.Add(true); }));
 
                 client.Connect().WaitForValue(TimeSpan.FromSeconds(5));
@@ -594,7 +612,9 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         [TestMethod]
         public void TestEchoWithMask()
         {
-            WebSocketEchoServer server = new WebSocketEchoServer();
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
+            WebSocketEchoServer server = new WebSocketEchoServer(pool);
 
             try
             {
@@ -602,7 +622,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
                 BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
 
-                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint)
+                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint, ClientSockNetChannel.DefaultNoDelay, ClientSockNetChannel.DefaultTtl, pool)
                     .AddModule(new WebSocketClientSockNetChannelModule("/", "localhost", (ISockNetChannel sockNetClient) => { blockingCollection.Add(true); }));
 
                 client.Connect().WaitForValue(TimeSpan.FromSeconds(5));
@@ -634,7 +654,9 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         [TestMethod]
         public void TestIncompleteBufferParsing()
         {
-            WebSocketEchoServer server = new WebSocketEchoServer();
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
+            WebSocketEchoServer server = new WebSocketEchoServer(pool);
 
             try
             {
@@ -642,7 +664,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
                 BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
 
-                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint)
+                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint, ClientSockNetChannel.DefaultNoDelay, ClientSockNetChannel.DefaultTtl, pool)
                     .AddModule(new WebSocketClientSockNetChannelModule("/", "localhost", (ISockNetChannel sockNetClient) => { blockingCollection.Add(true); }));
 
                 client.Connect().WaitForValue(TimeSpan.FromSeconds(5));
@@ -704,7 +726,9 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         [TestMethod]
         public void TestEchoWithMaskWithSsl()
         {
-            WebSocketEchoServer server = new WebSocketEchoServer();
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
+            WebSocketEchoServer server = new WebSocketEchoServer(pool);
 
             try
             {
@@ -712,7 +736,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
                 BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
 
-                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint)
+                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint, ClientSockNetChannel.DefaultNoDelay, ClientSockNetChannel.DefaultTtl, pool)
                     .AddModule(new WebSocketClientSockNetChannelModule("/", "localhost", (ISockNetChannel sockNetClient) => { blockingCollection.Add(true); }));
 
                 client.ConnectWithTLS((object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => { return true; })
@@ -745,7 +769,9 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         [TestMethod]
         public void TestEchoWithoutMask()
         {
-            WebSocketEchoServer server = new WebSocketEchoServer();
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
+            WebSocketEchoServer server = new WebSocketEchoServer(pool);
 
             try
             {
@@ -753,7 +779,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
                 BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
 
-                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint)
+                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint, ClientSockNetChannel.DefaultNoDelay, ClientSockNetChannel.DefaultTtl, pool)
                     .AddModule(new WebSocketClientSockNetChannelModule("/", "localhost", (ISockNetChannel sockNetClient) => { blockingCollection.Add(true); }));
 
                 client.Connect().WaitForValue(TimeSpan.FromSeconds(5));
@@ -785,7 +811,9 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         [TestMethod]
         public void TestLotsOfMessages()
         {
-            WebSocketEchoServer server = new WebSocketEchoServer();
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
+            WebSocketEchoServer server = new WebSocketEchoServer(pool);
 
             try
             {
@@ -793,7 +821,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
                 BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
 
-                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint)
+                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint, ClientSockNetChannel.DefaultNoDelay, ClientSockNetChannel.DefaultTtl, pool)
                     .AddModule(new WebSocketClientSockNetChannelModule("/", "localhost", (ISockNetChannel sockNetClient) => { blockingCollection.Add(true); }));
 
                 client.Connect().WaitForValue(TimeSpan.FromSeconds(5));

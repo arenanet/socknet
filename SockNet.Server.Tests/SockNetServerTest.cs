@@ -22,6 +22,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using ArenaNet.SockNet.Common;
 using ArenaNet.SockNet.Common.IO;
 using ArenaNet.SockNet.Client;
+using ArenaNet.Medley.Pool;
 
 namespace ArenaNet.SockNet.Server
 {
@@ -31,7 +32,9 @@ namespace ArenaNet.SockNet.Server
         [TestMethod]
         public void TestBindWithoutSsl()
         {
-            ServerSockNetChannel server = SockNetServer.Create(GetLocalIpAddress(), 0);
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
+            ServerSockNetChannel server = SockNetServer.Create(GetLocalIpAddress(), 0, ServerSockNetChannel.DefaultBacklog, pool);
 
             try
             {
@@ -44,7 +47,7 @@ namespace ArenaNet.SockNet.Server
 
                 BlockingCollection<string> incomingData = new BlockingCollection<string>();
 
-                ClientSockNetChannel client = SockNetClient.Create(GetLocalIpAddress(), server.LocalEndpoint.Port);
+                ClientSockNetChannel client = SockNetClient.Create(GetLocalIpAddress(), server.LocalEndpoint.Port, ClientSockNetChannel.DefaultNoDelay, ClientSockNetChannel.DefaultTtl, pool);
                 Assert.IsNotNull(client.Connect().WaitForValue(TimeSpan.FromSeconds(5)));
 
                 client.Pipe.AddIncomingFirst((ISockNetChannel channel, ref ChunkedBuffer data) =>

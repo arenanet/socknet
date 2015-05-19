@@ -23,6 +23,7 @@ using ArenaNet.SockNet.Common;
 using ArenaNet.SockNet.Common.IO;
 using ArenaNet.SockNet.Server;
 using ArenaNet.SockNet.Protocols.Http;
+using ArenaNet.Medley.Pool;
 
 namespace ArenaNet.SockNet.Client
 {
@@ -31,13 +32,19 @@ namespace ArenaNet.SockNet.Client
     {
         public class HttpSimpleServer
         {
+            private ObjectPool<byte[]> pool;
             private ServerSockNetChannel server;
 
             public IPEndPoint Endpoint { get { return new IPEndPoint(GetLocalIpAddress(), server == null ? -1 : server.LocalEndpoint.Port); } }
 
+            public HttpSimpleServer(ObjectPool<byte[]> pool)
+            {
+                this.pool = pool;
+            }
+
             public void Start(bool isTls = false, string body = "")
             {
-                server = SockNetServer.Create(GetLocalIpAddress(), 0);
+                server = SockNetServer.Create(GetLocalIpAddress(), 0, ServerSockNetChannel.DefaultBacklog, pool);
 
                 try
                 {
@@ -110,8 +117,10 @@ namespace ArenaNet.SockNet.Client
         [TestMethod]
         public void TestConnectWithoutSsl()
         {
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
             string text = "some great text here...";
-            HttpSimpleServer server = new HttpSimpleServer();
+            HttpSimpleServer server = new HttpSimpleServer(pool);
 
             try
             {
@@ -119,7 +128,7 @@ namespace ArenaNet.SockNet.Client
 
                 BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
 
-                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint)
+                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint, ClientSockNetChannel.DefaultNoDelay, ClientSockNetChannel.DefaultTtl, pool)
                     .AddModule(new HttpSockNetChannelModule(HttpSockNetChannelModule.ParsingMode.Client));
 
                 client.Connect().WaitForValue(TimeSpan.FromSeconds(5));
@@ -147,8 +156,10 @@ namespace ArenaNet.SockNet.Client
         [TestMethod]
         public void TestConnectWithSsl()
         {
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
             string text = "some great text here...";
-            HttpSimpleServer server = new HttpSimpleServer();
+            HttpSimpleServer server = new HttpSimpleServer(pool);
 
             try
             {
@@ -156,7 +167,7 @@ namespace ArenaNet.SockNet.Client
 
                 BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
 
-                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint)
+                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint, ClientSockNetChannel.DefaultNoDelay, ClientSockNetChannel.DefaultTtl, pool)
                     .AddModule(new HttpSockNetChannelModule(HttpSockNetChannelModule.ParsingMode.Client));
 
                 client.ConnectWithTLS((object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => { return true; })

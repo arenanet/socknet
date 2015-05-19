@@ -24,6 +24,7 @@ using ArenaNet.SockNet.Common.IO;
 using ArenaNet.SockNet.Client;
 using ArenaNet.SockNet.Server;
 using ArenaNet.Medley.Concurrent;
+using ArenaNet.Medley.Pool;
 
 namespace ArenaNet.SockNet.Protocols.Http
 {
@@ -32,9 +33,15 @@ namespace ArenaNet.SockNet.Protocols.Http
     {
         public class HttpChunkedServer
         {
+            public IPEndPoint Endpoint { get { return new IPEndPoint(GetLocalIpAddress(), server == null ? -1 : server.LocalEndpoint.Port); } }
+
+            private ObjectPool<byte[]> pool;
             private ServerSockNetChannel server;
 
-            public IPEndPoint Endpoint { get { return new IPEndPoint(GetLocalIpAddress(), server == null ? -1 : server.LocalEndpoint.Port); } }
+            public HttpChunkedServer(ObjectPool<byte[]> pool)
+            {
+                this.pool = pool;
+            }
 
             public void Start(bool isTls = false)
             {
@@ -55,7 +62,7 @@ namespace ArenaNet.SockNet.Protocols.Http
                 string chunk3HttpContent = string.Format("{0:X}", chunk3ContentLength) + "\r\n" + chunk3Content + "\r\n";
                 string chunk4HttpContent = "0\r\n\r\n";
 
-                server = SockNetServer.Create(GetLocalIpAddress(), 0);
+                server = SockNetServer.Create(GetLocalIpAddress(), 0, ServerSockNetChannel.DefaultBacklog, pool);
 
                 try
                 {
@@ -112,13 +119,19 @@ namespace ArenaNet.SockNet.Protocols.Http
 
         public class HttpEchoServer
         {
+            public IPEndPoint Endpoint { get { return new IPEndPoint(GetLocalIpAddress(), server == null ? -1 : server.LocalEndpoint.Port); } }
+            
+            private ObjectPool<byte[]> pool;
             private ServerSockNetChannel server;
 
-            public IPEndPoint Endpoint { get { return new IPEndPoint(GetLocalIpAddress(), server == null ? -1 : server.LocalEndpoint.Port); } }
+            public HttpEchoServer(ObjectPool<byte[]> pool)
+            {
+                this.pool = pool;
+            }
 
             public void Start(bool isTls = false)
             {
-                server = SockNetServer.Create(GetLocalIpAddress(), 0);
+                server = SockNetServer.Create(GetLocalIpAddress(), 0, ServerSockNetChannel.DefaultBacklog, pool);
 
                 try
                 {
@@ -176,7 +189,9 @@ namespace ArenaNet.SockNet.Protocols.Http
         [TestMethod]
         public void TestSimpleGet()
         {
-            HttpEchoServer server = new HttpEchoServer();
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
+            HttpEchoServer server = new HttpEchoServer(pool);
 
             try
             {
@@ -184,7 +199,7 @@ namespace ArenaNet.SockNet.Protocols.Http
 
                 BlockingCollection<HttpResponse> responses = new BlockingCollection<HttpResponse>();
 
-                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint)
+                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint, ClientSockNetChannel.DefaultNoDelay, ClientSockNetChannel.DefaultTtl, pool)
                     .AddModule(new HttpSockNetChannelModule(HttpSockNetChannelModule.ParsingMode.Client));
                 client.Pipe.AddIncomingLast<HttpResponse>((ISockNetChannel channel, ref HttpResponse data) => { responses.Add(data); });
                 client.Connect().WaitForValue(TimeSpan.FromSeconds(5));
@@ -226,7 +241,9 @@ namespace ArenaNet.SockNet.Protocols.Http
         [TestMethod]
         public void TestSimpleGetHttps()
         {
-            HttpEchoServer server = new HttpEchoServer();
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
+            HttpEchoServer server = new HttpEchoServer(pool);
 
             try
             {
@@ -234,7 +251,7 @@ namespace ArenaNet.SockNet.Protocols.Http
 
                 BlockingCollection<HttpResponse> responses = new BlockingCollection<HttpResponse>();
 
-                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint)
+                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint, ClientSockNetChannel.DefaultNoDelay, ClientSockNetChannel.DefaultTtl, pool)
                     .AddModule(new HttpSockNetChannelModule(HttpSockNetChannelModule.ParsingMode.Client));
                 client.Pipe.AddIncomingLast<HttpResponse>((ISockNetChannel channel, ref HttpResponse data) => { responses.Add(data); });
                 client.ConnectWithTLS((object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => { return true; })
@@ -278,7 +295,9 @@ namespace ArenaNet.SockNet.Protocols.Http
         [TestMethod]
         public void TestChunked()
         {
-            HttpChunkedServer server = new HttpChunkedServer();
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
+            HttpChunkedServer server = new HttpChunkedServer(pool);
 
             try
             {
@@ -286,7 +305,7 @@ namespace ArenaNet.SockNet.Protocols.Http
 
                 BlockingCollection<HttpResponse> responses = new BlockingCollection<HttpResponse>();
 
-                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint)
+                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint, ClientSockNetChannel.DefaultNoDelay, ClientSockNetChannel.DefaultTtl, pool)
                     .AddModule(new HttpSockNetChannelModule(HttpSockNetChannelModule.ParsingMode.Client));
                 client.Pipe.AddIncomingLast<HttpResponse>((ISockNetChannel channel, ref HttpResponse data) => { responses.Add(data); });
                 Assert.IsNotNull(client.Connect().WaitForValue(TimeSpan.FromSeconds(5)));
@@ -328,9 +347,11 @@ namespace ArenaNet.SockNet.Protocols.Http
         [TestMethod]
         public void TestServer()
         {
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
             const String testString = "what a great test!";
 
-            ServerSockNetChannel server = (ServerSockNetChannel)SockNetServer.Create(GetLocalIpAddress(), 0)
+            ServerSockNetChannel server = (ServerSockNetChannel)SockNetServer.Create(GetLocalIpAddress(), 0, ServerSockNetChannel.DefaultBacklog, pool)
                 .AddModule(new HttpSockNetChannelModule(HttpSockNetChannelModule.ParsingMode.Server));
 
             try

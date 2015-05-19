@@ -36,13 +36,20 @@ namespace ArenaNet.SockNet.Protocols.Gds
     {
         public class GdsEchoServer
         {
+            private ObjectPool<byte[]> pool;
+
             private ServerSockNetChannel server;
 
             public IPEndPoint Endpoint { get { return new IPEndPoint(GetLocalIpAddress(), server == null ? -1 : server.LocalEndpoint.Port); } }
 
+            public GdsEchoServer(ObjectPool<byte[]> pool)
+            {
+                this.pool = pool;
+            }
+
             public void Start(bool isTls = false)
             {
-                server = SockNetServer.Create(GetLocalIpAddress(), 0);
+                server = SockNetServer.Create(GetLocalIpAddress(), 0, ServerSockNetChannel.DefaultBacklog, pool);
 
                 try
                 {
@@ -221,7 +228,9 @@ namespace ArenaNet.SockNet.Protocols.Gds
         [TestMethod]
         public void TestSimpleContent()
         {
-            GdsEchoServer server = new GdsEchoServer();
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
+            GdsEchoServer server = new GdsEchoServer(pool);
 
             try
             {
@@ -229,7 +238,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
 
                 BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
 
-                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint)
+                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint, ClientSockNetChannel.DefaultNoDelay, ClientSockNetChannel.DefaultTtl, pool)
                     .AddModule(new GdsSockNetChannelModule(true));
 
                 client.Connect().WaitForValue(TimeSpan.FromSeconds(5));
@@ -238,7 +247,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
 
                 client.Pipe.AddIncomingLast<GdsFrame>((ISockNetChannel sockNetClient, ref GdsFrame data) => { blockingCollection.Add(data); });
 
-                ChunkedBuffer body = new ChunkedBuffer(SockNetChannelGlobals.GlobalBufferPool);
+                ChunkedBuffer body = new ChunkedBuffer(pool);
                 body.OfferRaw(Encoding.UTF8.GetBytes("some test"), 0, Encoding.UTF8.GetByteCount("some test"));
 
                 client.Send(GdsFrame.NewContentFrame(1, null, false, body, true));
@@ -261,7 +270,9 @@ namespace ArenaNet.SockNet.Protocols.Gds
         [TestMethod]
         public void TestSimpleSslContent()
         {
-            GdsEchoServer server = new GdsEchoServer();
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
+            GdsEchoServer server = new GdsEchoServer(pool);
 
             try
             {
@@ -269,7 +280,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
 
                 BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
 
-                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint)
+                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint, ClientSockNetChannel.DefaultNoDelay, ClientSockNetChannel.DefaultTtl, pool)
                     .AddModule(new GdsSockNetChannelModule(true));
 
                 client.ConnectWithTLS((object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors) => { return true; })
@@ -279,7 +290,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
 
                 client.Pipe.AddIncomingLast<GdsFrame>((ISockNetChannel sockNetClient, ref GdsFrame data) => { blockingCollection.Add(data); });
 
-                ChunkedBuffer body = new ChunkedBuffer(SockNetChannelGlobals.GlobalBufferPool);
+                ChunkedBuffer body = new ChunkedBuffer(pool);
                 body.OfferRaw(Encoding.UTF8.GetBytes("some test"), 0, Encoding.UTF8.GetByteCount("some test"));
 
                 client.Send(GdsFrame.NewContentFrame(1, null, false, body, true));
@@ -302,11 +313,13 @@ namespace ArenaNet.SockNet.Protocols.Gds
         [TestMethod]
         public void TestChunks()
         {
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
             DummySockNetChannel channel = new DummySockNetChannel()
             {
                 State = null,
                 IsActive = true,
-                BufferPool = SockNetChannelGlobals.GlobalBufferPool
+                BufferPool = pool
             };
             channel.Pipe = new SockNetChannelPipe(channel);
 
@@ -316,7 +329,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
 
             uint streamId = 1;
 
-            ChunkedBuffer body = new ChunkedBuffer(SockNetChannelGlobals.GlobalBufferPool);
+            ChunkedBuffer body = new ChunkedBuffer(pool);
             body.OfferRaw(Encoding.UTF8.GetBytes("This "), 0, Encoding.UTF8.GetByteCount("This "));
 
             GdsFrame chunk1 = GdsFrame.NewContentFrame(streamId, new Dictionary<string, byte[]>() 
@@ -332,7 +345,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
 
             Assert.IsTrue(receiveResponse is ChunkedBuffer);
 
-            body = new ChunkedBuffer(SockNetChannelGlobals.GlobalBufferPool);
+            body = new ChunkedBuffer(pool);
             body.OfferRaw(Encoding.UTF8.GetBytes("is "), 0, Encoding.UTF8.GetByteCount("is "));
 
             GdsFrame chunk2 = GdsFrame.NewContentFrame(streamId, new Dictionary<string, byte[]>() 
@@ -348,7 +361,7 @@ namespace ArenaNet.SockNet.Protocols.Gds
 
             Assert.IsTrue(receiveResponse is ChunkedBuffer);
 
-            body = new ChunkedBuffer(SockNetChannelGlobals.GlobalBufferPool);
+            body = new ChunkedBuffer(pool);
             body.OfferRaw(Encoding.UTF8.GetBytes("awesome!"), 0, Encoding.UTF8.GetByteCount("awesome!"));
 
             GdsFrame chunk3 = GdsFrame.NewContentFrame(streamId, new Dictionary<string, byte[]>() 
@@ -374,12 +387,14 @@ namespace ArenaNet.SockNet.Protocols.Gds
             chunk2.Dispose();
             chunk3.Dispose();
 
-            Console.WriteLine("Pool stats: " + SockNetChannelGlobals.GlobalBufferPool.ObjectsInPool + "/" + SockNetChannelGlobals.GlobalBufferPool.TotalNumberOfObjects);
+            Console.WriteLine("Pool stats: " + pool.ObjectsInPool + "/" + pool.TotalNumberOfObjects);
         }
 
         public ChunkedBuffer ToBuffer(GdsFrame frame)
         {
-            ChunkedBuffer buffer = new ChunkedBuffer(SockNetChannelGlobals.GlobalBufferPool);
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
+            ChunkedBuffer buffer = new ChunkedBuffer(pool);
             frame.Write(buffer.Stream);
             return buffer;
         }

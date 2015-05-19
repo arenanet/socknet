@@ -590,11 +590,6 @@ namespace ArenaNet.SockNet.Common.IO
         /// <returns></returns>
         public static ChunkedBuffer ReadFully(Stream stream, ObjectPool<byte[]> bufferPool = null)
         {
-            if (bufferPool == null)
-            {
-                bufferPool = SockNetChannelGlobals.GlobalBufferPool;
-            }
-
             return new ChunkedBuffer(bufferPool).ReadFromStream(stream);
         }
 
@@ -608,11 +603,6 @@ namespace ArenaNet.SockNet.Common.IO
         /// <returns></returns>
         public static ChunkedBuffer Wrap(byte[] data, int offset, int count, ObjectPool<byte[]> bufferPool = null)
         {
-            if (bufferPool == null) 
-            {
-                bufferPool = SockNetChannelGlobals.GlobalBufferPool;
-            }
-
             return new ChunkedBuffer(bufferPool).OfferRaw(data, offset, count);
         }
 
@@ -625,11 +615,6 @@ namespace ArenaNet.SockNet.Common.IO
         /// <returns></returns>
         public static ChunkedBuffer Wrap(string data, Encoding encoding, ObjectPool<byte[]> bufferPool = null)
         {
-            if (bufferPool == null)
-            {
-                bufferPool = SockNetChannelGlobals.GlobalBufferPool;
-            }
-
             byte[] rawData = encoding.GetBytes(data);
 
             return new ChunkedBuffer(bufferPool).OfferRaw(rawData, 0, rawData.Length);

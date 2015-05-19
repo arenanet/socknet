@@ -62,6 +62,8 @@ namespace ArenaNet.SockNet.Common.IO
         [TestMethod]
         public void TestWrapString()
         {
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
             Random rand = new Random(this.GetHashCode() ^ DateTime.Now.Millisecond);
 
             byte[] randomUtf8StringBytes = new byte[rand.Next(2000, 5000)];
@@ -74,7 +76,7 @@ namespace ArenaNet.SockNet.Common.IO
 
             Console.WriteLine("Generated random string: " + randomUtf8String);
 
-            using (ChunkedBuffer buffer = ChunkedBuffer.Wrap(randomUtf8String, Encoding.UTF8, SockNetChannelGlobals.GlobalBufferPool))
+            using (ChunkedBuffer buffer = ChunkedBuffer.Wrap(randomUtf8String, Encoding.UTF8, pool))
             {
                 using (StreamReader reader = new StreamReader(buffer.Stream, Encoding.UTF8))
                 {
@@ -86,13 +88,15 @@ namespace ArenaNet.SockNet.Common.IO
         [TestMethod]
         public void TestReadFromStream()
         {
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
             MemoryStream stream = new MemoryStream();
             stream.Write(TestData, 0, TestData.Length);
             stream.Position = 0;
 
             MemoryStream newStream = new MemoryStream();
 
-            new ChunkedBuffer(SockNetChannelGlobals.GlobalBufferPool)
+            new ChunkedBuffer(pool)
                 .ReadFromStream(stream)
                 .DrainToStreamSync(newStream)
                 .Close();
