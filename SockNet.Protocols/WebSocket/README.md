@@ -7,64 +7,50 @@ Example
 The example bellow shows a client connecting to "echo.websocket.org", sending a text WebSocket frame, retrieving the echoed WebSocketFrame, printing it out, and then disconnecting.
 
 ```csharp
-// this collection will hold the incoming frames
-BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
+// blocking collection that holds flags for handshakes
+BlockingCollection<bool> handshakes = new BlockingCollection<bool>();
 
-// create a promise that will be set once we perform the websocket handshake
-Promise<ISockNetChannel> webSocketAuthPromise = new Promise<ISockNetChannel>();
+// blocking collection that will contain incoming HTTP response data
+BlockingCollection<WebSocketFrame> responseData = new BlockingCollection<WebSocketFrame>();
 
-// create a SockNetClient that will connect to "echo.websocket.org" on port 80 and install the WebSocketClient module
-ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(new IPEndPoint(Dns.GetHostEntry("echo.websocket.org").AddressList[0], 80))
-    .AddModule(new WebSocketClientSockNetChannelModule("/", "echo.websocket.org", (ISockNetChannel sockNetClient) => { webSocketAuthPromise.CreateFulfiller().Fulfill(sockNetClient); }));
-
-// connect and wait for 5 seconds
-if (client.Connect().WaitForValue(TimeSpan.FromSeconds(5)) == null) 
+// configure and create a channel
+using (ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(new IPEndPoint(Dns.GetHostEntry("echo.websocket.org").AddressList[0], 80))
+    .AddModule(new WebSocketClientSockNetChannelModule("/", "echo.websocket.org", (ISockNetChannel channel) => { handshakes.Add(true); })))
 {
-    throw new Exception("Connection timed out.");
-}
-
-try
-{
-    // wait for handshake to complete
-    if (webSocketAuthPromise.WaitForValue(TimeSpan.FromSeconds(5)) == null)
+    // connect to the channel's endpoint
+    if (client.Connect().WaitForValue(TimeSpan.FromSeconds(5)) == null)
     {
-        throw new Exception("Handshake timed out.")
+        throw new IOException(string.Format("Connection to [{0}] timed out.", client.RemoteEndpoint));
     }
 
-    // register my WebSocket frame listener
-    client.Pipe.AddIncomingLast<WebSocketFrame>((ISockNetChannel sockNetClient, ref WebSocketFrame data) => { blockingCollection.Add(data); });
-
-    // send a WebSocket frame
-    client.Send(WebSocketFrame.CreateTextFrame("some test", true));
-
-    // wait for a response
-    object currentObject;
-
-    if (blockingCollection.TryTake(out currentObject, 5))
+    // wait for handshake
+    bool handshakeFlag = false;
+    if (!handshakes.TryTake(out handshakeFlag, TimeSpan.FromSeconds(5)) || !handshakeFlag)
     {
-        throw new Exception("Receive timeout.");
+        throw new IOException(string.Format("Connection to [{0}] timed out.", client.RemoteEndpoint));
     }
 
-    if(!(currentObject is WebSocketFrame))
+    // add response collector
+    client.Pipe.AddIncomingLast<WebSocketFrame>((ISockNetChannel channel, ref WebSocketFrame response) =>
     {
-        throw new Exception("Unexpected error.");
+        responseData.Add(response);
+    });
+
+    // send a message
+    if (client.Send(WebSocketFrame.CreateTextFrame("Y u no echo!")).WaitForValue(TimeSpan.FromSeconds(5)) == null)
+    {
+        throw new IOException(string.Format("WebSocket frame send to [{0}] timed out.", client.RemoteEndpoint));
     }
 
-    if (!"some test".equals(((WebSocketFrame)currentObject).DataAsString))
+    // print out response data once we get it
+    WebSocketFrame httpResponse;
+
+    if (!responseData.TryTake(out httpResponse, (int)TimeSpan.FromSeconds(5).TotalMilliseconds))
     {
-        throw new Exception("Echo failed.");
+        throw new IOException(string.Format("Response timeout from [{0}].", client.RemoteEndpoint));
     }
 
-    // print out the response
-    Console.WriteLine("Got response: \n" + ((WebSocketFrame)currentObject).DataAsString);
-} 
-finally
-{
-    // disconnect
-    if (client.Disconnect().WaitForValue(TimeSpan.FromSeconds(5)) == null)
-    {
-        throw new Exception("Internal socket error.");
-    }
+    Console.WriteLine(httpResponse.DataAsString);
 }
 ```
 
