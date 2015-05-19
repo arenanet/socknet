@@ -19,7 +19,7 @@ using (ClientSockNetChannel client = SockNetClient.Create(new IPEndPoint(Dns.Get
 	    throw new IOException(string.Format("Connection to [{0}] timed out.", client.RemoteEndpoint));
 	}
 	
-	// add console writer
+	// add response collector
 	client.Pipe.AddIncomingLast<ChunkedBuffer>((ISockNetChannel channel, ref ChunkedBuffer buffer) =>
 	{
 	    StreamReader reader = new StreamReader(buffer.Stream, Encoding.UTF8);
