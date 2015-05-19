@@ -686,8 +686,7 @@ namespace ArenaNet.SockNet.Common
 
             if (disposing)
             {
-                stream.Dispose();
-                chunkedBuffer.Dispose();
+                Close();
             }
 
             disposed = true;

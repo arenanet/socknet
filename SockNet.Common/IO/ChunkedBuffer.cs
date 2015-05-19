@@ -164,8 +164,6 @@ namespace ArenaNet.SockNet.Common.IO
                     {
                         if (currentChunk.pooledObject.State == PooledObjectState.USED)
                         {
-                            Console.WriteLine("Returning [" + currentChunk.pooledObject.GetHashCode() + "] inside of [" + this.GetHashCode() + "]");
-
                             currentChunk.pooledObject.Return();
                         }
                         else

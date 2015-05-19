@@ -23,6 +23,7 @@ using ArenaNet.SockNet.Common;
 using ArenaNet.SockNet.Common.IO;
 using ArenaNet.SockNet.Server;
 using ArenaNet.SockNet.Protocols.Http;
+using ArenaNet.SockNet.Protocols.WebSocket;
 using ArenaNet.Medley.Pool;
 
 namespace ArenaNet.SockNet.Client
