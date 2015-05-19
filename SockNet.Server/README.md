@@ -7,27 +7,19 @@ Example
 The example bellow will echo all the packets back to the client.
 
 ```csharp
-// create a server that will bind to any local address and a random available port
-ServerSockNetChannel server = SockNetServer.Create(IPAddress.Any, 0);
-
-try
+// configure and create channel
+using (ServerSockNetChannel server = SockNetServer.Create(IPAddress.Any, 0))
 {
-	// attempts to bind the server
-    server.Bind();
-
-    // configure a incoming data listener that will echo the recived data back to the client
-    server.Pipe.AddIncomingFirst<Stream>((ISockNetChannel channel, ref Stream data) => 
-    {
-    	// send the data back to the client
-        channel.Send(data);
-    });
-
-    // do some things
-}
-finally
-{
-	// close the server
-    server.Close();
+	// add data echo handler
+	server.Pipe.AddIncomingFirst<ChunkedBuffer>((ISockNetChannel channel, ref ChunkedBuffer data) =>
+	{
+	    channel.Send(data);
+	});
+	
+	// bind to the port
+	server.Bind();
+	
+	// ... do some stuff
 }
 ```
 
