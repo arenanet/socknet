@@ -275,7 +275,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
         /// <param name="request"></param>
         /// <param name="mask"></param>
         /// <returns></returns>
-        public static WebSocketFrame CreateBinaryFrame(byte[] data, bool mask = true, bool continuation = false)
+        public static WebSocketFrame CreateBinaryFrame(byte[] data, bool mask = true, bool continuation = false, bool isFinished = true)
         {
             byte[] maskData = null;
 
@@ -292,7 +292,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
             return new WebSocketFrame()
             {
-                IsFinished = true,
+                IsFinished = isFinished,
                 Reserved1 = false,
                 Reserved2 = false,
                 Reserved3 = false,

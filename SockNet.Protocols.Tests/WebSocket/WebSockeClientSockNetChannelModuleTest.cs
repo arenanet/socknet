@@ -46,7 +46,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
                 this.pool = pool;
             }
 
-            public void Start(bool isTls = false)
+            public void Start(bool isTls = false, bool doContinuations = false)
             {
                 server = SockNetServer.Create(GetLocalIpAddress(), 0, ServerSockNetChannel.DefaultBacklog, pool);
 
@@ -70,7 +70,42 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
                     server.Pipe.AddIncomingLast<WebSocketFrame>((ISockNetChannel channel, ref WebSocketFrame data) =>
                     {
-                        channel.Send(data);
+                        if (doContinuations)
+                        {
+                            int perFrameSize = data.Data.Length / 3;
+
+                            for (int i = 0; i < 3; i++)
+                            {
+                                bool isDone = false;
+                                byte[] rawData;
+
+                                if (i + 1 < 3)
+                                {
+                                    rawData = new byte[perFrameSize];
+                                    isDone = false;
+                                }
+                                else
+                                {
+                                    rawData = new byte[data.Data.Length - (perFrameSize * 2)];
+                                    isDone = true;
+                                }
+
+                                Buffer.BlockCopy(data.Data, i * perFrameSize, rawData, 0, rawData.Length);
+
+                                if (data.Operation == WebSocketFrame.WebSocketFrameOperation.BinaryFrame)
+                                {
+                                    channel.Send(WebSocketFrame.CreateBinaryFrame(rawData, true, i != 0, isDone));
+                                }
+                                else
+                                {
+                                    channel.Send(WebSocketFrame.CreateTextFrame(rawData, true, i != 0, isDone));
+                                }
+                            }
+                        }
+                        else
+                        {
+                            channel.Send(data);
+                        }
                     });
                 }
                 catch (Exception)
@@ -636,6 +671,48 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
                 Assert.IsTrue(currentObject is WebSocketFrame);
 
                 Assert.AreEqual("some test", ((WebSocketFrame)currentObject).DataAsString);
+
+                Console.WriteLine("Got response: \n" + ((WebSocketFrame)currentObject).DataAsString);
+
+                client.Disconnect().WaitForValue(TimeSpan.FromSeconds(5));
+            }
+            finally
+            {
+                server.Stop();
+            }
+        }
+
+        [TestMethod]
+        public void TestContinuationEchoWithMask()
+        {
+            ObjectPool<byte[]> pool = new ObjectPool<byte[]>(() => { return new byte[1024]; });
+
+            WebSocketEchoServer server = new WebSocketEchoServer(pool);
+
+            try
+            {
+                server.Start(false, true);
+
+                BlockingCollection<object> blockingCollection = new BlockingCollection<object>();
+
+                ClientSockNetChannel client = (ClientSockNetChannel)SockNetClient.Create(server.Endpoint, ClientSockNetChannel.DefaultNoDelay, ClientSockNetChannel.DefaultTtl, pool)
+                    .AddModule(new WebSocketClientSockNetChannelModule("/", "localhost", (ISockNetChannel sockNetClient) => { blockingCollection.Add(true); }));
+
+                client.Connect().WaitForValue(TimeSpan.FromSeconds(5));
+
+                object currentObject;
+
+                Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
+                Assert.IsTrue((bool)currentObject);
+
+                client.Pipe.AddIncomingLast<WebSocketFrame>((ISockNetChannel sockNetClient, ref WebSocketFrame data) => { blockingCollection.Add(data); });
+
+                client.Send(WebSocketFrame.CreateTextFrame("this is some test!", true));
+
+                Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
+                Assert.IsTrue(currentObject is WebSocketFrame);
+
+                Assert.AreEqual("this is some test!", ((WebSocketFrame)currentObject).DataAsString);
 
                 Console.WriteLine("Got response: \n" + ((WebSocketFrame)currentObject).DataAsString);
 
