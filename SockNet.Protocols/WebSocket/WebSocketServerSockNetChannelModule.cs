@@ -124,6 +124,7 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
                     channel.Send(response);
 
                     channel.RemoveModule(httpModule);
+
                     channel.Pipe.AddIncomingFirst<object>(HandleIncomingFrames);
                     channel.Pipe.AddOutgoingLast<object>(HandleOutgoingFrames);
                 }
