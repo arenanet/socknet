@@ -707,14 +707,17 @@ namespace ArenaNet.SockNet.Protocols.WebSocket
 
                 client.Pipe.AddIncomingLast<WebSocketFrame>((ISockNetChannel sockNetClient, ref WebSocketFrame data) => { blockingCollection.Add(data); });
 
-                client.Send(WebSocketFrame.CreateTextFrame("this is some test!", true));
+                Random rand = new Random(this.GetHashCode() ^ DateTime.Now.Millisecond);
+
+                byte[] rawData = new byte[rand.Next(5000, 10000)];
+                rand.NextBytes(rawData);
+
+                client.Send(WebSocketFrame.CreateBinaryFrame(rawData, true));
 
                 Assert.IsTrue(blockingCollection.TryTake(out currentObject, DEFAULT_ASYNC_TIMEOUT));
                 Assert.IsTrue(currentObject is WebSocketFrame);
 
-                Assert.AreEqual("this is some test!", ((WebSocketFrame)currentObject).DataAsString);
-
-                Console.WriteLine("Got response: \n" + ((WebSocketFrame)currentObject).DataAsString);
+                AreArraysEqual(rawData, ((WebSocketFrame)currentObject).Data);
 
                 client.Disconnect().WaitForValue(TimeSpan.FromSeconds(5));
             }
