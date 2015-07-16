@@ -66,6 +66,10 @@ namespace ArenaNet.SockNet.Common
         // data incomingHandlers for incomming and outgoing messages
         public SockNetChannelPipe Pipe { get; protected set; }
 
+        private IAsyncResult currentReadResult = null;
+
+        private bool canRead = false;
+
         /// <summary>
         /// The state that the send queue deals with.
         /// </summary>
@@ -280,7 +284,9 @@ namespace ArenaNet.SockNet.Common
 
             receiveState = new ReceiveState() { buffer = buffer, offset = 0, length = buffer.Value.Length };
 
-            stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), null);
+            canRead = true;
+
+            currentReadResult = stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), null);
 
             return (attachPromiseFulfiller = new Promise<ISockNetChannel>(this).CreateFulfiller()).Promise;
         }
@@ -315,12 +321,21 @@ namespace ArenaNet.SockNet.Common
         /// Enables SSL on this connection.
         /// </summary>
         /// <param name="certificateValidationCallback"></param>
-        private void EnableClientSsl(RemoteCertificateValidationCallback certificateValidationCallback)
+        public void EnableClientSsl(RemoteCertificateValidationCallback certificateValidationCallback)
         {
+            canRead = false;
+
             SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Authenticating SSL with [{0}]...", RemoteEndpoint);
+            
+            if (currentReadResult != null)
+            {
+                stream.EndRead(currentReadResult);
+            }
 
             SslStream sslStream = new SslStream(stream, false, certificateValidationCallback);
-            sslStream.BeginAuthenticateAsClient(RemoteEndpoint.Address.ToString(), new AsyncCallback(EnableClientSslCallback), sslStream);
+
+            X509Certificate2Collection certCollection = new X509Certificate2Collection();
+            sslStream.BeginAuthenticateAsClient(RemoteEndpoint.Address.ToString(), certCollection, SslProtocols.Tls, false, new AsyncCallback(EnableClientSslCallback), sslStream);
         }
 
         /// <summary>
@@ -329,6 +344,8 @@ namespace ArenaNet.SockNet.Common
         /// <param name="result"></param>
         private void EnableClientSslCallback(IAsyncResult result)
         {
+            canRead = true;
+
             SslStream sslStream = (SslStream)result.AsyncState;
 
             sslStream.EndAuthenticateAsClient(result);
@@ -343,7 +360,7 @@ namespace ArenaNet.SockNet.Common
 
             receiveState = new ReceiveState() { buffer = buffer, offset = 0, length = buffer.Value.Length };
 
-            stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), null);
+            currentReadResult = stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), null);
 
             attachPromiseFulfiller.Fulfill(this);
         }
@@ -352,9 +369,16 @@ namespace ArenaNet.SockNet.Common
         /// Enables SSL on this connection.
         /// </summary>
         /// <param name="certificateValidationCallback"></param>
-        private void EnableServerSsl(RemoteCertificateValidationCallback certificateValidationCallback, X509Certificate serverCert)
+        public void EnableServerSsl(RemoteCertificateValidationCallback certificateValidationCallback, X509Certificate serverCert)
         {
+            canRead = false;
+
             SockNetLogger.Log(SockNetLogger.LogLevel.INFO, this, "Authenticating SSL with [{0}]...", RemoteEndpoint);
+
+            if (currentReadResult != null)
+            {
+                stream.EndRead(currentReadResult);
+            }
 
             SslStream sslStream = new SslStream(stream, false, certificateValidationCallback);
             sslStream.BeginAuthenticateAsServer(serverCert, new AsyncCallback(EnableServerSslCallback), sslStream);
@@ -366,6 +390,8 @@ namespace ArenaNet.SockNet.Common
         /// <param name="result"></param>
         private void EnableServerSslCallback(IAsyncResult result)
         {
+            canRead = true;
+
             SslStream sslStream = (SslStream)result.AsyncState;
 
             sslStream.EndAuthenticateAsServer(result);
@@ -380,7 +406,7 @@ namespace ArenaNet.SockNet.Common
 
             receiveState = new ReceiveState() { buffer = buffer, offset = 0, length = buffer.Value.Length };
 
-            stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), null);
+            currentReadResult = stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), null);
 
             attachPromiseFulfiller.Fulfill(this);
         }
@@ -392,6 +418,8 @@ namespace ArenaNet.SockNet.Common
         private void ReceiveCallback(IAsyncResult result)
         {
             int count = 0;
+
+            this.currentReadResult = null;
 
             try
             {
@@ -443,44 +471,54 @@ namespace ArenaNet.SockNet.Common
                     {
                         chunkedBuffer.Flush();
 
-                        if (receiveState.offset + count >= receiveState.length)
+                        if (canRead)
                         {
-                            if (receiveState.buffer.RefCount.Decrement() < 1)
+                            if (receiveState.offset + count >= receiveState.length)
                             {
-                                receiveState.buffer.Return();
-                            }
+                                if (receiveState.buffer.RefCount.Decrement() < 1)
+                                {
+                                    if (receiveState.buffer.State == PooledObjectState.USED)
+                                    {
+                                        receiveState.buffer.Return();
+                                    }
+                                    else
+                                    {
+                                        SockNetLogger.Log(SockNetLogger.LogLevel.WARN, this, "Potential resource leak found.");
+                                    }
+                                }
 
-                            PooledObject<byte[]> buffer = bufferPool.Borrow();
-                            buffer.RefCount.Increment();
+                                PooledObject<byte[]> buffer = bufferPool.Borrow();
+                                buffer.RefCount.Increment();
 
-                            if (IsActive)
-                            {
-                                SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, (this.stream is SslStream ? "[SSL] " : "") + "Reading data from [{0}]...", RemoteEndpoint);
+                                if (IsActive)
+                                {
+                                    SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, (this.stream is SslStream ? "[SSL] " : "") + "Reading data from [{0}]...", RemoteEndpoint);
 
-                                receiveState.buffer = buffer;
-                                receiveState.offset = 0;
-                                receiveState.length = buffer.Value.Length;
+                                    receiveState.buffer = buffer;
+                                    receiveState.offset = 0;
+                                    receiveState.length = buffer.Value.Length;
 
-                                stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback),  null);
+                                    currentReadResult = stream.BeginRead(buffer.Value, 0, buffer.Value.Length, new AsyncCallback(ReceiveCallback), null);
+                                }
+                                else
+                                {
+                                    Close();
+                                }
                             }
                             else
                             {
-                                Close();
-                            }
-                        }
-                        else
-                        {
-                            if (IsActive)
-                            {
-                                SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, (this.stream is SslStream ? "[SSL] " : "") + "Reading data from [{0}]...", RemoteEndpoint);
+                                if (IsActive)
+                                {
+                                    SockNetLogger.Log(SockNetLogger.LogLevel.DEBUG, this, (this.stream is SslStream ? "[SSL] " : "") + "Reading data from [{0}]...", RemoteEndpoint);
 
-                                receiveState.offset += count;
+                                    receiveState.offset += count;
 
-                                stream.BeginRead(receiveState.buffer.Value, receiveState.offset, receiveState.length - receiveState.offset, new AsyncCallback(ReceiveCallback), null);
-                            }
-                            else
-                            {
-                                Close();
+                                    currentReadResult = stream.BeginRead(receiveState.buffer.Value, receiveState.offset, receiveState.length - receiveState.offset, new AsyncCallback(ReceiveCallback), null);
+                                }
+                                else
+                                {
+                                    Close();
+                                }
                             }
                         }
                     }

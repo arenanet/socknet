@@ -38,7 +38,7 @@ namespace ArenaNet.SockNet.Server
                 bufferPool = SockNetChannelGlobals.GlobalBufferPool;
             }
 
-            return new ServerSockNetChannel(bindEndpoint, SockNetChannelGlobals.GlobalBufferPool, backlog);
+            return new ServerSockNetChannel(bindEndpoint, bufferPool, backlog);
         }
     }
 }

@@ -168,7 +168,7 @@ namespace ArenaNet.SockNet.Common.IO
                         }
                         else
                         {
-                            SockNetLogger.Log(SockNetLogger.LogLevel.WARN, this, "[Flush] Potential resource leak found.");
+                            SockNetLogger.Log(SockNetLogger.LogLevel.WARN, this, "Potential resource leak found.");
                         }
                     }
                     rootChunk = currentChunk.next;
@@ -299,7 +299,7 @@ namespace ArenaNet.SockNet.Common.IO
 
             if (pooledObject.Pool != pool)
             {
-                throw new Exception("The given pooled object does not belong to ths pool that is assigned to this stream: " + pooledObject.Pool);
+                throw new Exception("The given pooled object does not belong to the pool that is assigned to this stream: " + pooledObject.Pool);
             }
 
             MemoryChunkNode chunk = new MemoryChunkNode()
@@ -471,6 +471,7 @@ namespace ArenaNet.SockNet.Common.IO
                 {
                     PooledObject<byte[]> pooledObject = pool.Borrow();
                     pooledObject.RefCount.Increment();
+
                     int bytesToCopy = Math.Min(pooledObject.Value.Length, count - i);
 
                     Buffer.BlockCopy(buffer, i, pooledObject.Value, 0, bytesToCopy);
