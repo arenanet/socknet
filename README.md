@@ -1,7 +1,7 @@
 <img src="http://cdn.flaticon.com/png/256/59854.png" alt="Icon" width="30" height="30"/> SockNet
 =====
 [![Build status](https://ci.appveyor.com/api/projects/status/ygnc2qccn8mm5aqt?svg=true)](https://ci.appveyor.com/project/elvirb/socknet)
-[![License](https://img.shields.io/hexpm/l/plug.svg)](http://www.apache.org/licenses/LICENSE-2.0)
+[![License](https://img.shields.io/github/license/arenanet/socknet.svg)](http://www.apache.org/licenses/LICENSE-2.0)
 [![Stories in Ready](https://badge.waffle.io/arenanet/socknet.png?label=ready&title=Ready)](http://waffle.io/arenanet/socknet)
 
 A powerful, yet simple, asynchronous network application framework used for implementing low-latency and high-performance server and client applications.
